@@ -1,0 +1,16 @@
+# Changelog
+
+## phase-2 (unreleased)
+- Added Dock click interception with configurable mode: `Replace Dock clicks`, `Only when Option is held`, or `Disabled`.
+- Added `ActivationPolicy` and `ActivationExecutor` for launch/focus/new-window/single-window-move decisions.
+- Added `WindowIndex` process window summarization used by activation decisions.
+- Added activation diagnostics log lines (`activation ... decision=...`) to support phase checklist verification.
+- Added Phase 2 gate document at `docs/gates/PHASE-2.md`.
+
+## phase-1 (unreleased)
+- Added a macOS menu bar app scaffold (`NamedSpacesApp`) with current-space title display.
+- Added space naming persistence at `~/Library/Application Support/NamedSpaces/spaces.json`.
+- Added settings UI to rename spaces and reorder display order.
+- Added HUD overlay shown on detected space changes.
+- Added Debug menu actions for copying JSON state and opening log directory.
+- Added core CGS bridge for active-space and managed-space discovery with polling fallback.
