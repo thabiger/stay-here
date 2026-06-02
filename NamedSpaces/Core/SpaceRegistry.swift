@@ -14,6 +14,9 @@ public final class SpaceRegistry: ObservableObject {
     private let persistQueue = DispatchQueue(label: "namedspaces.persist", qos: .utility)
     private let snapshotQueue = DispatchQueue(label: "namedspaces.snapshot", qos: .userInitiated)
     private var pendingPersist: DispatchWorkItem?
+    private var pendingRefresh: DispatchWorkItem?
+    private let refreshRetryInterval: TimeInterval = 0.05
+    private let refreshRetryLimit = 8
 
     public init(store: SpaceStore = SpaceStore()) {
         self.store = store
@@ -36,6 +39,15 @@ public final class SpaceRegistry: ObservableObject {
                 self.apply(snapshot: snapshot)
             }
         }
+    }
+
+    public func refreshSpacesSoon() {
+        pendingRefresh?.cancel()
+        pendingRefresh = nil
+        let baseline = activeSpaceID
+        refreshSpaces()
+        guard activeSpaceID == baseline else { return }
+        scheduleRefreshRetry(baseline: baseline, remainingAttempts: refreshRetryLimit)
     }
 
     private func apply(snapshot: CGSBridge.ManagedSnapshot) {
@@ -167,15 +179,10 @@ public final class SpaceRegistry: ObservableObject {
             "shortcutIndex=\(shortcutIndex) posted=\(posted)"
         )
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
-            guard let self else { return }
-            self.refreshSpaces()
-            let after = self.activeSpaceID
-            let matched = after == spaceID
-            Logger.shared.info(
-                "switch-space result requested=\(spaceID) after=\(after ?? -1) matched=\(matched)"
-            )
-        }
+        refreshSpacesSoon()
+        Logger.shared.info(
+            "switch-space result requested=\(spaceID) after=\(activeSpaceID ?? -1) matched=\(activeSpaceID == spaceID)"
+        )
     }
 
     private func reconcileUnknownSpaces() {
@@ -220,6 +227,19 @@ public final class SpaceRegistry: ObservableObject {
         }
         pendingPersist = task
         persistQueue.asyncAfter(deadline: .now() + 0.2, execute: task)
+    }
+
+    private func scheduleRefreshRetry(baseline: Int?, remainingAttempts: Int) {
+        pendingRefresh?.cancel()
+        let task = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.refreshSpaces()
+            self.pendingRefresh = nil
+            guard self.activeSpaceID == baseline, remainingAttempts > 1 else { return }
+            self.scheduleRefreshRetry(baseline: baseline, remainingAttempts: remainingAttempts - 1)
+        }
+        pendingRefresh = task
+        DispatchQueue.main.asyncAfter(deadline: .now() + refreshRetryInterval, execute: task)
     }
 
     public func persistNow() {

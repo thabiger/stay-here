@@ -13,7 +13,9 @@ final class SettingsCoordinator: ObservableObject {
 
     @Published var rows: [SpaceNameRow] = []
     @Published var draftNames: [Int: String] = [:]
-    @Published var activationMode: ActivationMode = .replaceDockClicks
+    @Published var dockClickInterceptionEnabled: Bool = true
+    @Published var singleWindowAppBundleIDsText: String = ""
+    @Published var hudDisplayDuration: Double = HUDSettings.shared.displayDuration
 
     init(registry: SpaceRegistry, activationSettings: ActivationSettings) {
         self.registry = registry
@@ -25,7 +27,9 @@ final class SettingsCoordinator: ObservableObject {
             SpaceNameRow(id: id, desktopLabel: registry.namespaceLabel(for: id))
         }
         draftNames = Dictionary(uniqueKeysWithValues: rows.map { ($0.id, registry.name(for: $0.id)) })
-        activationMode = activationSettings.mode
+        dockClickInterceptionEnabled = activationSettings.dockClickInterceptionEnabled
+        singleWindowAppBundleIDsText = ActivationSettings.serializeSingleWindowAppBundleIDs(activationSettings.singleWindowAppBundleIDs)
+        hudDisplayDuration = HUDSettings.shared.displayDuration
     }
 
     func commitAll() {
@@ -35,7 +39,9 @@ final class SettingsCoordinator: ObservableObject {
             registry.rename(spaceID: row.id, name: normalized)
             draftNames[row.id] = registry.name(for: row.id)
         }
-        activationSettings.mode = activationMode
+        activationSettings.dockClickInterceptionEnabled = dockClickInterceptionEnabled
+        activationSettings.singleWindowAppBundleIDs = ActivationSettings.parseSingleWindowAppBundleIDs(from: singleWindowAppBundleIDsText)
+        HUDSettings.shared.displayDuration = hudDisplayDuration
         registry.persistNow()
     }
 
@@ -53,6 +59,7 @@ final class SettingsCoordinator: ObservableObject {
 
 struct SettingsView: View {
     @ObservedObject var coordinator: SettingsCoordinator
+    @FocusState private var focusedSpaceID: Int?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -69,6 +76,11 @@ struct SettingsView: View {
                             set: { coordinator.draftNames[row.id] = $0 }
                         ))
                         .textFieldStyle(.roundedBorder)
+                        .focused($focusedSpaceID, equals: row.id)
+                    }
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        focusedSpaceID = row.id
                     }
                 }
                 .onMove(perform: coordinator.moveRows)
@@ -80,18 +92,45 @@ struct SettingsView: View {
                 .foregroundStyle(.secondary)
 
             VStack(alignment: .leading, spacing: 6) {
+                Text("Single Window Apps")
+                    .font(.headline)
+                TextEditor(text: $coordinator.singleWindowAppBundleIDsText)
+                    .font(.system(.body, design: .monospaced))
+                    .frame(minHeight: 110)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(.quaternary, lineWidth: 1)
+                    )
+                Text("One bundle identifier per line, for example `com.apple.Notes`. These apps will show the single-window hint instead of the normal new-window behavior.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
                 Text("Dock Click Interception")
                     .font(.headline)
-                Picker("Interception mode", selection: $coordinator.activationMode) {
-                    ForEach(ActivationMode.allCases, id: \.self) { mode in
-                        Text(mode.displayName).tag(mode)
-                    }
+                Toggle("Enable Dock click interception", isOn: $coordinator.dockClickInterceptionEnabled)
+                Text("When enabled, regular Dock clicks are handled by Named Spaces for multi-window apps. Single-window apps are swallowed on a normal click and only use Named Spaces behavior when Option is held. When disabled, macOS handles Dock clicks normally.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Space Change HUD")
+                    .font(.headline)
+                HStack {
+                    Slider(value: $coordinator.hudDisplayDuration, in: 0.5...6.0, step: 0.1)
+                    Text(String(format: "%.1fs", coordinator.hudDisplayDuration))
+                        .font(.callout.monospacedDigit())
+                        .frame(width: 56, alignment: .trailing)
                 }
-                .pickerStyle(.menu)
+                Text("How long the popup stays visible after a space change.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
         }
         .padding(16)
-        .frame(minWidth: 420, minHeight: 320)
+        .frame(minWidth: 420, minHeight: 380)
         .onAppear {
             coordinator.load()
         }

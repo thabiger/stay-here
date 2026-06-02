@@ -1,7 +1,7 @@
 # Changelog
 
 ## phase-2 (unreleased)
-- Added Dock click interception with configurable mode: `Replace Dock clicks`, `Only when Option is held`, or `Disabled`.
+- Added Dock click interception with configurable mode: `Replace Dock clicks`, `Disabled`, and automatic single-window app moves on normal clicks.
 - Added `ActivationPolicy` and `ActivationExecutor` for launch/focus/new-window/single-window-move decisions.
 - Added `WindowIndex` process window summarization used by activation decisions.
 - Added activation diagnostics log lines (`activation ... decision=...`) to support phase checklist verification.

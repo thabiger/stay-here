@@ -2,7 +2,7 @@
 
 Phase 2 implementation includes:
 - Dock click interception (`DockClickInterceptor`)
-- Intercept mode settings (`ActivationSettings`, `ActivationMode`)
-- Activation decisions (`ActivationPolicy`)
+- Interception enabled/disabled setting (`ActivationSettings`)
+- Activation decisions (`ActivationPolicy`, including Option-gated single-window handling)
 - Action execution (`ActivationExecutor`)
 - App window summarization (`WindowIndex`)

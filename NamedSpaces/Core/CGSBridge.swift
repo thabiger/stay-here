@@ -79,20 +79,6 @@ public enum CGSBridge {
         return postControlKey(keyCode: keyCode)
     }
 
-    public static func moveWindowToSpace(windowID: Int, spaceID: Int) -> Bool {
-        typealias MainConn = @convention(c) () -> CGSConnectionID
-        typealias Move = @convention(c) (CGSConnectionID, CFArray, CGSSpaceID) -> Int32
-
-        guard let main: MainConn = symbol("_CGSDefaultConnection", as: MainConn.self) ?? symbol("CGSMainConnectionID", as: MainConn.self),
-              let move: Move = symbol("CGSMoveWindowsToManagedSpace", as: Move.self) else {
-            return false
-        }
-
-        let ids: [NSNumber] = [NSNumber(value: windowID)]
-        let rc = move(main(), ids as CFArray, CGSSpaceID(spaceID))
-        return rc == 0
-    }
-
     public static func spacesForWindow(windowID: Int) -> [Int] {
         typealias MainConn = @convention(c) () -> CGSConnectionID
         typealias CopySpacesForWindows = @convention(c) (CGSConnectionID, Int32, CFArray) -> Unmanaged<CFArray>?

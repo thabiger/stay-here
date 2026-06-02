@@ -13,6 +13,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }, activeSpaceIDs: { [weak self] in
         guard let id = self?.registry.activeSpaceID else { return [] }
         return Set([id])
+    }, switchToSpace: { [weak self] spaceID in
+        self?.registry.switchToSpace(spaceID)
+    }, onShowSingleWindowHint: { [weak self] message in
+        self?.hudController.show(message: message)
     })
     private var settingsWindow: NSWindow?
     private var settingsHostingController: NSHostingController<SettingsView>?
@@ -66,13 +70,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             object: NSWorkspace.shared
         )
 
-        pollTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+        pollTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             guard let self, !self.isSettingsOpen else { return }
-            self.registry.refreshSpacesAsync()
+            self.registry.refreshSpacesSoon()
         }
 
         registry.refreshSpacesAsync()
-        statusController.rebuildSpaceSubmenu(registry: registry)
+        statusController.rebuildSpaceItems(registry: registry)
         activationController.start()
     }
 
@@ -82,7 +86,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func activeSpaceChanged() {
         guard !isSettingsOpen else { return }
-        registry.refreshSpacesAsync()
+        registry.refreshSpacesSoon()
     }
 
     private func showSettings() {
@@ -125,7 +129,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menuRebuildWorkItem?.cancel()
         let task = DispatchWorkItem { [weak self] in
             guard let self, !self.isSettingsOpen else { return }
-            self.statusController.rebuildSpaceSubmenu(registry: self.registry)
+            self.statusController.rebuildSpaceItems(registry: self.registry)
         }
         menuRebuildWorkItem = task
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: task)
@@ -134,7 +138,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func flushSettingsAndUI() {
         settingsCoordinator?.commitAll()
         statusController.setTitle(registry.activeNameSummary())
-        statusController.rebuildSpaceSubmenu(registry: registry)
+        statusController.rebuildSpaceItems(registry: registry)
         settingsCoordinator = nil
     }
 

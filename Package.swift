@@ -15,6 +15,11 @@ let package = Package(
             name: "NamedSpacesApp",
             dependencies: ["Core", "Activation", "Shared"],
             path: "NamedSpaces/App"
+        ),
+        .testTarget(
+            name: "ActivationTests",
+            dependencies: ["Activation", "Core"],
+            path: "Tests/ActivationTests"
         )
     ]
 )

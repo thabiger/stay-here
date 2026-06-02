@@ -5,8 +5,6 @@ import Foundation
 final class StatusBarController {
     private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let menu = NSMenu()
-    private let spacesItem = NSMenuItem(title: "Spaces", action: nil, keyEquivalent: "")
-    private let spacesSubmenu = NSMenu()
 
     private var onOpenSettings: (() -> Void)?
     private var onCopyState: (() -> Void)?
@@ -37,23 +35,20 @@ final class StatusBarController {
         item.button?.title = text
     }
 
-    func rebuildSpaceSubmenu(registry: SpaceRegistry) {
-        spacesSubmenu.removeAllItems()
-        for id in registry.orderedSpaceIDs() {
+    func rebuildSpaceItems(registry: SpaceRegistry) {
+        menu.removeAllItems()
+        let spaceIDs = registry.orderedSpaceIDs()
+        for id in spaceIDs {
             let title = "\(registry.namespaceLabel(for: id))  \(registry.name(for: id))"
             let row = NSMenuItem(title: title, action: #selector(selectSpace(_:)), keyEquivalent: "")
             row.target = self
             row.representedObject = NSNumber(value: id)
-            if id == registry.activeSpaceID { row.state = .on }
-            spacesSubmenu.addItem(row)
+            menu.addItem(row)
         }
-    }
 
-    private func rebuildBaseMenu() {
-        menu.removeAllItems()
-        spacesItem.submenu = spacesSubmenu
-        menu.addItem(spacesItem)
-
+        if !spaceIDs.isEmpty {
+            menu.addItem(NSMenuItem.separator())
+        }
         menu.addItem(NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ",").withTarget(self))
 
         let debug = NSMenuItem(title: "Debug", action: nil, keyEquivalent: "")
@@ -67,6 +62,10 @@ final class StatusBarController {
         menu.addItem(NSMenuItem(title: "Quit Named Spaces", action: #selector(quit), keyEquivalent: "q").withTarget(self))
     }
 
+    private func rebuildBaseMenu() {
+        menu.removeAllItems()
+    }
+
     @objc private func openSettings() { onOpenSettings?() }
     @objc private func copyState() { onCopyState?() }
     @objc private func openLogs() { onOpenLogs?() }
@@ -74,9 +73,8 @@ final class StatusBarController {
     @objc private func selectSpace(_ sender: NSMenuItem) {
         guard let id = (sender.representedObject as? NSNumber)?.intValue else { return }
         // Defer until menu tracking ends; Ctrl+N shortcuts are ignored while the menu is open.
-        spacesSubmenu.cancelTracking()
         menu.cancelTracking()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
             self?.onSelectSpace?(id)
         }
     }

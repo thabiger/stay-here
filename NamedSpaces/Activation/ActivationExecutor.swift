@@ -1,25 +1,59 @@
 import Foundation
 import AppKit
+import ApplicationServices
 import CoreGraphics
 import Core
 
 public final class ActivationExecutor {
-    public init() {}
+    private let showSingleWindowHint: (String) -> Void
+    private let switchToSpace: (Int) -> Void
+    private let currentSpaceID: () -> Int?
 
-    public func execute(decision: ActivationDecision, context: ActivationContext) {
+    public init(
+        showSingleWindowHint: @escaping (String) -> Void = { _ in },
+        switchToSpace: @escaping (Int) -> Void = { _ in },
+        currentSpaceID: @escaping () -> Int? = { nil }
+    ) {
+        self.showSingleWindowHint = showSingleWindowHint
+        self.switchToSpace = switchToSpace
+        self.currentSpaceID = currentSpaceID
+    }
+
+    public func execute(decision: ActivationDecision, context: ActivationContext) -> Bool {
         switch decision {
         case .launch:
             launch(bundleID: context.bundleID)
+            return true
         case .focusCurrentSpace:
             focus(bundleID: context.bundleID)
+            return true
         case .createNewWindow:
             focus(bundleID: context.bundleID)
             sendNewWindowShortcut(toBundleID: context.bundleID)
-        case .moveSingleWindow:
-            moveSingleWindowAndFocus(context)
+            return true
+        case .singleWindowHint:
+            showSingleWindowHint(singleWindowHintMessage(bundleID: context.bundleID))
+            return true
+        case .switchToSingleWindowSpace:
+            return switchToAppSpace(context: context)
+        case .consumeOnly:
+            return true
         case .passthrough:
-            break
+            return false
         }
+    }
+
+    public func switchToAppSpace(context: ActivationContext) -> Bool {
+        guard let spaceID = context.singleWindowSpaceID ?? preferredSpaceID(for: context.appWindowSummary) else {
+            return false
+        }
+        switchToSpace(spaceID)
+        focusAfterSpaceSwitch(bundleID: context.bundleID, spaceID: spaceID)
+        return true
+    }
+
+    private func preferredSpaceID(for summary: AppWindowSummary?) -> Int? {
+        summary?.allWindows.compactMap(\.spaceIDs.first).first
     }
 
     private func launch(bundleID: String) {
@@ -37,7 +71,12 @@ public final class ActivationExecutor {
         guard let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first else { return }
         app.unhide()
         let activated = app.activate(options: [.activateIgnoringOtherApps, .activateAllWindows])
-        if activated {
+        if activated, app.isActive {
+            return
+        }
+
+        raiseApplicationWindows(app)
+        if app.isActive {
             return
         }
 
@@ -53,19 +92,6 @@ public final class ActivationExecutor {
         }
     }
 
-    private func moveSingleWindowAndFocus(_ context: ActivationContext) {
-        guard let targetSpace = context.targetSpaceID,
-              let summary = context.appWindowSummary,
-              let windowID = summary.allWindows.first?.windowID else {
-            focus(bundleID: context.bundleID)
-            return
-        }
-
-        let moved = CGSBridge.moveWindowToSpace(windowID: windowID, spaceID: targetSpace)
-        Logger.shared.info("activation move-window bundle=\(context.bundleID) window=\(windowID) space=\(targetSpace) success=\(moved)")
-        focus(bundleID: context.bundleID)
-    }
-
     private func sendNewWindowShortcut(toBundleID bundleID: String) {
         guard let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first else { return }
         let down = CGEvent(keyboardEventSource: nil, virtualKey: 45, keyDown: true)
@@ -74,5 +100,59 @@ public final class ActivationExecutor {
         up?.flags = .maskCommand
         down?.postToPid(app.processIdentifier)
         up?.postToPid(app.processIdentifier)
+    }
+
+    private func singleWindowHintMessage(bundleID: String) -> String {
+        let appName = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first?.localizedName ?? bundleID
+        return "\(appName) was clicked. It is configured as a single-window app. Use Option+Click to switch to the space where it is running."
+    }
+
+    private func focusAfterSpaceSwitch(bundleID: String, spaceID: Int) {
+        waitForActiveSpace(spaceID, timeout: 1.0) { [weak self] in
+            self?.focus(bundleID: bundleID)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in
+                guard let self,
+                      let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first,
+                      !app.isActive else { return }
+                self.focus(bundleID: bundleID)
+            }
+        }
+    }
+
+    private func waitForActiveSpace(_ spaceID: Int, timeout: TimeInterval, then: @escaping () -> Void) {
+        let started = Date()
+
+        func poll() {
+            if currentSpaceID() == nil || currentSpaceID() == spaceID || Date().timeIntervalSince(started) >= timeout {
+                then()
+                return
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: poll)
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: poll)
+    }
+
+    private func raiseApplicationWindows(_ app: NSRunningApplication) {
+        let appElement = AXUIElementCreateApplication(app.processIdentifier)
+        var windowsRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &windowsRef) == .success,
+              let windows = windowsRef as? [AXUIElement],
+              !windows.isEmpty else {
+            return
+        }
+
+        let target = windows.first(where: isStandardWindow) ?? windows.first!
+        AXUIElementPerformAction(target, kAXRaiseAction as CFString)
+        AXUIElementSetAttributeValue(target, kAXMainAttribute as CFString, kCFBooleanTrue!)
+    }
+
+    private func isStandardWindow(_ element: AXUIElement) -> Bool {
+        var subroleRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, kAXSubroleAttribute as CFString, &subroleRef) == .success,
+              let subrole = subroleRef as? String else {
+            return false
+        }
+        return subrole == kAXStandardWindowSubrole
     }
 }
