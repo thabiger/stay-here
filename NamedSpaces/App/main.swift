@@ -83,6 +83,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         registry.refreshSpacesAsync()
         statusController.rebuildSpaceItems(registry: registry)
+        showMissionControlShortcutWarningIfNeeded()
         activationController.start()
         spaceSwitcherController.start()
     }
@@ -168,6 +169,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let pb = NSPasteboard.general
         pb.clearContents()
         pb.setString(registry.snapshotJSON(), forType: .string)
+    }
+
+    private func showMissionControlShortcutWarningIfNeeded() {
+        let result = MissionControlShortcutCheck.check()
+        guard let message = result.warningMessage else { return }
+
+        Logger.shared.error("space-switcher requirement=mission-control-shortcuts missing=\(result.missingDescriptions.joined(separator: ", "))")
+        presentMissionControlShortcutWarning(message: message)
+    }
+
+    private func presentMissionControlShortcutWarning(message: String) {
+        DispatchQueue.main.async {
+            NSApp.activate(ignoringOtherApps: true)
+
+            let alert = NSAlert()
+            alert.alertStyle = .warning
+            alert.messageText = "Mission Control shortcuts are disabled"
+            alert.informativeText = message + "\n\nEnable Control+N in System Settings > Keyboard > Keyboard Shortcuts > Mission Control so Space Switcher can work."
+            alert.addButton(withTitle: "Open System Settings")
+            alert.addButton(withTitle: "OK")
+
+            if alert.runModal() == .alertFirstButtonReturn {
+                let settingsURL = URL(fileURLWithPath: "/System/Applications/System Settings.app")
+                NSWorkspace.shared.open(settingsURL)
+            }
+        }
     }
 }
 
