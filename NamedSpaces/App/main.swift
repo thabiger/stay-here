@@ -18,6 +18,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }, onShowSingleWindowHint: { [weak self] message in
         self?.hudController.show(message: message)
     })
+    private lazy var spaceSwitcherController = SpaceSwitcherController(
+        registry: registry,
+        switchToSpace: { [weak self] spaceID in
+            self?.registry.switchToSpace(spaceID)
+        }
+    )
     private var settingsWindow: NSWindow?
     private var settingsHostingController: NSHostingController<SettingsView>?
     private var settingsCoordinator: SettingsCoordinator?
@@ -78,9 +84,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         registry.refreshSpacesAsync()
         statusController.rebuildSpaceItems(registry: registry)
         activationController.start()
+        spaceSwitcherController.start()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        spaceSwitcherController.stop()
         activationController.stop()
     }
 

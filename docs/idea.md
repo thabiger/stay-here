@@ -43,7 +43,21 @@ Those names appear where you look all day:
 
 Names are **stored by Named Spaces** and stay tied to each desktop across restarts. They are meant for *your* workflow, not for renaming thumbnails inside Apple’s Mission Control screen (macOS does not offer a supported way to do that).
 
-### 2. Space-aware Dock clicks
+### 2. Space switcher
+
+Named Spaces includes a configurable, AltTab-style picker for moving between Spaces.
+
+- The picker opens when you press the configured shortcut.
+- Releasing the shortcut commits the highlighted Space only if you actually changed selection.
+- The default shortcut is `Option+Tab`, but you can change it in Settings.
+
+Shortcut syntax is plain text:
+
+- Modifiers: `option` (or `alt`), `shift`, `control` (or `ctrl`), `command` (or `cmd`)
+- Keys: `tab`, `space`, `return` / `enter`, `escape` / `esc`, `delete` / `backspace`, `left`, `right`, `up`, `down`, letters `a`-`z`, digits `0`-`9`, and `` ` `` / `backtick` / `grave` / `tilde`
+- Example: `command+backtick`, `control+space`, `option+shift+tab`
+
+### 3. Space-aware Dock clicks
 
 When you click an app in the Dock, Named Spaces applies rules based on **the Space you’re on now**:
 

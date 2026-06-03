@@ -10,16 +10,23 @@ struct SpaceNameRow: Identifiable, Equatable {
 final class SettingsCoordinator: ObservableObject {
     private let registry: SpaceRegistry
     let activationSettings: ActivationSettings
+    let spaceSwitcherSettings: SpaceSwitcherSettings
 
     @Published var rows: [SpaceNameRow] = []
     @Published var draftNames: [Int: String] = [:]
     @Published var dockClickInterceptionEnabled: Bool = true
     @Published var singleWindowAppBundleIDsText: String = ""
+    @Published var spaceSwitcherShortcutText: String = ""
     @Published var hudDisplayDuration: Double = HUDSettings.shared.displayDuration
 
-    init(registry: SpaceRegistry, activationSettings: ActivationSettings) {
+    init(
+        registry: SpaceRegistry,
+        activationSettings: ActivationSettings,
+        spaceSwitcherSettings: SpaceSwitcherSettings = .shared
+    ) {
         self.registry = registry
         self.activationSettings = activationSettings
+        self.spaceSwitcherSettings = spaceSwitcherSettings
     }
 
     func load() {
@@ -29,6 +36,7 @@ final class SettingsCoordinator: ObservableObject {
         draftNames = Dictionary(uniqueKeysWithValues: rows.map { ($0.id, registry.name(for: $0.id)) })
         dockClickInterceptionEnabled = activationSettings.dockClickInterceptionEnabled
         singleWindowAppBundleIDsText = ActivationSettings.serializeSingleWindowAppBundleIDs(activationSettings.singleWindowAppBundleIDs)
+        spaceSwitcherShortcutText = spaceSwitcherSettings.shortcutText
         hudDisplayDuration = HUDSettings.shared.displayDuration
     }
 
@@ -41,6 +49,7 @@ final class SettingsCoordinator: ObservableObject {
         }
         activationSettings.dockClickInterceptionEnabled = dockClickInterceptionEnabled
         activationSettings.singleWindowAppBundleIDs = ActivationSettings.parseSingleWindowAppBundleIDs(from: singleWindowAppBundleIDsText)
+        spaceSwitcherSettings.shortcutText = spaceSwitcherShortcutText
         HUDSettings.shared.displayDuration = hudDisplayDuration
         registry.persistNow()
     }
@@ -116,6 +125,16 @@ struct SettingsView: View {
             }
 
             VStack(alignment: .leading, spacing: 6) {
+                Text("Space Switcher Shortcut")
+                    .font(.headline)
+                TextField("option+tab", text: $coordinator.spaceSwitcherShortcutText)
+                    .textFieldStyle(.roundedBorder)
+                Text("This combo opens the space picker. Use modifier names like `option`, `shift`, `control`, `command` plus a key like `tab`, `space`, or a letter. Example: `control+space`.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
                 Text("Space Change HUD")
                     .font(.headline)
                 HStack {
@@ -130,7 +149,7 @@ struct SettingsView: View {
             }
         }
         .padding(16)
-        .frame(minWidth: 420, minHeight: 380)
+        .frame(minWidth: 420, minHeight: 460)
         .onAppear {
             coordinator.load()
         }

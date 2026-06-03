@@ -6,6 +6,8 @@
 - Added `WindowIndex` process window summarization used by activation decisions.
 - Added activation diagnostics log lines (`activation ... decision=...`) to support phase checklist verification.
 - Added Phase 2 gate document at `docs/gates/PHASE-2.md`.
+- Added a configurable global space switcher picker, defaulting to `Option+Tab`, with support for custom shortcuts in Settings.
+- Added shortcut syntax documentation and parser support for `tab`, `space`, `return`, `escape`, `delete`, arrow keys, letters, digits, and `backtick` / `` ` ``.
 
 ## phase-1 (unreleased)
 - Added a macOS menu bar app scaffold (`NamedSpacesApp`) with current-space title display.

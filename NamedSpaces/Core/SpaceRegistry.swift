@@ -112,7 +112,19 @@ public final class SpaceRegistry: ObservableObject {
 
     public func moveDisplayOrder(fromOffsets: IndexSet, toOffset: Int) {
         var ids = orderedSpaceIDs()
-        ids.move(fromOffsets: fromOffsets, toOffset: toOffset)
+        let removed = fromOffsets.compactMap { offset in
+            ids.indices.contains(offset) ? ids[offset] : nil
+        }
+        for offset in fromOffsets.sorted(by: >) where ids.indices.contains(offset) {
+            ids.remove(at: offset)
+        }
+
+        var insertionIndex = toOffset
+        for offset in fromOffsets where offset < toOffset {
+            insertionIndex -= 1
+        }
+        insertionIndex = max(0, min(insertionIndex, ids.count))
+        ids.insert(contentsOf: removed, at: insertionIndex)
         displayOrder = ids
         persist()
     }
@@ -185,6 +197,14 @@ public final class SpaceRegistry: ObservableObject {
         )
     }
 
+    public func switchToNextSpace() {
+        switchToAdjacentSpace(offset: 1)
+    }
+
+    public func switchToPreviousSpace() {
+        switchToAdjacentSpace(offset: -1)
+    }
+
     private func reconcileUnknownSpaces() {
         var updated = labels
         var changed = false
@@ -240,6 +260,18 @@ public final class SpaceRegistry: ObservableObject {
         }
         pendingRefresh = task
         DispatchQueue.main.asyncAfter(deadline: .now() + refreshRetryInterval, execute: task)
+    }
+
+    private func switchToAdjacentSpace(offset: Int) {
+        let ordered = orderedSpaceIDs()
+        let target = offset > 0
+            ? SpaceCycling.nextSpaceID(currentSpaceID: activeSpaceID, orderedSpaceIDs: ordered)
+            : SpaceCycling.previousSpaceID(currentSpaceID: activeSpaceID, orderedSpaceIDs: ordered)
+        guard let target else {
+            Logger.shared.info("switch-space cycle skipped=empty")
+            return
+        }
+        switchToSpace(target)
     }
 
     public func persistNow() {
