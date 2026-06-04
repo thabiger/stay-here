@@ -10,11 +10,13 @@ struct SpaceNameRow: Identifiable, Equatable {
 final class SettingsCoordinator: ObservableObject {
     private let registry: SpaceRegistry
     let activationSettings: ActivationSettings
+    let appearanceSettings: AppearanceSettings
     let spaceSwitcherSettings: SpaceSwitcherSettings
     let windowSwitcherSettings: WindowSwitcherSettings
 
     @Published var rows: [SpaceNameRow] = []
     @Published var draftNames: [Int: String] = [:]
+    @Published var appearanceMode: AppearanceMode = .system
     @Published var dockClickInterceptionEnabled: Bool = true
     @Published var singleWindowAppBundleIDsText: String = ""
     @Published var spaceSwitcherShortcutText: String = ""
@@ -26,11 +28,13 @@ final class SettingsCoordinator: ObservableObject {
     init(
         registry: SpaceRegistry,
         activationSettings: ActivationSettings,
+        appearanceSettings: AppearanceSettings = .shared,
         spaceSwitcherSettings: SpaceSwitcherSettings = .shared,
         windowSwitcherSettings: WindowSwitcherSettings = .shared
     ) {
         self.registry = registry
         self.activationSettings = activationSettings
+        self.appearanceSettings = appearanceSettings
         self.spaceSwitcherSettings = spaceSwitcherSettings
         self.windowSwitcherSettings = windowSwitcherSettings
     }
@@ -40,6 +44,7 @@ final class SettingsCoordinator: ObservableObject {
             SpaceNameRow(id: id, desktopLabel: registry.namespaceLabel(for: id))
         }
         draftNames = Dictionary(uniqueKeysWithValues: rows.map { ($0.id, registry.name(for: $0.id)) })
+        appearanceMode = appearanceSettings.mode
         dockClickInterceptionEnabled = activationSettings.dockClickInterceptionEnabled
         singleWindowAppBundleIDsText = ActivationSettings.serializeSingleWindowAppBundleIDs(activationSettings.singleWindowAppBundleIDs)
         spaceSwitcherShortcutText = spaceSwitcherSettings.shortcutText
@@ -56,6 +61,7 @@ final class SettingsCoordinator: ObservableObject {
             registry.rename(spaceID: row.id, name: normalized)
             draftNames[row.id] = registry.name(for: row.id)
         }
+        appearanceSettings.mode = appearanceMode
         activationSettings.dockClickInterceptionEnabled = dockClickInterceptionEnabled
         activationSettings.singleWindowAppBundleIDs = ActivationSettings.parseSingleWindowAppBundleIDs(from: singleWindowAppBundleIDsText)
         spaceSwitcherSettings.shortcutText = spaceSwitcherShortcutText
@@ -84,6 +90,20 @@ struct SettingsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Appearance")
+                    .font(.headline)
+                Picker("Appearance", selection: $coordinator.appearanceMode) {
+                    ForEach(AppearanceMode.allCases, id: \.self) { mode in
+                        Text(mode.displayName).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                Text("Choose one mode for the switchers, HUD, and other app popups.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
             Text("Space Names")
                 .font(.title2.weight(.semibold))
 

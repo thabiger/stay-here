@@ -38,6 +38,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
+        AppearanceManager.applyCurrentMode()
 
         statusController.configure(
             onOpenSettings: { [weak self] in self?.showSettings() },
@@ -127,6 +128,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             window.contentViewController = host
             window.isReleasedWhenClosed = false
             window.delegate = self
+            AppearanceManager.applyCurrentMode(to: [window])
             settingsWindow = window
         } else {
             settingsCoordinator?.load()
@@ -152,6 +154,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func flushSettingsAndUI() {
         settingsCoordinator?.commitAll()
+        AppearanceManager.applyCurrentMode()
         statusController.setTitle(registry.activeNameSummary())
         statusController.rebuildSpaceItems(registry: registry)
         settingsCoordinator = nil
@@ -195,6 +198,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             alert.informativeText = message + "\n\nEnable Control+N in System Settings > Keyboard > Keyboard Shortcuts > Mission Control so Space Switcher can work."
             alert.addButton(withTitle: "Open System Settings")
             alert.addButton(withTitle: "OK")
+            AppearanceManager.applyCurrentMode(to: [alert.window])
 
             if alert.runModal() == .alertFirstButtonReturn {
                 let settingsURL = URL(fileURLWithPath: "/System/Applications/System Settings.app")

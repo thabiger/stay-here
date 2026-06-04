@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct SpaceSwitcherItem: Identifiable, Equatable {
@@ -38,11 +39,11 @@ struct SpaceSwitcherView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(.black.opacity(0.82))
+                .fill(Color(nsColor: .windowBackgroundColor).opacity(0.96))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(.white.opacity(0.12), lineWidth: 1)
+                .stroke(Color(nsColor: .separatorColor).opacity(0.55), lineWidth: 1)
         )
     }
 
@@ -60,7 +61,7 @@ struct SpaceSwitcherView: View {
         HStack(spacing: 10) {
             Text(item.title)
                 .font(.system(size: 14.5, weight: item.isSelected ? .semibold : .regular, design: .default))
-                .foregroundStyle(item.isSelected ? .white : .white.opacity(0.85))
+                .foregroundStyle(item.isSelected ? .white : .primary)
                 .lineLimit(1)
                 .truncationMode(.tail)
             Spacer(minLength: 0)
@@ -78,7 +79,7 @@ struct SpaceSwitcherView: View {
             return AnyShapeStyle(Color.accentColor.opacity(0.92))
         }
         if item.isCurrent {
-            return AnyShapeStyle(.white.opacity(0.08))
+            return AnyShapeStyle(Color.primary.opacity(0.06))
         }
         return AnyShapeStyle(.clear)
     }

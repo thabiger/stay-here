@@ -47,7 +47,7 @@ final class HUDController {
     private func makeWindow(layout: HUDLayout) -> (window: NSWindow, label: NSTextField) {
         let win = NSWindow(contentRect: layout.windowFrame, styleMask: .borderless, backing: .buffered, defer: false)
         win.level = .statusBar
-        win.backgroundColor = NSColor(calibratedWhite: 0.08, alpha: 0.85)
+        win.backgroundColor = NSColor.windowBackgroundColor.withAlphaComponent(0.92)
         win.isOpaque = false
         win.hasShadow = true
         win.ignoresMouseEvents = true
@@ -57,7 +57,7 @@ final class HUDController {
         text.frame = layout.textFrame
         text.alignment = .center
         text.font = textFont
-        text.textColor = .white
+        text.textColor = .labelColor
         text.isBezeled = false
         text.isEditable = false
         text.isSelectable = false
