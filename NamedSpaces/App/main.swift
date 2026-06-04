@@ -24,6 +24,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.registry.switchToSpace(spaceID)
         }
     )
+    private lazy var windowSwitcherController = WindowSwitcherController(
+        registry: registry
+    )
     private var settingsWindow: NSWindow?
     private var settingsHostingController: NSHostingController<SettingsView>?
     private var settingsCoordinator: SettingsCoordinator?
@@ -86,10 +89,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         showMissionControlShortcutWarningIfNeeded()
         activationController.start()
         spaceSwitcherController.start()
+        windowSwitcherController.start()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         spaceSwitcherController.stop()
+        windowSwitcherController.stop()
         activationController.stop()
     }
 

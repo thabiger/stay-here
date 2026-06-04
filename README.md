@@ -8,6 +8,7 @@ Named Spaces is a macOS menu bar app that helps you name your Spaces, switch bet
 - Shows the current Space name in the menu bar.
 - Shows a small HUD when you switch Spaces.
 - Provides a configurable Space switcher picker.
+- Provides a configurable Window switcher picker for windows on the current Space.
 - Can intercept Dock clicks so app launches and window activation stay on the Space you are using.
 
 ## Setup checklist
@@ -16,7 +17,7 @@ For the best experience, set up Named Spaces in this order:
 
 1. Grant the required macOS permissions.
 2. Enable the Mission Control keyboard shortcuts.
-3. Set your preferred Space switcher shortcut.
+3. Set your preferred Space and Window switcher shortcuts.
 4. Optionally add single-window apps.
 5. Turn off a couple of macOS Space behaviors that fight with the app.
 
@@ -75,6 +76,18 @@ Examples:
 
 At least one modifier is required.
 
+## Window switcher shortcut
+
+The window picker opens when you press the configured shortcut.
+
+- Default: `command+tab`
+- It only shows windows on the current Space
+- Each row includes the app icon to make the list easier to scan
+
+Shortcut syntax is the same as the Space switcher.
+
+In Settings, the Window Switcher section also lets you show minimized windows and hidden windows if you want a broader list.
+
 ## Single-window apps
 
 In Settings, you can add bundle identifiers for apps that should behave like single-window apps.
@@ -112,4 +125,3 @@ These settings are not strictly required, but they make Named Spaces behave more
 - Mission Control itself still shows Apple’s default `Desktop N` labels. Named Spaces keeps your names inside the app UI.
 - The app is designed as a menu bar utility, not a Dock app.
 - Some fullscreen windows and system apps have macOS restrictions that limit space-moving behavior.
-

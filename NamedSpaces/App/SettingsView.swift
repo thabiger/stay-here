@@ -11,22 +11,28 @@ final class SettingsCoordinator: ObservableObject {
     private let registry: SpaceRegistry
     let activationSettings: ActivationSettings
     let spaceSwitcherSettings: SpaceSwitcherSettings
+    let windowSwitcherSettings: WindowSwitcherSettings
 
     @Published var rows: [SpaceNameRow] = []
     @Published var draftNames: [Int: String] = [:]
     @Published var dockClickInterceptionEnabled: Bool = true
     @Published var singleWindowAppBundleIDsText: String = ""
     @Published var spaceSwitcherShortcutText: String = ""
+    @Published var windowSwitcherShortcutText: String = ""
+    @Published var windowSwitcherShowMinimizedWindows: Bool = false
+    @Published var windowSwitcherShowHiddenWindows: Bool = false
     @Published var hudDisplayDuration: Double = HUDSettings.shared.displayDuration
 
     init(
         registry: SpaceRegistry,
         activationSettings: ActivationSettings,
-        spaceSwitcherSettings: SpaceSwitcherSettings = .shared
+        spaceSwitcherSettings: SpaceSwitcherSettings = .shared,
+        windowSwitcherSettings: WindowSwitcherSettings = .shared
     ) {
         self.registry = registry
         self.activationSettings = activationSettings
         self.spaceSwitcherSettings = spaceSwitcherSettings
+        self.windowSwitcherSettings = windowSwitcherSettings
     }
 
     func load() {
@@ -37,6 +43,9 @@ final class SettingsCoordinator: ObservableObject {
         dockClickInterceptionEnabled = activationSettings.dockClickInterceptionEnabled
         singleWindowAppBundleIDsText = ActivationSettings.serializeSingleWindowAppBundleIDs(activationSettings.singleWindowAppBundleIDs)
         spaceSwitcherShortcutText = spaceSwitcherSettings.shortcutText
+        windowSwitcherShortcutText = windowSwitcherSettings.shortcutText
+        windowSwitcherShowMinimizedWindows = windowSwitcherSettings.showMinimizedWindows
+        windowSwitcherShowHiddenWindows = windowSwitcherSettings.showHiddenWindows
         hudDisplayDuration = HUDSettings.shared.displayDuration
     }
 
@@ -50,6 +59,9 @@ final class SettingsCoordinator: ObservableObject {
         activationSettings.dockClickInterceptionEnabled = dockClickInterceptionEnabled
         activationSettings.singleWindowAppBundleIDs = ActivationSettings.parseSingleWindowAppBundleIDs(from: singleWindowAppBundleIDsText)
         spaceSwitcherSettings.shortcutText = spaceSwitcherShortcutText
+        windowSwitcherSettings.shortcutText = windowSwitcherShortcutText
+        windowSwitcherSettings.showMinimizedWindows = windowSwitcherShowMinimizedWindows
+        windowSwitcherSettings.showHiddenWindows = windowSwitcherShowHiddenWindows
         HUDSettings.shared.displayDuration = hudDisplayDuration
         registry.persistNow()
     }
@@ -130,6 +142,26 @@ struct SettingsView: View {
                 TextField("option+tab", text: $coordinator.spaceSwitcherShortcutText)
                     .textFieldStyle(.roundedBorder)
                 Text("This combo opens the space picker. Use modifier names like `option`, `shift`, `control`, `command` plus a key like `tab`, `space`, or a letter. Example: `control+space`.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Window Switcher Shortcut")
+                    .font(.headline)
+                TextField("command+tab", text: $coordinator.windowSwitcherShortcutText)
+                    .textFieldStyle(.roundedBorder)
+                Text("This combo opens the window picker for windows on the current Space. The default replaces the macOS app switcher, but you can change it to any supported shortcut.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Window Switcher")
+                    .font(.headline)
+                Toggle("Show minimized windows", isOn: $coordinator.windowSwitcherShowMinimizedWindows)
+                Toggle("Show hidden windows", isOn: $coordinator.windowSwitcherShowHiddenWindows)
+                Text("When enabled, the picker includes minimized or hidden windows that belong to the current Space.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }

@@ -167,6 +167,7 @@ final class SpaceSwitcherController {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             self.dismissPanel()
+            self.session = nil
             self.switchToSpace(spaceID)
         }
     }
@@ -210,8 +211,16 @@ final class SpaceSwitcherController {
         window.ignoresMouseEvents = true
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
 
-        let hosting = NSHostingController(rootView: SpaceSwitcherView(snapshot: snapshot))
+        let hosting = NSHostingController(
+            rootView: SpaceSwitcherView(
+                snapshot: snapshot,
+                onSelect: { [weak self] spaceID in
+                    self?.commitSelection(spaceID)
+                }
+            )
+        )
         window.contentViewController = hosting
+        window.ignoresMouseEvents = false
 
         panelPair = (window, hosting)
         resizePanel(for: snapshot)
@@ -219,7 +228,12 @@ final class SpaceSwitcherController {
 
     private func updatePanel(with snapshot: SpaceSwitcherSnapshot) {
         guard let panelPair else { return }
-        panelPair.hosting.rootView = SpaceSwitcherView(snapshot: snapshot)
+        panelPair.hosting.rootView = SpaceSwitcherView(
+            snapshot: snapshot,
+            onSelect: { [weak self] spaceID in
+                self?.commitSelection(spaceID)
+            }
+        )
         resizePanel(for: snapshot)
     }
 

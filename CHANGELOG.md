@@ -7,6 +7,8 @@
 - Added activation diagnostics log lines (`activation ... decision=...`) to support phase checklist verification.
 - Added Phase 2 gate document at `docs/gates/PHASE-2.md`.
 - Added a configurable global space switcher picker, defaulting to `Option+Tab`, with support for custom shortcuts in Settings.
+- Added a configurable window switcher picker, defaulting to `Command+Tab`, showing current-space windows with app icons.
+- Added window switcher visibility options for minimized and hidden windows.
 - Added shortcut syntax documentation and parser support for `tab`, `space`, `return`, `escape`, `delete`, arrow keys, letters, digits, and `backtick` / `` ` ``.
 
 ## phase-1 (unreleased)
