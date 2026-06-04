@@ -7,6 +7,7 @@ public final class SpaceRegistry: ObservableObject {
     @Published public private(set) var activeSpaceID: Int?
     @Published public private(set) var labels: [Int: SpaceLabel] = [:]
     @Published public private(set) var displayOrder: [Int] = []
+    @Published public private(set) var usesCustomDisplayOrder: Bool = false
     @Published public private(set) var desktopNumberBySpaceID: [Int: Int] = [:]
     @Published public private(set) var nativeOrderByDisplay: [String: [Int]] = [:]
 
@@ -23,6 +24,7 @@ public final class SpaceRegistry: ObservableObject {
         let persisted = store.load()
         self.labels = persisted.labels
         self.displayOrder = persisted.displayOrder
+        self.usesCustomDisplayOrder = persisted.usesCustomDisplayOrder
         refreshSpaces()
         reconcileUnknownSpaces()
     }
@@ -126,12 +128,22 @@ public final class SpaceRegistry: ObservableObject {
         insertionIndex = max(0, min(insertionIndex, ids.count))
         ids.insert(contentsOf: removed, at: insertionIndex)
         displayOrder = ids
+        usesCustomDisplayOrder = true
         persist()
     }
 
     public func orderedSpaceIDs() -> [Int] {
-        var ids = displayOrder.filter { id in spaces.contains(where: { $0.id == id }) }
-        for id in spaces.map(\.id) where !ids.contains(id) {
+        let desktopOrderedIDs = spaces
+            .sorted { desktopSortKey(for: $0.id) < desktopSortKey(for: $1.id) }
+            .map(\.id)
+
+        guard usesCustomDisplayOrder else {
+            return desktopOrderedIDs
+        }
+
+        let validIDs = Set(spaces.map(\.id))
+        var ids = displayOrder.filter { validIDs.contains($0) }
+        for id in desktopOrderedIDs where !ids.contains(id) {
             ids.append(id)
         }
         return ids
@@ -227,6 +239,10 @@ public final class SpaceRegistry: ObservableObject {
         [SpaceIdentity(id: 1, display: "fallback-display")]
     }
 
+    private func desktopSortKey(for spaceID: Int) -> (Int, Int) {
+        (desktopNumberBySpaceID[spaceID] ?? Int.max, spaceID)
+    }
+
     private func displayForCurrentFocus(snapshot: CGSBridge.ManagedSnapshot, globalActiveID: Int?) -> String? {
         if let globalActiveID,
            let display = snapshot.activeByDisplay.first(where: { $0.value == globalActiveID })?.key {
@@ -236,7 +252,11 @@ public final class SpaceRegistry: ObservableObject {
     }
 
     private func persist() {
-        let payload = PersistedSpaces(labels: labels, displayOrder: orderedSpaceIDs())
+        let payload = PersistedSpaces(
+            labels: labels,
+            displayOrder: orderedSpaceIDs(),
+            usesCustomDisplayOrder: usesCustomDisplayOrder
+        )
         pendingPersist?.cancel()
         let task = DispatchWorkItem { [store] in
             do {
@@ -276,7 +296,11 @@ public final class SpaceRegistry: ObservableObject {
 
     public func persistNow() {
         pendingPersist?.cancel()
-        let payload = PersistedSpaces(labels: labels, displayOrder: orderedSpaceIDs())
+        let payload = PersistedSpaces(
+            labels: labels,
+            displayOrder: orderedSpaceIDs(),
+            usesCustomDisplayOrder: usesCustomDisplayOrder
+        )
         do {
             try store.save(payload)
         } catch {

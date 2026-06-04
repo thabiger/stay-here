@@ -28,6 +28,7 @@ public struct MissionControlShortcutCheck {
 
     private static let requiredModifierMask = 262144
     private static let symbolicHotKeysKey = "AppleSymbolicHotKeys"
+    private static let symbolicHotKeysPlistPath = "Library/Preferences/com.apple.symbolichotkeys.plist"
 
     private static let requiredShortcuts: [Requirement] = [
         Requirement(id: 118, name: "Desktop 1", keyCode: 18),
@@ -38,12 +39,8 @@ public struct MissionControlShortcutCheck {
         Requirement(id: 123, name: "Desktop 6", keyCode: 22),
     ]
 
-    public static func check(defaults: UserDefaults = .standard) -> Result {
-        guard let hotKeys = defaults.dictionary(forKey: symbolicHotKeysKey) else {
-            return Result(
-                missingDescriptions: requiredShortcuts.map { "\($0.name) is not configured" }
-            )
-        }
+    public static func check(defaults: UserDefaults = .standard, preferencesURL: URL? = nil) -> Result {
+        let hotKeys = loadHotKeys(defaults: defaults, preferencesURL: preferencesURL) ?? [:]
 
         let missing = requiredShortcuts.compactMap { requirement -> String? in
             guard let entry = hotKeys[String(requirement.id)] as? [String: Any] else {
@@ -60,6 +57,21 @@ public struct MissionControlShortcutCheck {
         }
 
         return Result(missingDescriptions: missing)
+    }
+
+    static func loadHotKeys(defaults: UserDefaults, preferencesURL: URL? = nil) -> [String: Any]? {
+        if let hotKeys = defaults.dictionary(forKey: symbolicHotKeysKey) {
+            return hotKeys
+        }
+
+        let url = preferencesURL ?? FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(symbolicHotKeysPlistPath)
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        guard let plist = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil),
+              let root = plist as? [String: Any] else {
+            return nil
+        }
+        return root[symbolicHotKeysKey] as? [String: Any]
     }
 
     private static func isEnabled(_ entry: [String: Any]) -> Bool {

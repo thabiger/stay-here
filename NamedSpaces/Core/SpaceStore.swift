@@ -3,21 +3,29 @@ import Foundation
 public struct PersistedSpaces: Codable {
     public var labels: [Int: SpaceLabel]
     public var displayOrder: [Int]
+    public var usesCustomDisplayOrder: Bool
 
     enum CodingKeys: String, CodingKey {
         case labels
         case displayOrder
+        case usesCustomDisplayOrder
     }
 
-    public init(labels: [Int: SpaceLabel] = [:], displayOrder: [Int] = []) {
+    public init(
+        labels: [Int: SpaceLabel] = [:],
+        displayOrder: [Int] = [],
+        usesCustomDisplayOrder: Bool = false
+    ) {
         self.labels = labels
         self.displayOrder = displayOrder
+        self.usesCustomDisplayOrder = usesCustomDisplayOrder
     }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         self.labels = try c.decodeIfPresent([Int: SpaceLabel].self, forKey: .labels) ?? [:]
         self.displayOrder = try c.decodeIfPresent([Int].self, forKey: .displayOrder) ?? []
+        self.usesCustomDisplayOrder = try c.decodeIfPresent(Bool.self, forKey: .usesCustomDisplayOrder) ?? false
     }
 }
 

@@ -2,6 +2,8 @@
 .build/
 .swiftpm/
 Packages/
+build/
+dist/
 *.xcodeproj/project.xcworkspace/xcuserdata/
 *.xcodeproj/xcuserdata/
 *.xcworkspace/xcuserdata/

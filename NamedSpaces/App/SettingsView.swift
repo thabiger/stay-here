@@ -149,7 +149,7 @@ struct SettingsView: View {
             }
         }
         .padding(16)
-        .frame(minWidth: 420, minHeight: 460)
+        .frame(minWidth: 640, minHeight: 680)
         .onAppear {
             coordinator.load()
         }

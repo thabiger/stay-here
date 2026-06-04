@@ -111,11 +111,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let host = NSHostingController(rootView: SettingsView(coordinator: coordinator))
             settingsHostingController = host
             let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 480, height: 360),
+                contentRect: NSRect(x: 0, y: 0, width: 720, height: 760),
                 styleMask: [.titled, .closable, .miniaturizable, .resizable],
                 backing: .buffered,
                 defer: false
             )
+            window.minSize = NSSize(width: 640, height: 680)
             window.center()
             window.title = "Named Spaces Settings"
             window.contentViewController = host

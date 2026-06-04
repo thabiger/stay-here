@@ -41,6 +41,23 @@ final class MissionControlShortcutCheckTests: XCTestCase {
         XCTAssertNotNil(result.warningMessage)
     }
 
+    func testMissionControlShortcutCheckFallsBackToSystemPlistShape() throws {
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MissionControlShortcutCheckTests.\(UUID().uuidString).plist")
+        defer { try? FileManager.default.removeItem(at: tempURL) }
+
+        let root: [String: Any] = [
+            "AppleSymbolicHotKeys": makeHotKeys(enabledIDs: [118, 119, 120, 121, 122, 123])
+        ]
+        let data = try PropertyListSerialization.data(fromPropertyList: root, format: .xml, options: 0)
+        try data.write(to: tempURL, options: .atomic)
+
+        let result = MissionControlShortcutCheck.check(preferencesURL: tempURL)
+
+        XCTAssertTrue(result.isSatisfied)
+        XCTAssertNil(result.warningMessage)
+    }
+
     private func makeHotKeys(
         enabledIDs: [Int],
         remappedID: Int? = nil,
