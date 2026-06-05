@@ -51,6 +51,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             },
             onSelectSpace: { [weak self] id in
                 self?.registry.switchToSpace(id)
+            },
+            onRenameSpace: { [weak self] id, name in
+                guard let self else { return }
+                self.registry.rename(spaceID: id, name: name)
+                if self.registry.activeSpaceID == id {
+                    self.statusController.setTitle(Self.normalizedSpaceName(name))
+                } else {
+                    self.statusController.setTitle(self.registry.activeNameSummary())
+                }
             }
         )
 
@@ -110,8 +119,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if settingsWindow == nil {
             registry.refreshSpaces()
             let coordinator = SettingsCoordinator(
-                registry: registry,
-                activationSettings: ActivationSettings.shared
+                activationSettings: ActivationSettings.shared,
+                onAppearanceChange: { [weak self] in
+                    self?.applyAppearanceImmediately()
+                }
             )
             settingsCoordinator = coordinator
             let host = NSHostingController(rootView: SettingsView(coordinator: coordinator))
@@ -122,7 +133,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 backing: .buffered,
                 defer: false
             )
-            window.minSize = NSSize(width: 640, height: 680)
+            window.minSize = NSSize(width: 640, height: 720)
             window.center()
             window.title = "Named Spaces Settings"
             window.contentViewController = host
@@ -142,22 +153,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func scheduleMenuRebuild() {
-        guard !isSettingsOpen else { return }
+        guard !isSettingsOpen, !statusController.isEditingSpaceName else { return }
         menuRebuildWorkItem?.cancel()
         let task = DispatchWorkItem { [weak self] in
-            guard let self, !self.isSettingsOpen else { return }
+            guard let self, !self.isSettingsOpen, !self.statusController.isEditingSpaceName else { return }
             self.statusController.rebuildSpaceItems(registry: self.registry)
         }
         menuRebuildWorkItem = task
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: task)
     }
 
+    private static func normalizedSpaceName(_ name: String) -> String {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "Unnamed space" : trimmed
+    }
+
     private func flushSettingsAndUI() {
         settingsCoordinator?.commitAll()
-        AppearanceManager.applyCurrentMode()
+        applyAppearanceImmediately()
         statusController.setTitle(registry.activeNameSummary())
         statusController.rebuildSpaceItems(registry: registry)
         settingsCoordinator = nil
+    }
+
+    private func applyAppearanceImmediately() {
+        AppearanceManager.applyCurrentMode()
+        statusController.applyCurrentAppearance()
     }
 
     private func presentWindow(_ window: NSWindow?) {

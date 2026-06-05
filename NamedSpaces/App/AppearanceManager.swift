@@ -2,6 +2,15 @@ import AppKit
 import Core
 
 enum AppearanceManager {
+    static var currentAppearance: NSAppearance? {
+        nsAppearance(for: AppearanceSettings.shared.mode)
+    }
+
+    static var currentModeIsDark: Bool {
+        let appearance = currentAppearance ?? NSApp.effectiveAppearance
+        return appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+    }
+
     static func applyCurrentMode(to windows: [NSWindow] = NSApp.windows) {
         apply(mode: AppearanceSettings.shared.mode, to: windows)
     }

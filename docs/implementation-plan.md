@@ -1,13 +1,24 @@
 ---
 title: macOS Named Spaces — Implementation Plan
 overview: A notarized macOS menu-bar utility that adds persistent space names and space-aware app activation (without unwanted space jumps). Greenfield; Swift + private CGS APIs modeled on AltTab/yabai prior art.
-updated: 2026-06-01
+updated: 2026-06-05
 canonical: true
 ---
 
 # macOS Named Spaces — Feasibility and Development Plan
 
 > **Canonical plan** for this repository. Phase sign-off lives in [`docs/gates/`](gates/). Do not start phase *N+1* until [`docs/gates/PHASE-N.md`](gates/PHASE-0.md) is **Approved** or **Approved with caveats**.
+
+## Plan At A Glance
+
+| Phase | What we are shipping | Exit criteria |
+|-------|----------------------|---------------|
+| **0 - Spike** | Validate CGS APIs, space IDs, and move/focus behavior on your Mac | `docs/SPIKE_REPORT.md` complete; `phase-0` tag; gate approved |
+| **1 - Foundation** | Menu bar app with persistent space names, HUD, and debug tooling | Current space name visible; names persist; `phase-1` tag; gate approved |
+| **2 - Activation** | Dock click interception, activation policy, new-window heuristics, and safe single-window moves | Dock clicks behave as intended with no unwanted space jumps; `phase-2` tag; gate approved |
+| **3 - Polish + Release** | Onboarding, logging, compatibility docs, release hardening, update notifications, and signed DMG packaging | Release build works on a fresh setup; manual update notice works; `v1.0.0` or release tag; gate approved |
+
+Update note: the first update experience is a GitHub Releases check that informs the user and opens the release page. Sparkle is deferred until you have the Apple Developer Program account and Developer ID signing in place.
 
 ## Implementation checklist
 
@@ -19,7 +30,8 @@ canonical: true
 | gate-1-approve | You: run Phase 1 checklist, sign off in docs/gates/PHASE-1.md before Phase 2 starts | pending |
 | activation-engine | Phase 2: ActivationPolicy + Dock intercept; deliver PHASE-2 demo + gate-2 approval | pending |
 | gate-2-approve | You: run Phase 2 checklist, sign off in docs/gates/PHASE-2.md before Phase 3 starts | pending |
-| release-prep | Phase 3: onboarding, logging, compatibility docs, and release hardening; deliver RELEASE gate + final sign-off | pending |
+| update-notifications | Phase 3: GitHub Releases version check, update available UI, and manual install link now; Sparkle later | pending |
+| release-prep | Phase 3: onboarding, logging, compatibility docs, update hardening, and release packaging; deliver RELEASE gate + final sign-off | pending |
 | gate-3-approve | You: run Phase 3 checklist, sign off in docs/gates/PHASE-3.md before release | pending |
 
 ---
@@ -317,15 +329,17 @@ Fill **Decision** in `docs/gates/PHASE-2.md`. Any failed row -> `Rejected` or `A
 - Logging pane for support (CGS errors and activation decisions).
 - Per-macOS version compatibility table in README.
 - Crash isolation: if Dock click interception misbehaves, auto-disable interception and show alert.
+- Update notifications: check GitHub Releases, show a non-blocking "new version available" notice, and open the release page or direct download link from the app.
 
-**In scope:** Onboarding wizard, notarized DMG, README compatibility table, Launch at Login, default log level off in Release.
+**In scope:** Onboarding wizard, notarized DMG, README compatibility table, Launch at Login, default log level off in Release, GitHub-based update notifications with manual install path.
 
 **Your approval checklist (Phase 3):**
 
 1. Fresh VM or second user account: run installer from DMG - permissions + Mission Control checklist shown.
 2. Release build: no Debug menu unless "Enable debug" in Settings.
-3. Reboot - app still works and settings persist.
-4. `docs/gates/PHASE-3.md` - final **Release Approved** sign-off.
+3. Trigger an update check against a newer GitHub Release - app shows the update notice and opens the correct release/download page.
+4. Reboot - app still works and settings persist.
+5. `docs/gates/PHASE-3.md` - final **Release Approved** sign-off.
 
 **Deliverables:** tag `v1.0.0` (or `phase-3` + release tag).
 
@@ -355,7 +369,7 @@ Fill **Decision** in `docs/gates/PHASE-2.md`. Any failed row -> `Rejected` or `A
 
 ## Suggested v1 scope (shippable)
 
-**Ship first:** names + HUD + menu bar, activation with Dock intercept, CGS move for single-window apps, documented Mission Control settings.
+**Ship first:** names + HUD + menu bar, activation with Dock intercept, CGS move for single-window apps, documented Mission Control settings, and basic update notifications that point users to the latest release.
 
 Defer: Mission Control thumbnail labels, fullscreen space moves, App Store build.
 

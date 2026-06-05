@@ -2,20 +2,13 @@ import SwiftUI
 import Core
 import Activation
 
-struct SpaceNameRow: Identifiable, Equatable {
-    let id: Int
-    let desktopLabel: String
-}
-
 final class SettingsCoordinator: ObservableObject {
-    private let registry: SpaceRegistry
     let activationSettings: ActivationSettings
     let appearanceSettings: AppearanceSettings
     let spaceSwitcherSettings: SpaceSwitcherSettings
     let windowSwitcherSettings: WindowSwitcherSettings
+    private let onAppearanceChange: () -> Void
 
-    @Published var rows: [SpaceNameRow] = []
-    @Published var draftNames: [Int: String] = [:]
     @Published var appearanceMode: AppearanceMode = .system
     @Published var dockClickInterceptionEnabled: Bool = true
     @Published var singleWindowAppBundleIDsText: String = ""
@@ -26,24 +19,20 @@ final class SettingsCoordinator: ObservableObject {
     @Published var hudDisplayDuration: Double = HUDSettings.shared.displayDuration
 
     init(
-        registry: SpaceRegistry,
         activationSettings: ActivationSettings,
         appearanceSettings: AppearanceSettings = .shared,
         spaceSwitcherSettings: SpaceSwitcherSettings = .shared,
-        windowSwitcherSettings: WindowSwitcherSettings = .shared
+        windowSwitcherSettings: WindowSwitcherSettings = .shared,
+        onAppearanceChange: @escaping () -> Void = {}
     ) {
-        self.registry = registry
         self.activationSettings = activationSettings
         self.appearanceSettings = appearanceSettings
         self.spaceSwitcherSettings = spaceSwitcherSettings
         self.windowSwitcherSettings = windowSwitcherSettings
+        self.onAppearanceChange = onAppearanceChange
     }
 
     func load() {
-        rows = registry.orderedSpaceIDs().map { id in
-            SpaceNameRow(id: id, desktopLabel: registry.namespaceLabel(for: id))
-        }
-        draftNames = Dictionary(uniqueKeysWithValues: rows.map { ($0.id, registry.name(for: $0.id)) })
         appearanceMode = appearanceSettings.mode
         dockClickInterceptionEnabled = activationSettings.dockClickInterceptionEnabled
         singleWindowAppBundleIDsText = ActivationSettings.serializeSingleWindowAppBundleIDs(activationSettings.singleWindowAppBundleIDs)
@@ -55,12 +44,6 @@ final class SettingsCoordinator: ObservableObject {
     }
 
     func commitAll() {
-        for row in rows {
-            let value = draftNames[row.id]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            let normalized = value.isEmpty ? "Unnamed space" : value
-            registry.rename(spaceID: row.id, name: normalized)
-            draftNames[row.id] = registry.name(for: row.id)
-        }
         appearanceSettings.mode = appearanceMode
         activationSettings.dockClickInterceptionEnabled = dockClickInterceptionEnabled
         activationSettings.singleWindowAppBundleIDs = ActivationSettings.parseSingleWindowAppBundleIDs(from: singleWindowAppBundleIDsText)
@@ -69,24 +52,16 @@ final class SettingsCoordinator: ObservableObject {
         windowSwitcherSettings.showMinimizedWindows = windowSwitcherShowMinimizedWindows
         windowSwitcherSettings.showHiddenWindows = windowSwitcherShowHiddenWindows
         HUDSettings.shared.displayDuration = hudDisplayDuration
-        registry.persistNow()
     }
 
-    func moveRows(from source: IndexSet, to destination: Int) {
-        registry.moveDisplayOrder(fromOffsets: source, toOffset: destination)
-        let ids = registry.orderedSpaceIDs()
-        rows = ids.map { id in
-            SpaceNameRow(id: id, desktopLabel: registry.namespaceLabel(for: id))
-        }
-        for id in ids where draftNames[id] == nil {
-            draftNames[id] = registry.name(for: id)
-        }
+    func applyAppearanceMode() {
+        appearanceSettings.mode = appearanceMode
+        onAppearanceChange()
     }
 }
 
 struct SettingsView: View {
     @ObservedObject var coordinator: SettingsCoordinator
-    @FocusState private var focusedSpaceID: Int?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -103,34 +78,6 @@ struct SettingsView: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
-
-            Text("Space Names")
-                .font(.title2.weight(.semibold))
-
-            List {
-                ForEach(coordinator.rows) { row in
-                    HStack(spacing: 10) {
-                        Text(row.desktopLabel)
-                            .frame(width: 160, alignment: .leading)
-                        TextField("Unnamed space", text: Binding(
-                            get: { coordinator.draftNames[row.id, default: "Unnamed space"] },
-                            set: { coordinator.draftNames[row.id] = $0 }
-                        ))
-                        .textFieldStyle(.roundedBorder)
-                        .focused($focusedSpaceID, equals: row.id)
-                    }
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        focusedSpaceID = row.id
-                    }
-                }
-                .onMove(perform: coordinator.moveRows)
-            }
-            .listStyle(.inset(alternatesRowBackgrounds: true))
-
-            Text("Reorder changes app display order only; Mission Control order remains managed by macOS.")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("Single Window Apps")
@@ -205,12 +152,8 @@ struct SettingsView: View {
         .onAppear {
             coordinator.load()
         }
-    }
-}
-
-private extension Dictionary {
-    subscript(key: Key, default defaultValue: @autoclosure () -> Value) -> Value {
-        get { self[key] ?? defaultValue() }
-        set { self[key] = newValue }
+        .onChange(of: coordinator.appearanceMode) { _ in
+            coordinator.applyAppearanceMode()
+        }
     }
 }

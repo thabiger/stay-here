@@ -2,6 +2,7 @@ import AppKit
 
 final class HUDController {
     private let hudWidth: CGFloat = 560
+    private let cornerRadius: CGFloat = 18
     private let horizontalPadding: CGFloat = 20
     private let verticalPadding: CGFloat = 18
     private let textFont = NSFont.systemFont(ofSize: 18, weight: .semibold)
@@ -39,6 +40,7 @@ final class HUDController {
             existing.window.setFrame(layout.windowFrame, display: true)
             existing.label.frame = layout.textFrame
             existing.window.contentView?.frame = NSRect(origin: .zero, size: layout.windowFrame.size)
+            applyAppearance(to: existing.window, label: existing.label)
             return
         }
         windowPair = makeWindow(layout: layout)
@@ -47,7 +49,7 @@ final class HUDController {
     private func makeWindow(layout: HUDLayout) -> (window: NSWindow, label: NSTextField) {
         let win = NSWindow(contentRect: layout.windowFrame, styleMask: .borderless, backing: .buffered, defer: false)
         win.level = .statusBar
-        win.backgroundColor = NSColor.windowBackgroundColor.withAlphaComponent(0.92)
+        win.backgroundColor = .clear
         win.isOpaque = false
         win.hasShadow = true
         win.ignoresMouseEvents = true
@@ -67,10 +69,37 @@ final class HUDController {
         text.lineBreakMode = .byWordWrapping
 
         let content = NSView(frame: NSRect(origin: .zero, size: layout.windowFrame.size))
+        content.wantsLayer = true
+        content.layer?.cornerRadius = cornerRadius
+        content.layer?.cornerCurve = .continuous
+        content.layer?.masksToBounds = true
+        content.layer?.borderWidth = 1
         content.addSubview(text)
         win.contentView = content
+        applyAppearance(to: win, label: text)
 
         return (win, text)
+    }
+
+    private func applyAppearance(to window: NSWindow, label: NSTextField) {
+        let appearance = AppearanceManager.currentAppearance
+        window.appearance = appearance
+        window.contentView?.appearance = appearance
+        label.appearance = appearance
+        window.backgroundColor = .clear
+        window.contentView?.layer?.cornerRadius = cornerRadius
+        window.contentView?.layer?.cornerCurve = .continuous
+        window.contentView?.layer?.masksToBounds = true
+        window.contentView?.layer?.borderWidth = 1
+        if AppearanceManager.currentModeIsDark {
+            window.contentView?.layer?.backgroundColor = NSColor(calibratedWhite: 0.08, alpha: 0.94).cgColor
+            window.contentView?.layer?.borderColor = NSColor.white.withAlphaComponent(0.12).cgColor
+            label.textColor = .white
+        } else {
+            window.contentView?.layer?.backgroundColor = NSColor(calibratedWhite: 0.96, alpha: 0.94).cgColor
+            window.contentView?.layer?.borderColor = NSColor.black.withAlphaComponent(0.10).cgColor
+            label.textColor = .black
+        }
     }
 
     private func hudLayout(for message: String, in frame: NSRect) -> HUDLayout {
