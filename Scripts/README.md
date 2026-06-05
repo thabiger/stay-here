@@ -12,8 +12,8 @@ Useful overrides:
 
 ```bash
 Scripts/build-release-app.sh \
-  --app-name NamedSpaces \
-  --bundle-id com.yourcompany.NamedSpaces \
+  --app-name StayHere \
+  --bundle-id com.tha.stayhere \
   --version 1.0.0 \
   --identity "Developer ID Application: Your Name (TEAMID)"
 ```
@@ -26,9 +26,9 @@ Scripts/package-release.sh
 
 This writes artifacts into `dist/` by default:
 
-- `dist/NamedSpaces.app`
-- `dist/NamedSpaces.zip`
-- `dist/NamedSpaces.dmg`
+- `dist/StayHere.app`
+- `dist/StayHere.zip`
+- `dist/StayHere.dmg`
 
 ## Signing
 

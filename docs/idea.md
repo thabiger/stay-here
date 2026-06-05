@@ -1,6 +1,6 @@
-# Named Spaces — product idea
+# StayHere — product idea
 
-**Named Spaces** is a macOS menu bar app that makes **Spaces** (virtual desktops) easier to recognize, reason about, and work with. It adds names you choose and smarter behavior when you click apps in the Dock.
+**StayHere** is a macOS menu bar app that makes **Spaces** (virtual desktops) easier to recognize, reason about, and work with. It adds names you choose and smarter behavior when you click apps in the Dock.
 
 This document describes *what we are building and why*. Technical phases, APIs, and delivery gates live in [`implementation-plan.md`](implementation-plan.md).
 
@@ -16,7 +16,7 @@ macOS Spaces are powerful: separate desktops for work, personal tasks, meetings,
 
 3. **Clicking a Dock icon often yanks you to another space.** If an app is already open on a different desktop, macOS may switch spaces to show that window. The switch can be subtle; you end up on the wrong desktop without intending to. For single-window apps (Notes, many utilities), there is no “open another window here”—only “go where the window already lives.”
 
-Named Spaces targets these three pain points directly.
+StayHere targets these three pain points directly.
 
 ---
 
@@ -26,7 +26,7 @@ Named Spaces targets these three pain points directly.
 
 When you change desktops, you should immediately know *where you are*. When you click an app, the Mac should respect *where you are*: show or create work on *this* desktop instead of teleporting you elsewhere.
 
-Named Spaces sits alongside Mission Control—it does not replace Apple’s space switcher. It adds a persistent layer of **labels** and **intent-aware activation** for people who live in multiple desktops every day.
+StayHere sits alongside Mission Control—it does not replace Apple’s space switcher. It adds a persistent layer of **labels** and **intent-aware activation** for people who live in multiple desktops every day.
 
 ---
 
@@ -41,11 +41,11 @@ Those names appear where you look all day:
 - In the **menu bar** (current space + quick switcher).
 - In a short **on-screen hint** when you change spaces, so you’re never guessing “was that Desktop 3 or 4?”
 
-Names are **stored by Named Spaces** and stay tied to each desktop across restarts. They are meant for *your* workflow, not for renaming thumbnails inside Apple’s Mission Control screen (macOS does not offer a supported way to do that).
+Names are **stored by StayHere** and stay tied to each desktop across restarts. They are meant for *your* workflow, not for renaming thumbnails inside Apple’s Mission Control screen (macOS does not offer a supported way to do that).
 
 ### 2. Space switcher
 
-Named Spaces includes a configurable, AltTab-style picker for moving between Spaces.
+StayHere includes a configurable, AltTab-style picker for moving between Spaces.
 
 - The picker opens when you press the configured shortcut.
 - Releasing the shortcut commits the highlighted Space only if you actually changed selection.
@@ -59,7 +59,7 @@ Shortcut syntax is plain text:
 
 ### 3. Space-aware Dock clicks
 
-When you click an app in the Dock, Named Spaces applies rules based on **the Space you’re on now**:
+When you click an app in the Dock, StayHere applies rules based on **the Space you’re on now**:
 
 | Situation | Intended behavior |
 |-----------|-------------------|
@@ -71,7 +71,7 @@ When you click an app in the Dock, Named Spaces applies rules based on **the Spa
 The Dock behavior is controlled by a single checkbox:
 
 - **Disabled**: stock macOS behavior for Dock clicks.
-- **Enabled**: Named Spaces intercepts Dock clicks for multi-window apps as above; single-window apps are handled on a normal click.
+- **Enabled**: StayHere intercepts Dock clicks for multi-window apps as above; single-window apps are handled on a normal click.
 
 The goal is predictable, local behavior: *“I’m on Work; I clicked Chrome; I’m still on Work.”*
 
@@ -103,7 +103,7 @@ It is **not** a full window manager replacement (unlike tiling tools or alternat
 
 Being clear early helps teammates and future users:
 
-- **Mission Control thumbnails** will still show Apple’s default “Desktop N” labels unless macOS changes; our names live in Named Spaces UI.
+- **Mission Control thumbnails** will still show Apple’s default “Desktop N” labels unless macOS changes; our names live in StayHere UI.
 - **Every app** may not support “new window on this Space” equally; some need special handling or may behave like stock macOS.
 - **Fullscreen windows** and some system apps have restrictions on moving between Spaces.
 - The app is planned as a **direct-download, notarized** utility—not a Mac App Store build with a reduced feature set.
@@ -117,7 +117,7 @@ Details and mitigations are in the implementation plan.
 For the best experience, users should:
 
 - Turn off **“Automatically rearrange Spaces based on most recent use”** (keeps desktop order stable).
-- Turn off **“When switching to an application, switch to a Space with open windows for the application”** (so Named Spaces can own that logic instead of fighting the system).
+- Turn off **“When switching to an application, switch to a Space with open windows for the application”** (so StayHere can own that logic instead of fighting the system).
 
 Onboarding will call these out; they are part of the product story, not hidden implementation detail.
 
@@ -127,7 +127,7 @@ Onboarding will call these out; they are part of the product story, not hidden i
 
 | Aspect | Direction |
 |--------|-----------|
-| **Form factor** | Menu bar app (minimal presence, no Dock icon for Named Spaces itself) |
+| **Form factor** | Menu bar app (minimal presence, no Dock icon for StayHere itself) |
 | **Platform** | macOS, recent versions (exact minimum TBD during development) |
 | **Distribution** | Signed/notarized download; power-user features documented clearly |
 | **Privacy** | Local-only configuration; no account or cloud required for core features |
@@ -136,9 +136,9 @@ Onboarding will call these out; they are part of the product story, not hidden i
 
 ## Name and positioning (working)
 
-- **Working name:** Named Spaces (repository: `macos-named-spaces`)
+- **Working name:** StayHere (repository: `stayhere`)
 - **One-line pitch:** *Name your Mac desktops, stay on the Space you chose, and keep app launches predictable.*
-- **Longer pitch:** Named Spaces makes macOS Spaces work the way multi-desktop users expect: labeled rooms, predictable app launches, and better control over what happens when you click a Dock icon, without abandoning Mission Control.
+- **Longer pitch:** StayHere makes macOS Spaces work the way multi-desktop users expect: labeled rooms, predictable app launches, and better control over what happens when you click a Dock icon, without abandoning Mission Control.
 
 Names and marketing copy can evolve; this doc captures intent, not final branding.
 

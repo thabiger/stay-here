@@ -2,19 +2,19 @@
 import PackageDescription
 
 let package = Package(
-    name: "NamedSpaces",
+    name: "StayHere",
     platforms: [.macOS(.v13)],
     products: [
-        .executable(name: "NamedSpacesApp", targets: ["NamedSpacesApp"])
+        .executable(name: "StayHereApp", targets: ["StayHereApp"])
     ],
     targets: [
-        .target(name: "Core", path: "NamedSpaces/Core"),
-        .target(name: "Activation", dependencies: ["Core"], path: "NamedSpaces/Activation"),
-        .target(name: "Shared", path: "NamedSpaces/Shared"),
+        .target(name: "Core", path: "StayHere/Core"),
+        .target(name: "Activation", dependencies: ["Core"], path: "StayHere/Activation", exclude: ["README.md"]),
+        .target(name: "Shared", path: "StayHere/Shared", exclude: ["README.md"]),
         .executableTarget(
-            name: "NamedSpacesApp",
+            name: "StayHereApp",
             dependencies: ["Core", "Activation", "Shared"],
-            path: "NamedSpaces/App"
+            path: "StayHere/App"
         ),
         .testTarget(
             name: "ActivationTests",

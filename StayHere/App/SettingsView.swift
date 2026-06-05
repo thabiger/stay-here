@@ -98,7 +98,7 @@ struct SettingsView: View {
                 Text("Dock Click Interception")
                     .font(.headline)
                 Toggle("Enable Dock click interception", isOn: $coordinator.dockClickInterceptionEnabled)
-                Text("When enabled, regular Dock clicks are handled by Named Spaces for multi-window apps. Single-window apps are swallowed on a normal click and only use Named Spaces behavior when Option is held. When disabled, macOS handles Dock clicks normally.")
+                Text("When enabled, regular Dock clicks are handled by StayHere for multi-window apps. Single-window apps are swallowed on a normal click and only use StayHere behavior when Option is held. When disabled, macOS handles Dock clicks normally.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }

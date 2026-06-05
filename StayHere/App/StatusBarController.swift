@@ -84,7 +84,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         menu.addItem(debug)
 
         menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: "Quit Named Spaces", action: #selector(quit), keyEquivalent: "q").withTarget(self))
+        menu.addItem(NSMenuItem(title: "Quit StayHere", action: #selector(quit), keyEquivalent: "q").withTarget(self))
         applyAppearance()
     }
 

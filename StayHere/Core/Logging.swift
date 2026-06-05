@@ -4,15 +4,15 @@ import AppKit
 public final class Logger {
     public static let shared = Logger()
 
-    private let queue = DispatchQueue(label: "namedspaces.logger")
+    private let queue = DispatchQueue(label: "stayhere.logger")
     private let logURL: URL
     private let iso = ISO8601DateFormatter()
 
     private init() {
         let logsDir = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Logs/NamedSpaces", isDirectory: true)
+            .appendingPathComponent("Library/Logs/StayHere", isDirectory: true)
         try? FileManager.default.createDirectory(at: logsDir, withIntermediateDirectories: true)
-        logURL = logsDir.appendingPathComponent("namedspaces.log")
+        logURL = logsDir.appendingPathComponent("stayhere.log")
     }
 
     public func info(_ message: String) {
@@ -35,7 +35,7 @@ public final class Logger {
                 if FileManager.default.fileExists(atPath: self.logURL.path),
                    let handle = try? FileHandle(forWritingTo: self.logURL) {
                     defer { try? handle.close() }
-                    try? handle.seekToEnd()
+                    _ = try? handle.seekToEnd()
                     try? handle.write(contentsOf: data)
                 } else {
                     try? data.write(to: self.logURL)

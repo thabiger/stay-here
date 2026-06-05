@@ -12,8 +12,8 @@ public final class SpaceRegistry: ObservableObject {
     @Published public private(set) var nativeOrderByDisplay: [String: [Int]] = [:]
 
     private let store: SpaceStore
-    private let persistQueue = DispatchQueue(label: "namedspaces.persist", qos: .utility)
-    private let snapshotQueue = DispatchQueue(label: "namedspaces.snapshot", qos: .userInitiated)
+    private let persistQueue = DispatchQueue(label: "stayhere.persist", qos: .utility)
+    private let snapshotQueue = DispatchQueue(label: "stayhere.snapshot", qos: .userInitiated)
     private var pendingPersist: DispatchWorkItem?
     private var pendingRefresh: DispatchWorkItem?
     private let refreshRetryInterval: TimeInterval = 0.05

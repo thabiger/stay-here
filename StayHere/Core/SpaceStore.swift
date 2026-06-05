@@ -35,11 +35,25 @@ public final class SpaceStore {
     private let decoder = JSONDecoder()
 
     public init() {
-        let appSupport = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/NamedSpaces", isDirectory: true)
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let appSupport = home.appendingPathComponent("Library/Application Support/StayHere", isDirectory: true)
         try? FileManager.default.createDirectory(at: appSupport, withIntermediateDirectories: true)
         self.fileURL = appSupport.appendingPathComponent("spaces.json")
+        migrateLegacyStoreIfNeeded(
+            from: home.appendingPathComponent("Library/Application Support/NamedSpaces/spaces.json"),
+            to: fileURL
+        )
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+    }
+
+    private func migrateLegacyStoreIfNeeded(from legacyURL: URL, to currentURL: URL) {
+        guard !FileManager.default.fileExists(atPath: currentURL.path),
+              FileManager.default.fileExists(atPath: legacyURL.path)
+        else {
+            return
+        }
+
+        try? FileManager.default.copyItem(at: legacyURL, to: currentURL)
     }
 
     public func load() -> PersistedSpaces {

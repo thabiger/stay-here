@@ -1,11 +1,11 @@
 ---
-title: macOS Named Spaces — Implementation Plan
+title: macOS StayHere — Implementation Plan
 overview: A notarized macOS menu-bar utility that adds persistent space names and space-aware app activation (without unwanted space jumps). Greenfield; Swift + private CGS APIs modeled on AltTab/yabai prior art.
 updated: 2026-06-05
 canonical: true
 ---
 
-# macOS Named Spaces — Feasibility and Development Plan
+# macOS StayHere — Feasibility and Development Plan
 
 > **Canonical plan** for this repository. Phase sign-off lives in [`docs/gates/`](gates/). Do not start phase *N+1* until [`docs/gates/PHASE-N.md`](gates/PHASE-0.md) is **Approved** or **Approved with caveats**.
 
@@ -80,7 +80,7 @@ flowchart TD
 
 **Space names (feature a):**
 
-- Persist `spaceID → { name, emoji?, color? }` in `~/Library/Application Support/NamedSpaces/spaces.json`.
+- Persist `spaceID → { name, emoji?, color? }` in `~/Library/Application Support/StayHere/spaces.json`.
 - On space create/destroy/reorder, reconcile mapping (detect new IDs, prune stale).
 - **Visible names** (pick 2–3 surfaces in v1):
   - Menu bar: current space name + switcher list (proven pattern: Spaceman, Desktop Space Renamer).
@@ -95,7 +95,7 @@ One deliverable (single app, shared modules):
 
 | Component | Role | Runs as |
 |-----------|------|---------|
-| **NamedSpaces.app** | UI, settings, space registry, activation engine, Dock click interception | Menu bar agent (`LSUIElement`) |
+| **StayHere.app** | UI, settings, space registry, activation engine, Dock click interception | Menu bar agent (`LSUIElement`) |
 
 Shared Swift package / static lib:
 
@@ -123,7 +123,7 @@ Development is **strictly sequential**. No work on phase *N+1* begins until phas
 1. **One phase = one mergeable unit.** Each phase ends on a git tag `phase-N` (e.g. `phase-0`, `phase-1`) and a filled gate document (below).
 2. **No scope creep inside a phase.** If a task belongs to a later phase, it is deferred and logged in `docs/BACKLOG.md`, not implemented early.
 3. **Every phase ships observable behavior** you can try without reading code: a CLI, menu item, HUD, log file, or installer step.
-4. **Diagnostics are always on** during development: verbose logging to `~/Library/Logs/NamedSpaces/` and a **Debug** submenu (copy state, open logs, dump space/window JSON).
+4. **Diagnostics are always on** during development: verbose logging to `~/Library/Logs/StayHere/` and a **Debug** submenu (copy state, open logs, dump space/window JSON).
 5. **Rollback:** each phase documents how to disable it in the gate file.
 6. **Agent stops at the gate.** After delivering phase artifacts, implementation pauses until you mark the gate **Approved** (see below).
 
@@ -239,7 +239,7 @@ Validate on **your machine (darwin 25.x)**:
 4. Read `docs/SPIKE_REPORT.md` - understand which APIs are **go / no-go** on your OS.
 5. Fill **Decision** in `docs/gates/PHASE-0.md`.
 
-**Deliverables:** tag `phase-0`; no `NamedSpaces.app` required yet.
+**Deliverables:** tag `phase-0`; no `StayHere.app` required yet.
 
 ---
 
@@ -248,7 +248,7 @@ Validate on **your machine (darwin 25.x)**:
 **Repo layout** (greenfield at repository root):
 
 ```
-NamedSpaces/
+StayHere/
   App/                 # Menu bar app
   Core/                # SpaceModel, WindowIndex, CGSBridge
   Activation/          # ActivationPolicy
@@ -269,7 +269,7 @@ NamedSpaces/
 
 **Your approval checklist (Phase 1):**
 
-1. Launch `NamedSpaces.app` (Debug) - menu bar shows **custom name** for current space (not only "Desktop 1").
+1. Launch `StayHere.app` (Debug) - menu bar shows **custom name** for current space (not only "Desktop 1").
 2. Rename Space 2 in Settings -> switch to Space 2 -> HUD shows new name within ~1s.
 3. Quit app, relaunch - names still correct (persistence).
 4. Create a new Space in Mission Control - app shows "Unnamed space" or prompts to name (document actual behavior).
@@ -288,7 +288,7 @@ NamedSpaces/
 2. **Window index** refresh on space change, app launch/terminate, window create/destroy (NSWorkspace + optional `NSApplication` notifications where available).
 3. **Single-window detection** heuristic + per-bundle overrides plist in app bundle.
 4. **New-window strategies** pluggable per `bundleID`.
-5. Settings checkbox: "Enable Dock click interception" (`Enabled` / `Disabled`). When enabled, multi-window app clicks are intercepted as today; single-window app clicks are ignored by default and only use Named Spaces behavior when **Option** is held. When disabled, Dock clicks follow stock macOS behavior.
+5. Settings checkbox: "Enable Dock click interception" (`Enabled` / `Disabled`). When enabled, multi-window app clicks are intercepted as today; single-window app clicks are ignored by default and only use StayHere behavior when **Option** is held. When disabled, Dock clicks follow stock macOS behavior.
 
 **In scope:** `WindowIndex`, `ActivationPolicy`, Dock event tap, Settings for intercept mode, structured activation log lines.
 
@@ -307,9 +307,9 @@ Use **3 spaces** (Work / Personal / Scratch) with distinct names. Record macOS v
 | 2.3 | Notes window only on **Work** | On **Personal**, click Notes | Window moves to **Personal** OR focuses without visible space switch; **stay on Personal** |
 | 2.4 | Safari not running | Click Safari | Safari opens on **current** space |
 | 2.5 | TextEdit minimized on **current** space | Click TextEdit | Unminimizes on **current** space |
-| 2.6 | Intercept mode: **Enabled** | Click without Option on a multi-window app | NamedSpaces behavior; stay on current Space |
-| 2.7 | Intercept mode: **Enabled** | Click without Option on a single-window app | NamedSpaces behavior; move/focus window as needed |
-| 2.8 | Intercept mode: **Enabled** | Option+click on a single-window app | NamedSpaces behavior; move/focus window as needed |
+| 2.6 | Intercept mode: **Enabled** | Click without Option on a multi-window app | StayHere behavior; stay on current Space |
+| 2.7 | Intercept mode: **Enabled** | Click without Option on a single-window app | StayHere behavior; move/focus window as needed |
+| 2.8 | Intercept mode: **Enabled** | Option+click on a single-window app | StayHere behavior; move/focus window as needed |
 | 2.9 | Intercept mode: **Disabled** | Any Dock click | Stock macOS behavior |
 | 2.10 | After each test | Check Debug log | One `activation` record with decision reason when interception is enabled |
 

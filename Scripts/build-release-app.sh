@@ -9,9 +9,9 @@ Usage:
   Scripts/build-release-app.sh [options]
 
 Options:
-  --app-name NAME           App bundle name. Default: NamedSpaces
-  --target-name NAME        SwiftPM executable target name. Default: NamedSpacesApp
-  --bundle-id ID            Bundle identifier. Default: com.example.NamedSpaces
+  --app-name NAME           App bundle name. Default: StayHere
+  --target-name NAME        SwiftPM executable target name. Default: StayHereApp
+  --bundle-id ID            Bundle identifier. Default: com.tha.stayhere
   --version VERSION         CFBundleShortVersionString. Default: 0.1.0
   --build-number NUMBER     CFBundleVersion. Default: git short SHA or 1
   --output-dir DIR          Directory that will contain the .app bundle. Default: dist
@@ -27,9 +27,9 @@ Environment:
 EOF
 }
 
-APP_NAME="${APP_NAME:-NamedSpaces}"
-TARGET_NAME="${TARGET_NAME:-NamedSpacesApp}"
-BUNDLE_ID="${BUNDLE_ID:-com.example.NamedSpaces}"
+APP_NAME="${APP_NAME:-StayHere}"
+TARGET_NAME="${TARGET_NAME:-StayHereApp}"
+BUNDLE_ID="${BUNDLE_ID:-com.tha.stayhere}"
 APP_VERSION="${APP_VERSION:-0.1.0}"
 BUILD_NUMBER="${BUILD_NUMBER:-}"
 OUTPUT_DIR="${OUTPUT_DIR:-dist}"
@@ -135,6 +135,8 @@ cat > "$contents/Info.plist" <<EOF
   <key>CFBundleIdentifier</key>
   <string>$BUNDLE_ID</string>
   <key>CFBundleName</key>
+  <string>$APP_NAME</string>
+  <key>CFBundleDisplayName</key>
   <string>$APP_NAME</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>

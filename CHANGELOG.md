@@ -12,8 +12,8 @@
 - Added shortcut syntax documentation and parser support for `tab`, `space`, `return`, `escape`, `delete`, arrow keys, letters, digits, and `backtick` / `` ` ``.
 
 ## phase-1 (unreleased)
-- Added a macOS menu bar app scaffold (`NamedSpacesApp`) with current-space title display.
-- Added space naming persistence at `~/Library/Application Support/NamedSpaces/spaces.json`.
+- Added a macOS menu bar app scaffold (`StayHereApp`) with current-space title display.
+- Added space naming persistence at `~/Library/Application Support/StayHere/spaces.json`.
 - Added settings UI to rename spaces and reorder display order.
 - Added HUD overlay shown on detected space changes.
 - Added Debug menu actions for copying JSON state and opening log directory.

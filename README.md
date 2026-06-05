@@ -1,6 +1,6 @@
-# Named Spaces
+# StayHere
 
-Named Spaces is a macOS menu bar app that helps you name your Spaces, switch between them more easily, and keep Dock clicks from sending you to the wrong desktop.
+StayHere is a macOS menu bar app that helps you name your Spaces, switch between them more easily, and keep Dock clicks from sending you to the wrong desktop.
 
 ## What it does
 
@@ -13,7 +13,7 @@ Named Spaces is a macOS menu bar app that helps you name your Spaces, switch bet
 
 ## Setup checklist
 
-For the best experience, set up Named Spaces in this order:
+For the best experience, set up StayHere in this order:
 
 1. Grant the required macOS permissions.
 2. Enable the Mission Control keyboard shortcuts.
@@ -23,7 +23,7 @@ For the best experience, set up Named Spaces in this order:
 
 ## Permissions
 
-Named Spaces needs these permissions in System Settings:
+StayHere needs these permissions in System Settings:
 
 - **Accessibility** - used to focus apps, react to Dock interactions, and control space-related behavior.
 - **Input Monitoring** - used for global input handling, including the switcher and Dock click interception.
@@ -45,7 +45,7 @@ You can enable them in:
 
 `System Settings > Keyboard > Keyboard Shortcuts > Mission Control`
 
-Named Spaces uses these shortcuts internally for space switching, so they need to stay enabled.
+StayHere uses these shortcuts internally for space switching, so they need to stay enabled.
 
 ## Space switcher shortcut
 
@@ -101,14 +101,14 @@ These apps get special handling so a normal Dock click can move the existing win
 
 ## Dock click interception
 
-The Dock click interception toggle controls whether Named Spaces handles Dock clicks.
+The Dock click interception toggle controls whether StayHere handles Dock clicks.
 
-- **Enabled**: Named Spaces intercepts Dock clicks for multi-window apps and applies its Space-aware rules.
+- **Enabled**: StayHere intercepts Dock clicks for multi-window apps and applies its Space-aware rules.
 - **Disabled**: macOS handles Dock clicks normally.
 
 ## Recommended macOS settings
 
-These settings are not strictly required, but they make Named Spaces behave more predictably:
+These settings are not strictly required, but they make StayHere behave more predictably:
 
 - Turn off **Automatically rearrange Spaces based on most recent use**.
 - Turn off **When switching to an application, switch to a Space with open windows for the application**.
@@ -118,10 +118,10 @@ These settings are not strictly required, but they make Named Spaces behave more
 - Rename your Spaces to things like `Work`, `Personal`, or `Calls`.
 - Use the switcher shortcut to move between Spaces quickly.
 - Click apps in the Dock without being surprised by a jump to another desktop.
-- Keep Mission Control as the system Space manager while Named Spaces adds names and smarter behavior on top.
+- Keep Mission Control as the system Space manager while StayHere adds names and smarter behavior on top.
 
 ## Notes
 
-- Mission Control itself still shows Apple’s default `Desktop N` labels. Named Spaces keeps your names inside the app UI.
+- Mission Control itself still shows Apple’s default `Desktop N` labels. StayHere keeps your names inside the app UI.
 - The app is designed as a menu bar utility, not a Dock app.
 - Some fullscreen windows and system apps have macOS restrictions that limit space-moving behavior.

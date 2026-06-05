@@ -135,7 +135,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             )
             window.minSize = NSSize(width: 640, height: 720)
             window.center()
-            window.title = "Named Spaces Settings"
+            window.title = "StayHere Settings"
             window.contentViewController = host
             window.isReleasedWhenClosed = false
             window.delegate = self

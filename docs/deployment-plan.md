@@ -1,6 +1,6 @@
-# Named Spaces Deployment Plan
+# StayHere Deployment Plan
 
-This plan covers the release, deployment, and update path for Named Spaces.
+This plan covers the release, deployment, and update path for StayHere.
 
 The target distribution model is a direct-download macOS app distributed through GitHub Releases. The app is not intended for the Mac App Store because the full feature set depends on Accessibility, Input Monitoring, and private CGS APIs.
 
@@ -14,11 +14,11 @@ The target distribution model is a direct-download macOS app distributed through
 
 ## Release Model
 
-Named Spaces ships as:
+StayHere ships as:
 
-- `NamedSpaces.app`
-- `NamedSpaces.zip`
-- `NamedSpaces.dmg`
+- `StayHere.app`
+- `StayHere.zip`
+- `StayHere.dmg`
 - SHA-256 checksum files
 - GitHub Release notes generated from `CHANGELOG.md`
 
@@ -38,7 +38,7 @@ The CI workflow should run on pull requests and pushes to `main`.
 Required jobs:
 
 - Run `swift test`.
-- Run `swift build -c release --product NamedSpacesApp`.
+- Run `swift build -c release --product StayHereApp`.
 - Run a packaging smoke test with ad hoc signing.
 - Verify the expected `.app`, `.zip`, and `.dmg` artifacts are produced.
 
@@ -136,11 +136,11 @@ Use `Scripts/package-release.sh` as the primary packaging command.
 
 The release workflow should produce:
 
-- `dist/NamedSpaces.app`
-- `dist/NamedSpaces.zip`
-- `dist/NamedSpaces.dmg`
-- `dist/NamedSpaces.zip.sha256`
-- `dist/NamedSpaces.dmg.sha256`
+- `dist/StayHere.app`
+- `dist/StayHere.zip`
+- `dist/StayHere.dmg`
+- `dist/StayHere.zip.sha256`
+- `dist/StayHere.dmg.sha256`
 
 Recommended script improvements:
 
