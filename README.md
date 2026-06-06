@@ -46,6 +46,22 @@ Those APIs are useful for this workflow, but they are private and can change acr
 The release model is direct download from GitHub Releases, with signed and notarized builds planned for public distribution.
 Pull requests should also pass CI, dependency review, and CodeQL before changes are merged.
 
+## Install From GitHub Releases
+
+When you want to try a published build:
+
+1. Open the latest release on GitHub.
+2. Download the `StayHere.dmg` file if you want the usual drag-and-drop install, or `StayHere.zip` if you prefer a plain archive.
+3. Open the downloaded file and copy `StayHere.app` into your `Applications` folder.
+4. Launch the app from `Applications`.
+
+Because test builds may be ad hoc signed or unsigned, macOS can show a warning the first time you open the app. If that happens, do one of these:
+
+- Control-click the app and choose **Open**.
+- Or open `System Settings > Privacy & Security` and allow the blocked app there.
+
+If macOS asks for Accessibility permission, grant it so the app can manage Spaces and Dock interactions.
+
 ## Mission Control shortcuts
 
 The app checks that Mission Control desktop shortcuts `Control+1` through `Control+9` are enabled.
