@@ -32,18 +32,13 @@ If you change the app bundle identifier, signing identity, or reinstall the app 
 
 ## Mission Control shortcuts
 
-The app checks that these macOS shortcuts are enabled:
-
-- `Control+1` for Desktop 1
-- `Control+2` for Desktop 2
-- `Control+3` for Desktop 3
-- `Control+4` for Desktop 4
-- `Control+5` for Desktop 5
-- `Control+6` for Desktop 6
+The app checks that Mission Control desktop shortcuts `Control+1` through `Control+9` are enabled.
 
 You can enable them in:
 
 `System Settings > Keyboard > Keyboard Shortcuts > Mission Control`
+
+StayHere tries to pre-enable these shortcuts for Desktop 1 through Desktop 9 on first launch so future desktops keep working. If macOS does not pick up the change immediately, reopen StayHere and recheck the checklist.
 
 StayHere uses these shortcuts internally for space switching, so they need to stay enabled.
 

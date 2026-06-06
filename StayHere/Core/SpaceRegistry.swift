@@ -189,10 +189,10 @@ public final class SpaceRegistry: ObservableObject {
             return
         }
 
-        guard shortcutIndex <= 6 else {
+        guard shortcutIndex <= 9 else {
             Logger.shared.error(
                 "switch-space requested=\(spaceID) failed=desktop-\(shortcutIndex)-no-shortcut " +
-                "(only Ctrl+1…6 are supported)"
+                "(only Ctrl+1…9 are supported)"
             )
             return
         }

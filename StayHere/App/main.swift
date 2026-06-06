@@ -96,10 +96,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         registry.refreshSpacesAsync()
         statusController.rebuildSpaceItems(registry: registry)
-        showMissionControlShortcutWarningIfNeeded()
-        activationController.start()
-        spaceSwitcherController.start()
-        windowSwitcherController.start()
+        showSetupRequirementsIfNeeded()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -201,30 +198,77 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pb.setString(registry.snapshotJSON(), forType: .string)
     }
 
-    private func showMissionControlShortcutWarningIfNeeded() {
-        let result = MissionControlShortcutCheck.check()
-        guard let message = result.warningMessage else { return }
-
-        Logger.shared.error("space-switcher requirement=mission-control-shortcuts missing=\(result.missingDescriptions.joined(separator: ", "))")
-        presentMissionControlShortcutWarning(message: message)
+    private func startEventDrivenControllers() {
+        activationController.start()
+        spaceSwitcherController.start()
+        windowSwitcherController.start()
     }
 
-    private func presentMissionControlShortcutWarning(message: String) {
-        DispatchQueue.main.async {
+    private func showSetupRequirementsIfNeeded() {
+        let shortcutConfiguration = MissionControlShortcutConfigurator.ensureControlNumberShortcutsEnabled()
+        if shortcutConfiguration.changed {
+            Logger.shared.info("setup auto-enabled=mission-control-shortcuts")
+        }
+
+        let status = StayHereSetupStatus.current()
+        guard !status.isSatisfied else {
+            startEventDrivenControllers()
+            return
+        }
+
+        Logger.shared.error("setup requirements missing=\(status.missingDescriptions.joined(separator: ", "))")
+        presentSetupRequirementsWarning()
+    }
+
+    private func presentSetupRequirementsWarning() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            NSApp.setActivationPolicy(.regular)
             NSApp.activate(ignoringOtherApps: true)
 
             let alert = NSAlert()
             alert.alertStyle = .warning
-            alert.messageText = "Mission Control shortcuts are disabled"
-            alert.informativeText = message + "\n\nEnable Control+N in System Settings > Keyboard > Keyboard Shortcuts > Mission Control so Space Switcher can work."
-            alert.addButton(withTitle: "Open System Settings")
-            alert.addButton(withTitle: "OK")
+            alert.messageText = "Set up StayHere before you start"
+            alert.informativeText = """
+            StayHere runs from the menu bar and helps you name Spaces, switch between them, pick windows on the current Space, and keep Dock clicks on the desktop you are using.
+
+            To do that, macOS needs to allow a few things:
+
+            • Accessibility lets StayHere focus apps, read Dock state, and apply space-related behavior.
+            • Input Monitoring lets StayHere listen for global keyboard and mouse events, including the switchers and Dock click interception.
+            • Control+1 through Control+9 under Mission Control are the built-in shortcuts StayHere relies on for desktop switching.
+
+            Use the checklist below. A green check means that item is ready; click any missing item to jump to the right System Settings pane, make the change, then return here and click Recheck. StayHere will start once every required item is checked. If something still does not work after you grant access, quit and reopen StayHere.
+
+            StayHere goal is to deliver a focus-first experience to your workflow. 
+            Therefore we encourage you to run it with additional settings:
+            • Settings -> Desktop & Dock -> Automatically rearrange Spaces based on most recent use -> Off
+            • Settings -> Desktop & Dock -> When switching to an application, switch to a Space with open windows for the application -> Off (prevents to teleporting to other spaces trough the Spotlight)
+            • Settings -> Desktop & Dock -> Group windows by application -> On
+            • Settings -> Desktop & Dock -> Displays have separate Spaces -> Off (it messes with spaces location across displays, when they disconnect)
+            • Settings -> Desktop & Dock -> Show suggested and recent apps in Dock -> Off (you should only see what you need to make your work in your space done)
+            """
+            alert.addButton(withTitle: "Recheck")
+            alert.addButton(withTitle: "Quit")
+
+            let checklist = SetupChecklistAccessoryView(status: StayHereSetupStatus.current())
+            alert.accessoryView = checklist
             AppearanceManager.applyCurrentMode(to: [alert.window])
 
-            if alert.runModal() == .alertFirstButtonReturn {
-                let settingsURL = URL(fileURLWithPath: "/System/Applications/System Settings.app")
-                NSWorkspace.shared.open(settingsURL)
+            while true {
+                checklist.refresh(with: StayHereSetupStatus.current())
+                let response = alert.runModal()
+                if response == .alertSecondButtonReturn {
+                    NSApp.terminate(nil)
+                    return
+                }
+                if StayHereSetupStatus.current().isSatisfied {
+                    self.startEventDrivenControllers()
+                    break
+                }
             }
+
+            self.demoteToAccessoryIfNoWindowsVisible()
         }
     }
 }

@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-test-package:
+    name: Build, Test, and Package
+    runs-on: macos-14
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Show tool versions
+        run: |
+          set -euo pipefail
+          swift --version
+          xcodebuild -version
+
+      - name: Lint shell scripts
+        run: |
+          set -euo pipefail
+          if ! command -v shellcheck >/dev/null 2>&1; then
+            brew install shellcheck
+          fi
+          shellcheck Scripts/*.sh
+
+      - name: Run tests
+        run: swift test
+
+      - name: Build release app product
+        run: swift build -c release --product StayHereApp -Xswiftc -warnings-as-errors
+
+      - name: Package release artifacts with ad hoc signing
+        run: |
+          set -euo pipefail
+          Scripts/package-release.sh --output-dir dist
+
+      - name: Verify release artifacts
+        run: |
+          set -euo pipefail
+
+          test -d dist/StayHere.app
+          test -x dist/StayHere.app/Contents/MacOS/StayHere
+          test -f dist/StayHere.app/Contents/Info.plist
+          test -f dist/StayHere.zip
+          test -f dist/StayHere.dmg
+
+          codesign --verify --deep --strict --verbose=2 dist/StayHere.app
+          ditto -x -k dist/StayHere.zip /tmp/stayhere-zip-check
+          test -d /tmp/stayhere-zip-check/StayHere.app
+          hdiutil verify dist/StayHere.dmg
+
+      - name: Upload packaging artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: StayHere-packaging-smoke-test
+          path: |
+            dist/StayHere.app
+            dist/StayHere.zip
+            dist/StayHere.dmg
+          if-no-files-found: error

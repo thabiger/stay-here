@@ -69,11 +69,12 @@ public enum CGSBridge {
         managedSnapshot().spaces
     }
 
-    /// Posts Ctrl+1…6 to match Mission Control desktop shortcuts.
+    /// Posts Ctrl+1…9 to match Mission Control desktop shortcuts.
     public static func switchByDesktopShortcut(index: Int) -> Bool {
-        guard (1...6).contains(index) else { return false }
+        guard (1...9).contains(index) else { return false }
         let keyCodes: [Int: CGKeyCode] = [
             1: 18, 2: 19, 3: 20, 4: 21, 5: 23, 6: 22,
+            7: 26, 8: 28, 9: 25,
         ]
         guard let keyCode = keyCodes[index] else { return false }
         return postControlKey(keyCode: keyCode)
