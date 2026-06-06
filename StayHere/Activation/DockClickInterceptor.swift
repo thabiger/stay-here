@@ -96,12 +96,12 @@ public final class DockClickInterceptor {
             }
 
             guard shouldIntercept(bundleID, optionHeld) else {
-                Logger.shared.info("activation dock-down bundle=\(bundleID) option=\(optionHeld) passthrough=true")
+                Logger.shared.info("activation dock-down passthrough=true option=\(optionHeld)")
                 return Unmanaged.passRetained(event)
             }
 
             pendingDockClick = PendingDockClick(bundleID: bundleID, optionHeld: optionHeld)
-            Logger.shared.info("activation dock-down bundle=\(bundleID) option=\(optionHeld)")
+            Logger.shared.info("activation dock-down option=\(optionHeld)")
             return nil
 
         case .leftMouseUp:
@@ -114,7 +114,7 @@ public final class DockClickInterceptor {
             }
 
             let resolvedOptionHeld = pending?.optionHeld ?? optionHeld
-            Logger.shared.info("activation dock-up bundle=\(bundleID) option=\(resolvedOptionHeld)")
+            Logger.shared.info("activation dock-up option=\(resolvedOptionHeld)")
             if handler(bundleID, resolvedOptionHeld) {
                 return nil
             }

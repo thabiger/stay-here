@@ -213,7 +213,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
-        Logger.shared.error("setup requirements missing=\(status.missingDescriptions.joined(separator: ", "))")
+        Logger.shared.error("setup requirements missing count=\(status.missingDescriptions.count)")
         presentSetupRequirementsWarning()
     }
 
@@ -322,16 +322,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func reloadApplication() {
         let bundleURL = Bundle.main.bundleURL
-        Logger.shared.info("reload requested bundleURL=\(bundleURL.path)")
+        Logger.shared.info("reload requested")
         let configuration = NSWorkspace.OpenConfiguration()
         NSWorkspace.shared.openApplication(at: bundleURL, configuration: configuration) { _, error in
-            if let error {
-                Logger.shared.error("failed to reload app after setup changes: \(error.localizedDescription)")
+            if error != nil {
+                Logger.shared.error("failed to reload app after setup changes")
                 Logger.shared.flush()
                 self.showReloadFailureAlert()
                 return
             }
-            Logger.shared.info("reload launch request succeeded, terminating current instance")
+            Logger.shared.info("reload launch request succeeded")
             Logger.shared.flush()
             NSApp.terminate(nil)
         }

@@ -103,7 +103,7 @@ public final class SpaceRegistry: ObservableObject {
         let before = activeSpaceID
         refreshSpaces()
         if before != activeSpaceID {
-            Logger.shared.info("space-change active=\(activeSpaceID ?? -1)")
+            Logger.shared.info("space-change")
         }
     }
 
@@ -220,12 +220,12 @@ public final class SpaceRegistry: ObservableObject {
     public func switchToSpace(_ spaceID: Int) -> SwitchResult {
         let before = activeSpaceID
         if before == spaceID {
-            Logger.shared.info("switch-space requested=\(spaceID) skipped=already-active")
+            Logger.shared.info("switch-space skipped=already-active")
             return .alreadyActive
         }
 
         guard isSwitchableSpace(spaceID) else {
-            Logger.shared.error("switch-space requested=\(spaceID) failed=unsupported-space-kind")
+            Logger.shared.error("switch-space failed=unsupported-space-kind")
             return .unsupportedSpaceKind
         }
 
@@ -234,38 +234,29 @@ public final class SpaceRegistry: ObservableObject {
             ?? snapshot.spaces.first(where: { $0.id == spaceID })?.display,
               let nativeOrder = nativeOrderByDisplay[display] ?? snapshot.orderedIDsByDisplay[display],
               let shortcutIndex = nativeOrder.firstIndex(of: spaceID).map({ $0 + 1 }) else {
-            Logger.shared.error("switch-space requested=\(spaceID) failed=unknown-space")
+            Logger.shared.error("switch-space failed=unknown-space")
             return .unknownSpace
         }
 
         guard shortcutIndex <= 9 else {
             Logger.shared.error(
-                "switch-space requested=\(spaceID) failed=desktop-\(shortcutIndex)-no-shortcut " +
-                "(only Ctrl+1…9 are supported)"
+                "switch-space failed=desktop-no-shortcut"
             )
             return .unsupportedDesktop(index: shortcutIndex)
         }
 
         let posted = CGSBridge.switchByDesktopShortcut(index: shortcutIndex)
         guard posted else {
-            Logger.shared.error("switch-space requested=\(spaceID) failed=event-post shortcutIndex=\(shortcutIndex)")
+            Logger.shared.error("switch-space failed=event-post")
             return .eventPostFailed(index: shortcutIndex)
         }
 
-        Logger.shared.info(
-            "switch-space requested=\(spaceID) before=\(before ?? -1) " +
-            "shortcutIndex=\(shortcutIndex) posted=\(posted)"
-        )
+        Logger.shared.info("switch-space posted")
 
         let matched = verifySwitchResult(expectedSpaceID: spaceID)
-        Logger.shared.info(
-            "switch-space result requested=\(spaceID) after=\(activeSpaceID ?? -1) matched=\(matched)"
-        )
+        Logger.shared.info("switch-space result matched=\(matched)")
         guard matched else {
-            Logger.shared.error(
-                "switch-space requested=\(spaceID) failed=shortcut-posted-but-unmatched " +
-                "shortcutIndex=\(shortcutIndex) actual=\(activeSpaceID ?? -1)"
-            )
+            Logger.shared.error("switch-space failed=shortcut-posted-but-unmatched")
             refreshSpacesSoon()
             return .switchUnmatched(index: shortcutIndex, expectedSpaceID: spaceID, actualSpaceID: activeSpaceID)
         }
@@ -327,7 +318,7 @@ public final class SpaceRegistry: ObservableObject {
             do {
                 try store.save(payload)
             } catch {
-                Logger.shared.error("persist-failed error=\(error.localizedDescription)")
+                Logger.shared.error("persist-failed")
             }
         }
         pendingPersist = task
@@ -385,7 +376,7 @@ public final class SpaceRegistry: ObservableObject {
         do {
             try store.save(payload)
         } catch {
-            Logger.shared.error("persist-failed error=\(error.localizedDescription)")
+            Logger.shared.error("persist-failed")
         }
     }
 }

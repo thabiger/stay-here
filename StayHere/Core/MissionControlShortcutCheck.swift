@@ -142,7 +142,8 @@ public struct MissionControlShortcutCheck {
     }
 
     private static func readHotKeysFromPersistentStore(preferencesURL: URL?) -> [String: Any]? {
-        let url = preferencesURL ?? FileManager.default.homeDirectoryForCurrentUser
+        let url = safePreferencesURL(preferencesURL)
+            ?? FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(symbolicHotKeysPlistPath)
         guard let data = try? Data(contentsOf: url) else { return nil }
         guard let plist = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil),
@@ -150,6 +151,14 @@ public struct MissionControlShortcutCheck {
             return nil
         }
         return root[symbolicHotKeysKey] as? [String: Any]
+    }
+
+    private static func safePreferencesURL(_ preferencesURL: URL?) -> URL? {
+        guard let preferencesURL, preferencesURL.isFileURL else {
+            return nil
+        }
+
+        return preferencesURL.standardizedFileURL
     }
 
     static func currentDesktopCount(snapshot: CGSBridge.ManagedSnapshot = CGSBridge.managedSnapshot()) -> Int {

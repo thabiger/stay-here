@@ -59,7 +59,7 @@ public final class ActivationController {
         let decision = policy.decide(context)
         if log {
             Logger.shared.info(
-                "activation bundle=\(bundleID) enabled=\(ActivationSettings.shared.dockClickInterceptionEnabled) option=\(optionHeld) target=\(context.targetSpaceID ?? -1) active=\(context.activeSpaceIDs.sorted()) on_current=\(context.appWindowSummary?.hasWindowOnCurrentSpace ?? false) on_target=\(context.appWindowSummary?.hasWindowOnTargetSpace ?? false) total=\(context.appWindowSummary?.totalWindowCount ?? 0) decision=\(decision.rawValue)"
+                "activation decision=\(decision.rawValue) enabled=\(ActivationSettings.shared.dockClickInterceptionEnabled) option=\(optionHeld) target=\(context.targetSpaceID ?? -1) current_space_count=\(context.activeSpaceIDs.count) window_count=\(context.appWindowSummary?.totalWindowCount ?? 0)"
             )
         }
         return decision

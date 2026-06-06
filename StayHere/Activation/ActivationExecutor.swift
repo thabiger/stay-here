@@ -86,8 +86,8 @@ public final class ActivationExecutor {
         config.activates = true
         config.createsNewApplicationInstance = false
         NSWorkspace.shared.openApplication(at: appURL, configuration: config) { _, error in
-            if let error {
-                Logger.shared.error("activation focus-fallback-failed bundle=\(bundleID) error=\(error.localizedDescription)")
+            if error != nil {
+                Logger.shared.error("activation focus-fallback-failed")
             }
         }
     }
