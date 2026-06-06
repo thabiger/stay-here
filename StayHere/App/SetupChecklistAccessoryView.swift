@@ -1,25 +1,45 @@
 import AppKit
 
 final class SetupChecklistAccessoryView: NSView {
-    private let stackView = NSStackView()
+    static let preferredWidth: CGFloat = 1024
 
-    convenience init(status: StayHereSetupStatus) {
-        self.init(frame: NSRect(x: 0, y: 0, width: 360, height: 220))
+    private let rootStackView = NSStackView()
+    private let checklistStackView = NSStackView()
+    private let supplementaryLabel = NSTextField(wrappingLabelWithString: "")
+
+    convenience init(status: StayHereSetupStatus, supplementaryText: NSAttributedString? = nil) {
+        self.init(frame: NSRect(x: 0, y: 0, width: Self.preferredWidth, height: 220))
+        if let supplementaryText {
+            supplementaryLabel.attributedStringValue = supplementaryText
+            supplementaryLabel.isHidden = false
+        }
         refresh(with: status)
     }
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        stackView.orientation = .vertical
-        stackView.alignment = .leading
-        stackView.spacing = 8
-        stackView.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(stackView)
+
+        supplementaryLabel.isHidden = true
+        supplementaryLabel.isSelectable = false
+        supplementaryLabel.lineBreakMode = .byWordWrapping
+        supplementaryLabel.preferredMaxLayoutWidth = Self.preferredWidth
+
+        checklistStackView.orientation = .vertical
+        checklistStackView.alignment = .leading
+        checklistStackView.spacing = 8
+
+        rootStackView.orientation = .vertical
+        rootStackView.alignment = .leading
+        rootStackView.spacing = 12
+        rootStackView.translatesAutoresizingMaskIntoConstraints = false
+        rootStackView.addArrangedSubview(supplementaryLabel)
+        rootStackView.addArrangedSubview(checklistStackView)
+        addSubview(rootStackView)
         NSLayoutConstraint.activate([
-            stackView.topAnchor.constraint(equalTo: topAnchor),
-            stackView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            stackView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            stackView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            rootStackView.topAnchor.constraint(equalTo: topAnchor),
+            rootStackView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            rootStackView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            rootStackView.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
     }
 
@@ -29,13 +49,13 @@ final class SetupChecklistAccessoryView: NSView {
     }
 
     func refresh(with status: StayHereSetupStatus) {
-        stackView.arrangedSubviews.forEach {
-            stackView.removeArrangedSubview($0)
+        checklistStackView.arrangedSubviews.forEach {
+            checklistStackView.removeArrangedSubview($0)
             $0.removeFromSuperview()
         }
 
         for item in StayHereSetupCheck.checklistItems(for: status) {
-            stackView.addArrangedSubview(makeRow(for: item))
+            checklistStackView.addArrangedSubview(makeRow(for: item))
         }
     }
 
@@ -47,10 +67,10 @@ final class SetupChecklistAccessoryView: NSView {
 
         let icon = NSImageView()
         icon.image = NSImage(
-            systemSymbolName: item.isSatisfied ? "checkmark.circle.fill" : "circle",
+            systemSymbolName: item.isSatisfied ? "checkmark.circle.fill" : "exclamationmark.circle.fill",
             accessibilityDescription: nil
         )
-        icon.contentTintColor = item.isSatisfied ? .systemGreen : .secondaryLabelColor
+        icon.contentTintColor = item.isSatisfied ? .systemGreen : .systemRed
         icon.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
             icon.widthAnchor.constraint(equalToConstant: 16),
@@ -86,16 +106,14 @@ final class SetupChecklistAccessoryView: NSView {
     private func fixTargetTag(for target: SetupChecklistItem.FixTarget) -> Int {
         switch target {
         case .accessibility: return 1
-        case .inputMonitoring: return 2
-        case .missionControlShortcuts: return 3
+        case .missionControlShortcuts: return 2
         }
     }
 
     private func fixTarget(for tag: Int) -> SetupChecklistItem.FixTarget? {
         switch tag {
         case 1: return .accessibility
-        case 2: return .inputMonitoring
-        case 3: return .missionControlShortcuts
+        case 2: return .missionControlShortcuts
         default: return nil
         }
     }

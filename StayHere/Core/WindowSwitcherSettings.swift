@@ -8,7 +8,7 @@ public final class WindowSwitcherSettings {
     private let key = "windowSwitcher.shortcut"
     private let showMinimizedWindowsKey = "windowSwitcher.showMinimizedWindows"
     private let showHiddenWindowsKey = "windowSwitcher.showHiddenWindows"
-    private let defaultShortcutText = "command+tab"
+    private let defaultShortcutText = "option+`"
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults

@@ -23,6 +23,10 @@ public final class Logger {
         write("ERROR", message)
     }
 
+    public func flush() {
+        queue.sync {}
+    }
+
     public func openLogsInFinder() {
         let url = logURL.deletingLastPathComponent()
         NSWorkspace.shared.open(url)

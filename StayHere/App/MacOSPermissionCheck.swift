@@ -4,10 +4,9 @@ import CoreGraphics
 
 struct MacOSPermissionStatus: Equatable {
     let accessibilityGranted: Bool
-    let inputMonitoringGranted: Bool
 
     var isSatisfied: Bool {
-        accessibilityGranted && inputMonitoringGranted
+        accessibilityGranted
     }
 
     var missingPermissionNames: [String] {
@@ -15,35 +14,28 @@ struct MacOSPermissionStatus: Equatable {
         if !accessibilityGranted {
             names.append("Accessibility")
         }
-        if !inputMonitoringGranted {
-            names.append("Input Monitoring")
-        }
         return names
     }
 }
 
 enum MacOSPermissionKind: CaseIterable {
     case accessibility
-    case inputMonitoring
 
     var displayName: String {
         switch self {
         case .accessibility: return "Accessibility"
-        case .inputMonitoring: return "Input Monitoring"
         }
     }
 
     var settingsPane: String {
         switch self {
         case .accessibility: return "Privacy_Accessibility"
-        case .inputMonitoring: return "Privacy_ListenEvent"
         }
     }
 
     func isGranted(in status: MacOSPermissionStatus) -> Bool {
         switch self {
         case .accessibility: return status.accessibilityGranted
-        case .inputMonitoring: return status.inputMonitoringGranted
         }
     }
 }
@@ -51,8 +43,7 @@ enum MacOSPermissionKind: CaseIterable {
 enum MacOSPermissionCheck {
     static func currentStatus() -> MacOSPermissionStatus {
         MacOSPermissionStatus(
-            accessibilityGranted: AXIsProcessTrusted(),
-            inputMonitoringGranted: CGPreflightListenEventAccess()
+            accessibilityGranted: AXIsProcessTrusted()
         )
     }
 

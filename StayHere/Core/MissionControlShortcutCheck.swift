@@ -2,19 +2,20 @@ import Foundation
 
 public struct MissionControlShortcutCheck {
     private struct Requirement: Equatable {
-        public let id: Int
-        public let name: String
-        public let keyCode: Int
+        let id: Int
+        let name: String
+        let keyCode: Int
+    }
 
-        public init(id: Int, name: String, keyCode: Int) {
-            self.id = id
-            self.name = name
-            self.keyCode = keyCode
-        }
+    public struct ItemStatus: Equatable {
+        public let displayName: String
+        public let isSatisfied: Bool
+        public let issueDescription: String?
     }
 
     public struct Result: Equatable {
         public let itemStatuses: [ItemStatus]
+        public let guidanceMessage: String
 
         public var missingDescriptions: [String] {
             itemStatuses.compactMap { $0.isSatisfied ? nil : $0.issueDescription }
@@ -25,21 +26,13 @@ public struct MissionControlShortcutCheck {
         }
 
         public var warningMessage: String? {
-            guard !isSatisfied else { return nil }
-            return "Space Switcher needs Mission Control shortcuts enabled: Control+1 through Control+9."
+            isSatisfied ? nil : guidanceMessage
         }
-    }
-
-    public struct ItemStatus: Equatable {
-        public let displayName: String
-        public let isSatisfied: Bool
-        public let issueDescription: String?
     }
 
     private static let requiredModifierMask = 262144
     private static let symbolicHotKeysKey = "AppleSymbolicHotKeys"
     private static let symbolicHotKeysPlistPath = "Library/Preferences/com.apple.symbolichotkeys.plist"
-
     private static let requiredShortcuts: [Requirement] = [
         Requirement(id: 118, name: "Desktop 1", keyCode: 18),
         Requirement(id: 119, name: "Desktop 2", keyCode: 19),
@@ -52,48 +45,103 @@ public struct MissionControlShortcutCheck {
         Requirement(id: 126, name: "Desktop 9", keyCode: 25),
     ]
 
-    public static func check(defaults: UserDefaults = .standard, preferencesURL: URL? = nil) -> Result {
-        let hotKeys = loadHotKeys(defaults: defaults, preferencesURL: preferencesURL) ?? [:]
-        let requirementStatuses = requiredShortcuts.map { requirementStatus(for: $0, hotKeys: hotKeys) }
-
-        return Result(itemStatuses: [aggregateStatus(for: requirementStatuses)])
-    }
-
-    private static func aggregateStatus(for requirementStatuses: [RequirementStatus]) -> ItemStatus {
-        let failingRequirements = requirementStatuses.compactMap { status in
-            status.isSatisfied ? nil : status.requirement.name
-        }
+    public static func check(
+        desktopCount: Int? = nil,
+        defaults: UserDefaults = .standard,
+        preferencesURL: URL? = nil
+    ) -> Result {
+        let hotKeys = loadHotKeys(
+            defaults: defaults,
+            preferencesURL: preferencesURL,
+            preferPersistentStore: shouldPreferPersistentStore(defaults: defaults, preferencesURL: preferencesURL)
+        ) ?? [:]
+        let requiredRequirements = requirements(forDesktopCount: desktopCount ?? currentDesktopCount())
+        let failingRequirements = requiredRequirements.filter { failureDescription(for: $0, hotKeys: hotKeys) != nil }
         let isSatisfied = failingRequirements.isEmpty
+        let shortcutRangeDescription = shortcutRangeDescription(forDesktopCount: requiredRequirements.count)
         let issueDescription = isSatisfied
             ? nil
-            : "Mission Control shortcuts Control+1 through Control+9 are not fully enabled"
+            : "Mission Control shortcuts \(shortcutRangeDescription) are not fully enabled"
 
-        return ItemStatus(
-            displayName: "Mission Control shortcuts: Control+1 through Control+9",
-            isSatisfied: isSatisfied,
-            issueDescription: issueDescription
+        return Result(
+            itemStatuses: [
+                ItemStatus(
+                    displayName: "Mission Control shortcuts: \(shortcutRangeDescription)",
+                    isSatisfied: isSatisfied,
+                    issueDescription: issueDescription
+                )
+            ],
+            guidanceMessage: "Space Switcher needs Mission Control shortcuts enabled: \(shortcutRangeDescription). Open System Settings > Keyboard > Keyboard Shortcuts > Mission Control."
         )
     }
 
-    private static func requirementStatus(for requirement: Requirement, hotKeys: [String: Any]) -> RequirementStatus {
-        guard let entry = hotKeys[String(requirement.id)] as? [String: Any] else {
-            return RequirementStatus(requirement: requirement, isSatisfied: false)
+    public static func checkShortcut(
+        forDesktopIndex desktopIndex: Int,
+        defaults: UserDefaults = .standard,
+        preferencesURL: URL? = nil
+    ) -> Result {
+        guard let requirement = requirement(forDesktopIndex: desktopIndex) else {
+            return Result(
+                itemStatuses: [
+                    ItemStatus(
+                        displayName: "Desktop \(desktopIndex)",
+                        isSatisfied: false,
+                        issueDescription: "Desktop \(desktopIndex) is unsupported"
+                    )
+                ],
+                guidanceMessage: "StayHere can switch only desktops 1 through 9 with Mission Control shortcuts."
+            )
         }
-        guard isEnabled(entry),
-              let parameters = parameters(entry),
-              parameters.count >= 3,
-              intValue(parameters[1]) == requirement.keyCode,
-              intValue(parameters[2]) == requiredModifierMask else {
-            return RequirementStatus(requirement: requirement, isSatisfied: false)
-        }
-        return RequirementStatus(requirement: requirement, isSatisfied: true)
+
+        let hotKeys = loadHotKeys(
+            defaults: defaults,
+            preferencesURL: preferencesURL,
+            preferPersistentStore: shouldPreferPersistentStore(defaults: defaults, preferencesURL: preferencesURL)
+        ) ?? [:]
+        let issueDescription = failureDescription(for: requirement, hotKeys: hotKeys)
+
+        return Result(
+            itemStatuses: [
+                ItemStatus(
+                    displayName: requirement.name,
+                    isSatisfied: issueDescription == nil,
+                    issueDescription: issueDescription
+                )
+            ],
+            guidanceMessage: "Desktop \(desktopIndex) cannot be switched because Mission Control shortcut Control+\(desktopIndex) is disabled or changed. Open System Settings > Keyboard > Keyboard Shortcuts > Mission Control and enable \"Switch to Desktop \(desktopIndex)\"."
+        )
     }
 
-    static func loadHotKeys(defaults: UserDefaults, preferencesURL: URL? = nil) -> [String: Any]? {
+    static func loadHotKeys(
+        defaults: UserDefaults,
+        preferencesURL: URL? = nil,
+        preferPersistentStore: Bool = false
+    ) -> [String: Any]? {
+        if preferPersistentStore,
+           let hotKeys = readHotKeysFromPersistentStore(preferencesURL: preferencesURL) {
+            return hotKeys
+        }
+
         if let hotKeys = defaults.dictionary(forKey: symbolicHotKeysKey) {
             return hotKeys
         }
 
+        if !preferPersistentStore,
+           let hotKeys = readHotKeysFromPersistentStore(preferencesURL: preferencesURL) {
+            return hotKeys
+        }
+
+        return nil
+    }
+
+    private static func shouldPreferPersistentStore(
+        defaults: UserDefaults,
+        preferencesURL: URL?
+    ) -> Bool {
+        preferencesURL != nil || defaults === UserDefaults.standard
+    }
+
+    private static func readHotKeysFromPersistentStore(preferencesURL: URL?) -> [String: Any]? {
         let url = preferencesURL ?? FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(symbolicHotKeysPlistPath)
         guard let data = try? Data(contentsOf: url) else { return nil }
@@ -102,6 +150,40 @@ public struct MissionControlShortcutCheck {
             return nil
         }
         return root[symbolicHotKeysKey] as? [String: Any]
+    }
+
+    static func currentDesktopCount(snapshot: CGSBridge.ManagedSnapshot = CGSBridge.managedSnapshot()) -> Int {
+        let detectedCount = snapshot.orderedIDsByDisplay.values.map(\.count).max()
+            ?? snapshot.spaces.count
+        return max(1, min(detectedCount, requiredShortcuts.count))
+    }
+
+    private static func failureDescription(for requirement: Requirement, hotKeys: [String: Any]) -> String? {
+        guard let entry = hotKeys[String(requirement.id)] as? [String: Any] else {
+            return "\(requirement.name) is missing"
+        }
+        guard isEnabled(entry),
+              let parameters = parameters(entry),
+              parameters.count >= 3,
+              intValue(parameters[1]) == requirement.keyCode,
+              intValue(parameters[2]) == requiredModifierMask else {
+            return "\(requirement.name) is not set to Control+\(displayDigit(for: requirement.keyCode))"
+        }
+        return nil
+    }
+
+    private static func requirement(forDesktopIndex desktopIndex: Int) -> Requirement? {
+        requiredShortcuts.first { displayDigit(for: $0.keyCode) == String(desktopIndex) }
+    }
+
+    private static func requirements(forDesktopCount desktopCount: Int) -> ArraySlice<Requirement> {
+        let count = max(1, min(desktopCount, requiredShortcuts.count))
+        return requiredShortcuts.prefix(count)
+    }
+
+    private static func shortcutRangeDescription(forDesktopCount desktopCount: Int) -> String {
+        let count = max(1, desktopCount)
+        return count == 1 ? "Control+1" : "Control+1 through Control+\(count)"
     }
 
     private static func isEnabled(_ entry: [String: Any]) -> Bool {
@@ -132,8 +214,18 @@ public struct MissionControlShortcutCheck {
         return nil
     }
 
-    private struct RequirementStatus {
-        let requirement: Requirement
-        let isSatisfied: Bool
+    private static func displayDigit(for keyCode: Int) -> String {
+        switch keyCode {
+        case 18: return "1"
+        case 19: return "2"
+        case 20: return "3"
+        case 21: return "4"
+        case 23: return "5"
+        case 22: return "6"
+        case 26: return "7"
+        case 28: return "8"
+        case 25: return "9"
+        default: return "?"
+        }
     }
 }

@@ -26,7 +26,6 @@ For the best experience, set up StayHere in this order:
 StayHere needs these permissions in System Settings:
 
 - **Accessibility** - used to focus apps, react to Dock interactions, and control space-related behavior.
-- **Input Monitoring** - used for global input handling, including the switcher and Dock click interception.
 
 If you change the app bundle identifier, signing identity, or reinstall the app under a different name, macOS may treat it as a different app and ask for permissions again.
 

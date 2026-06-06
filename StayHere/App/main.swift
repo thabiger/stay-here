@@ -14,14 +14,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let id = self?.registry.activeSpaceID else { return [] }
         return Set([id])
     }, switchToSpace: { [weak self] spaceID in
-        self?.registry.switchToSpace(spaceID)
+        self?.performSpaceSwitch(spaceID)
     }, onShowSingleWindowHint: { [weak self] message in
         self?.hudController.show(message: message)
     })
     private lazy var spaceSwitcherController = SpaceSwitcherController(
         registry: registry,
         switchToSpace: { [weak self] spaceID in
-            self?.registry.switchToSpace(spaceID)
+            self?.performSpaceSwitch(spaceID)
         }
     )
     private lazy var windowSwitcherController = WindowSwitcherController(
@@ -50,7 +50,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 NSApp.terminate(nil)
             },
             onSelectSpace: { [weak self] id in
-                self?.registry.switchToSpace(id)
+                self?.performSpaceSwitch(id)
             },
             onRenameSpace: { [weak self] id, name in
                 guard let self else { return }
@@ -100,6 +100,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        Logger.shared.info("application will terminate")
+        Logger.shared.flush()
         spaceSwitcherController.stop()
         windowSwitcherController.stop()
         activationController.stop()
@@ -205,11 +207,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func showSetupRequirementsIfNeeded() {
-        let shortcutConfiguration = MissionControlShortcutConfigurator.ensureControlNumberShortcutsEnabled()
-        if shortcutConfiguration.changed {
-            Logger.shared.info("setup auto-enabled=mission-control-shortcuts")
-        }
-
         let status = StayHereSetupStatus.current()
         guard !status.isSatisfied else {
             startEventDrivenControllers()
@@ -218,6 +215,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         Logger.shared.error("setup requirements missing=\(status.missingDescriptions.joined(separator: ", "))")
         presentSetupRequirementsWarning()
+    }
+
+    private func performSpaceSwitch(_ spaceID: Int) {
+        let result = registry.switchToSpace(spaceID)
+        switch result {
+        case .switched, .alreadyActive:
+            return
+        case .unknownSpace:
+            return
+        case .unsupportedDesktop(let index):
+            presentMissionControlShortcutWarning(
+                title: "Desktop \(index) can't be switched",
+                message: "StayHere can switch only desktops 1 through 9 using Mission Control shortcuts."
+            )
+        case .eventPostFailed(let index):
+            presentMissionControlShortcutWarning(
+                title: "Desktop \(index) couldn't be switched",
+                message: """
+                StayHere couldn't send the Mission Control shortcut for Desktop \(index). Check System Settings > Keyboard > Keyboard Shortcuts > Mission Control and make sure \"Switch to Desktop \(index)\" is enabled.
+
+                For the best experience, consider enabling shortcuts for all desktops to prevent this issue in the future.
+                """
+            )
+        case .switchUnmatched(let index, _, _):
+            presentMissionControlShortcutWarning(
+                title: "Desktop \(index) didn't switch",
+                message: """
+                StayHere sent the Mission Control shortcut for Desktop \(index), but macOS stayed on the current desktop.
+
+                This usually means "Switch to Desktop \(index)" is not active yet in System Settings, or macOS has not picked up a recently added desktop shortcut while StayHere was already running. Open System Settings > Keyboard > Keyboard Shortcuts > Mission Control and confirm "Switch to Desktop \(index)" is enabled.
+
+                If you just added or enabled that shortcut, quit and reopen StayHere once so it re-syncs with the updated Mission Control configuration.
+                """
+            )
+        }
     }
 
     private func presentSetupRequirementsWarning() {
@@ -235,41 +267,116 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             To do that, macOS needs to allow a few things:
 
             • Accessibility lets StayHere focus apps, read Dock state, and apply space-related behavior.
-            • Input Monitoring lets StayHere listen for global keyboard and mouse events, including the switchers and Dock click interception.
-            • Control+1 through Control+9 under Mission Control are the built-in shortcuts StayHere relies on for desktop switching.
+            • Control+<Number> under Mission Control are the built-in shortcuts StayHere relies on for desktop switching (this one is under Settings -> Keyboard -> Keyboard Shortcuts -> Mission Control).
 
-            Use the checklist below. A green check means that item is ready; click any missing item to jump to the right System Settings pane, make the change, then return here and click Recheck. StayHere will start once every required item is checked. If something still does not work after you grant access, quit and reopen StayHere.
-
-            StayHere goal is to deliver a focus-first experience to your workflow. 
-            Therefore we encourage you to run it with additional settings:
-            • Settings -> Desktop & Dock -> Automatically rearrange Spaces based on most recent use -> Off
-            • Settings -> Desktop & Dock -> When switching to an application, switch to a Space with open windows for the application -> Off (prevents to teleporting to other spaces trough the Spotlight)
-            • Settings -> Desktop & Dock -> Group windows by application -> On
-            • Settings -> Desktop & Dock -> Displays have separate Spaces -> Off (it messes with spaces location across displays, when they disconnect)
-            • Settings -> Desktop & Dock -> Show suggested and recent apps in Dock -> Off (you should only see what you need to make your work in your space done)
+            Use the checklist below. A green check means that item is ready; click any missing item to jump to the right System Settings pane, make the change, then return here and click Reload to relaunch StayHere. StayHere will start once every required item is checked.
             """
-            alert.addButton(withTitle: "Recheck")
-            alert.addButton(withTitle: "Quit")
+            alert.addButton(withTitle: "OK")
+            //alert.addButton(withTitle: "Quit")
 
-            let checklist = SetupChecklistAccessoryView(status: StayHereSetupStatus.current())
+            let bodyFont = NSFont.systemFont(ofSize: NSFont.systemFontSize)
+            let boldFont = NSFont.boldSystemFont(ofSize: NSFont.systemFontSize)
+            let supplementaryText = NSMutableAttributedString(
+                string: "StayHere goal is to deliver a focus-first experience to your workflow. Therefore we encourage you to run it with additional settings:\n",
+                attributes: [.font: boldFont]
+            )
+            supplementaryText.append(NSAttributedString(
+                string: """
+                • Settings -> Desktop & Dock -> Automatically rearrange Spaces based on most recent use -> Off
+                • Settings -> Desktop & Dock -> When switching to an application, switch to a Space with open windows for the application -> Off (prevents teleporting to other spaces through Spotlight)
+                • Settings -> Desktop & Dock -> Group windows by application -> On
+                • Settings -> Desktop & Dock -> Displays have separate Spaces -> Off (it messes with spaces location across displays, when they disconnect)
+                • Settings -> Desktop & Dock -> Show suggested and recent apps in Dock -> Off (you should only see what you need to make your work in your space done)
+
+                Please click OK when you've made the changes and start the app again.
+                """,
+                attributes: [.font: bodyFont]
+            ))
+
+            let checklist = SetupChecklistAccessoryView(
+                status: StayHereSetupStatus.current(),
+                supplementaryText: supplementaryText
+            )
             alert.accessoryView = checklist
             AppearanceManager.applyCurrentMode(to: [alert.window])
+            self.ensureAlertWidth(alert, minimumWidth: 720)
 
-            while true {
-                checklist.refresh(with: StayHereSetupStatus.current())
-                let response = alert.runModal()
-                if response == .alertSecondButtonReturn {
-                    NSApp.terminate(nil)
-                    return
-                }
-                if StayHereSetupStatus.current().isSatisfied {
-                    self.startEventDrivenControllers()
-                    break
-                }
+            checklist.refresh(with: StayHereSetupStatus.current())
+            let response = alert.runModal()
+            if response == .alertFirstButtonReturn {
+                NSApp.terminate(nil)
+                return
             }
-
-            self.demoteToAccessoryIfNoWindowsVisible()
+            //self.reloadApplication()
         }
+    }
+
+    private func reloadApplication() {
+        let bundleURL = Bundle.main.bundleURL
+        Logger.shared.info("reload requested bundleURL=\(bundleURL.path)")
+        let configuration = NSWorkspace.OpenConfiguration()
+        NSWorkspace.shared.openApplication(at: bundleURL, configuration: configuration) { _, error in
+            if let error {
+                Logger.shared.error("failed to reload app after setup changes: \(error.localizedDescription)")
+                Logger.shared.flush()
+                self.showReloadFailureAlert()
+                return
+            }
+            Logger.shared.info("reload launch request succeeded, terminating current instance")
+            Logger.shared.flush()
+            NSApp.terminate(nil)
+        }
+    }
+
+    private func showReloadFailureAlert() {
+        DispatchQueue.main.async {
+            let alert = NSAlert()
+            alert.alertStyle = .warning
+            alert.messageText = "StayHere couldn't reload"
+            alert.informativeText = "Quit and reopen StayHere to apply the macOS permission changes."
+            alert.addButton(withTitle: "OK")
+            AppearanceManager.applyCurrentMode(to: [alert.window])
+            self.ensureAlertWidth(alert, minimumWidth: 420)
+            _ = alert.runModal()
+        }
+    }
+
+    private func presentMissionControlShortcutWarning(title: String, message: String) {
+        DispatchQueue.main.async {
+            NSApp.activate(ignoringOtherApps: true)
+
+            let alert = NSAlert()
+            alert.alertStyle = .warning
+            alert.messageText = title
+            alert.informativeText = message
+            alert.addButton(withTitle: "Open System Settings")
+            alert.addButton(withTitle: "OK")
+            AppearanceManager.applyCurrentMode(to: [alert.window])
+            self.ensureAlertWidth(alert, minimumWidth: 560)
+
+            if alert.runModal() == .alertFirstButtonReturn {
+                self.openKeyboardShortcutsSettings()
+            }
+        }
+    }
+
+    private func openKeyboardShortcutsSettings() {
+        if let deepLink = URL(string: "x-apple.systempreferences:com.apple.Keyboard-Settings.extension?KeyboardShortcuts"),
+           NSWorkspace.shared.open(deepLink) {
+            return
+        }
+
+        let settingsURL = URL(fileURLWithPath: "/System/Applications/System Settings.app")
+        NSWorkspace.shared.open(settingsURL)
+    }
+
+    private func ensureAlertWidth(_ alert: NSAlert, minimumWidth: CGFloat) {
+        let window = alert.window
+        window.layoutIfNeeded()
+        var frame = window.frame
+        guard frame.width < minimumWidth else { return }
+        frame.size.width = minimumWidth
+        window.setFrame(frame, display: false)
     }
 }
 

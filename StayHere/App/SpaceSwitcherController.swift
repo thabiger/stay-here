@@ -239,12 +239,14 @@ final class SpaceSwitcherController {
 
     private func resizePanel(for snapshot: SpaceSwitcherSnapshot) {
         guard let panelPair else { return }
-        let width: CGFloat = 420
-        let rowHeight: CGFloat = 34
-        let headerHeight: CGFloat = 54
-        let maxVisibleRows = min(snapshot.items.count, 8)
-        let height = headerHeight + CGFloat(maxVisibleRows) * rowHeight + 20
         let screenFrame = NSScreen.main?.visibleFrame ?? NSScreen.screens.first?.visibleFrame ?? .zero
+        let width = min(max(screenFrame.width * 0.32, 420), 560)
+        let rowHeight: CGFloat = 38
+        let headerHeight: CGFloat = 54
+        let listPadding: CGFloat = 20
+        let visibleRows = max(snapshot.items.count, 1)
+        let desiredHeight = headerHeight + CGFloat(visibleRows) * rowHeight + listPadding
+        let height = min(desiredHeight, max(screenFrame.height - 80, headerHeight + rowHeight + listPadding))
         let frame = NSRect(
             x: screenFrame.midX - width / 2,
             y: screenFrame.midY - height / 2 + 30,

@@ -36,4 +36,4 @@ If you provide `--identity`, the scripts sign the bundle with hardened runtime e
 If you do not, the scripts still ad hoc sign the app by default so the bundle has a real signature for local testing.
 Use `--no-sign` only if you explicitly want an unsigned bundle.
 
-If you change the bundle identifier or signing identity, macOS will treat it like a different app and you may need to re-grant Accessibility and Input Monitoring permissions in System Settings.
+If you change the bundle identifier or signing identity, macOS will treat it like a different app and you may need to re-grant Accessibility permissions in System Settings.

@@ -3,6 +3,15 @@ import Combine
 import AppKit
 
 public final class SpaceRegistry: ObservableObject {
+    public enum SwitchResult: Equatable {
+        case switched
+        case alreadyActive
+        case unknownSpace
+        case unsupportedDesktop(index: Int)
+        case eventPostFailed(index: Int)
+        case switchUnmatched(index: Int, expectedSpaceID: Int, actualSpaceID: Int?)
+    }
+
     @Published public private(set) var spaces: [SpaceIdentity] = []
     @Published public private(set) var activeSpaceID: Int?
     @Published public private(set) var labels: [Int: SpaceLabel] = [:]
@@ -173,11 +182,11 @@ public final class SpaceRegistry: ObservableObject {
         activeNameSummary()
     }
 
-    public func switchToSpace(_ spaceID: Int) {
+    public func switchToSpace(_ spaceID: Int) -> SwitchResult {
         let before = activeSpaceID
         if before == spaceID {
             Logger.shared.info("switch-space requested=\(spaceID) skipped=already-active")
-            return
+            return .alreadyActive
         }
 
         let snapshot = CGSBridge.managedSnapshot()
@@ -186,7 +195,7 @@ public final class SpaceRegistry: ObservableObject {
               let nativeOrder = nativeOrderByDisplay[display] ?? snapshot.orderedIDsByDisplay[display],
               let shortcutIndex = nativeOrder.firstIndex(of: spaceID).map({ $0 + 1 }) else {
             Logger.shared.error("switch-space requested=\(spaceID) failed=unknown-space")
-            return
+            return .unknownSpace
         }
 
         guard shortcutIndex <= 9 else {
@@ -194,19 +203,35 @@ public final class SpaceRegistry: ObservableObject {
                 "switch-space requested=\(spaceID) failed=desktop-\(shortcutIndex)-no-shortcut " +
                 "(only Ctrl+1…9 are supported)"
             )
-            return
+            return .unsupportedDesktop(index: shortcutIndex)
         }
 
         let posted = CGSBridge.switchByDesktopShortcut(index: shortcutIndex)
+        guard posted else {
+            Logger.shared.error("switch-space requested=\(spaceID) failed=event-post shortcutIndex=\(shortcutIndex)")
+            return .eventPostFailed(index: shortcutIndex)
+        }
+
         Logger.shared.info(
             "switch-space requested=\(spaceID) before=\(before ?? -1) " +
             "shortcutIndex=\(shortcutIndex) posted=\(posted)"
         )
 
-        refreshSpacesSoon()
+        let matched = verifySwitchResult(expectedSpaceID: spaceID)
         Logger.shared.info(
-            "switch-space result requested=\(spaceID) after=\(activeSpaceID ?? -1) matched=\(activeSpaceID == spaceID)"
+            "switch-space result requested=\(spaceID) after=\(activeSpaceID ?? -1) matched=\(matched)"
         )
+        guard matched else {
+            Logger.shared.error(
+                "switch-space requested=\(spaceID) failed=shortcut-posted-but-unmatched " +
+                "shortcutIndex=\(shortcutIndex) actual=\(activeSpaceID ?? -1)"
+            )
+            refreshSpacesSoon()
+            return .switchUnmatched(index: shortcutIndex, expectedSpaceID: spaceID, actualSpaceID: activeSpaceID)
+        }
+
+        refreshSpacesSoon()
+        return .switched
     }
 
     public func switchToNextSpace() {
@@ -282,6 +307,22 @@ public final class SpaceRegistry: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + refreshRetryInterval, execute: task)
     }
 
+    private func verifySwitchResult(expectedSpaceID: Int) -> Bool {
+        if activeSpaceID == expectedSpaceID {
+            return true
+        }
+
+        for _ in 0..<refreshRetryLimit {
+            RunLoop.current.run(until: Date().addingTimeInterval(refreshRetryInterval))
+            refreshSpaces()
+            if activeSpaceID == expectedSpaceID {
+                return true
+            }
+        }
+
+        return false
+    }
+
     private func switchToAdjacentSpace(offset: Int) {
         let ordered = orderedSpaceIDs()
         let target = offset > 0
@@ -291,7 +332,7 @@ public final class SpaceRegistry: ObservableObject {
             Logger.shared.info("switch-space cycle skipped=empty")
             return
         }
-        switchToSpace(target)
+        _ = switchToSpace(target)
     }
 
     public func persistNow() {

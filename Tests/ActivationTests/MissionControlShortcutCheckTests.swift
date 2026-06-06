@@ -8,7 +8,7 @@ final class MissionControlShortcutCheckTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
         defaults.set(makeHotKeys(enabledIDs: [118, 119, 120, 121, 122, 123, 124, 125, 126]), forKey: "AppleSymbolicHotKeys")
 
-        let result = MissionControlShortcutCheck.check(defaults: defaults)
+        let result = MissionControlShortcutCheck.check(desktopCount: 9, defaults: defaults)
 
         XCTAssertTrue(result.isSatisfied)
         XCTAssertNil(result.warningMessage)
@@ -27,7 +27,7 @@ final class MissionControlShortcutCheckTests: XCTestCase {
             forKey: "AppleSymbolicHotKeys"
         )
 
-        let result = MissionControlShortcutCheck.check(defaults: defaults)
+        let result = MissionControlShortcutCheck.check(desktopCount: 9, defaults: defaults)
 
         XCTAssertFalse(result.isSatisfied)
         XCTAssertEqual(
@@ -50,10 +50,80 @@ final class MissionControlShortcutCheckTests: XCTestCase {
         let data = try PropertyListSerialization.data(fromPropertyList: root, format: .xml, options: 0)
         try data.write(to: tempURL, options: .atomic)
 
-        let result = MissionControlShortcutCheck.check(preferencesURL: tempURL)
+        let result = MissionControlShortcutCheck.check(desktopCount: 9, preferencesURL: tempURL)
 
         XCTAssertTrue(result.isSatisfied)
         XCTAssertNil(result.warningMessage)
+    }
+
+    func testMissionControlShortcutCheckOnlyRequiresExistingDesktops() {
+        let suiteName = "MissionControlShortcutCheckTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defaults.set(makeHotKeys(enabledIDs: [118, 119, 120]), forKey: "AppleSymbolicHotKeys")
+
+        let result = MissionControlShortcutCheck.check(desktopCount: 3, defaults: defaults)
+
+        XCTAssertTrue(result.isSatisfied)
+        XCTAssertNil(result.warningMessage)
+        XCTAssertEqual(result.itemStatuses.first?.displayName, "Mission Control shortcuts: Control+1 through Control+3")
+    }
+
+    func testDesktopShortcutCheckReportsSpecificMissingDesktopShortcut() {
+        let suiteName = "MissionControlShortcutCheckTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defaults.set(makeHotKeys(enabledIDs: [118, 119, 120, 122, 123]), forKey: "AppleSymbolicHotKeys")
+
+        let result = MissionControlShortcutCheck.checkShortcut(forDesktopIndex: 4, defaults: defaults)
+
+        XCTAssertFalse(result.isSatisfied)
+        XCTAssertEqual(result.missingDescriptions, ["Desktop 4 is not set to Control+4"])
+        XCTAssertEqual(
+            result.warningMessage,
+            "Desktop 4 cannot be switched because Mission Control shortcut Control+4 is disabled or changed. Open System Settings > Keyboard > Keyboard Shortcuts > Mission Control and enable \"Switch to Desktop 4\"."
+        )
+    }
+
+    func testDesktopShortcutCheckPassesWhenSpecificDesktopShortcutIsEnabled() {
+        let suiteName = "MissionControlShortcutCheckTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defaults.set(makeHotKeys(enabledIDs: [118, 119, 120, 121, 122, 123]), forKey: "AppleSymbolicHotKeys")
+
+        let result = MissionControlShortcutCheck.checkShortcut(forDesktopIndex: 4, defaults: defaults)
+
+        XCTAssertTrue(result.isSatisfied)
+        XCTAssertNil(result.warningMessage)
+    }
+
+    func testDesktopShortcutCheckPrefersPreferencesFileOverStaleDefaultsSnapshot() throws {
+        let suiteName = "MissionControlShortcutCheckTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defaults.set(
+            makeHotKeys(enabledIDs: [118, 119, 120, 121, 122, 123, 124, 125, 126]),
+            forKey: "AppleSymbolicHotKeys"
+        )
+
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MissionControlShortcutCheckTests.\(UUID().uuidString).plist")
+        defer { try? FileManager.default.removeItem(at: tempURL) }
+
+        let root: [String: Any] = [
+            "AppleSymbolicHotKeys": makeHotKeys(enabledIDs: [118, 119, 120, 121, 122, 123, 124])
+        ]
+        let data = try PropertyListSerialization.data(fromPropertyList: root, format: .xml, options: 0)
+        try data.write(to: tempURL, options: .atomic)
+
+        let result = MissionControlShortcutCheck.checkShortcut(
+            forDesktopIndex: 8,
+            defaults: defaults,
+            preferencesURL: tempURL
+        )
+
+        XCTAssertFalse(result.isSatisfied)
+        XCTAssertEqual(result.missingDescriptions, ["Desktop 8 is not set to Control+8"])
     }
 
     private func makeHotKeys(

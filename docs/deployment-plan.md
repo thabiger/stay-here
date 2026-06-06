@@ -2,7 +2,7 @@
 
 This plan covers the release, deployment, and update path for StayHere.
 
-The target distribution model is a direct-download macOS app distributed through GitHub Releases. The app is not intended for the Mac App Store because the full feature set depends on Accessibility, Input Monitoring, and private CGS APIs.
+The target distribution model is a direct-download macOS app distributed through GitHub Releases. The app is not intended for the Mac App Store because the full feature set depends on Accessibility and private CGS APIs.
 
 ## Goals
 
@@ -65,7 +65,7 @@ Enable GitHub repository security features:
 Document security-sensitive behavior in `README.md`:
 
 - Why Accessibility is needed.
-- Why Input Monitoring is needed.
+- Which optional features depend on global input capture.
 - Why Automation may be requested.
 - Why the app is distributed outside the Mac App Store.
 - What private CGS APIs are used for and what risks they carry.
@@ -91,7 +91,7 @@ Implementation notes:
 
 - Keep the Debug menu available for development and phase gates.
 - Gate release-only behavior with build configuration, an environment value, or a small runtime setting.
-- Avoid changing the bundle identifier after users have granted Accessibility or Input Monitoring permissions.
+- Avoid changing the bundle identifier after users have granted Accessibility permissions.
 
 Exit criteria:
 

@@ -23,7 +23,7 @@ Options:
 
 Environment:
   APP_NAME, TARGET_NAME, BUNDLE_ID, APP_VERSION, BUILD_NUMBER, OUTPUT_DIR,
-  CODESIGN_IDENTITY, ENTITLEMENTS_PATH
+  CODESIGN_IDENTITY, ENTITLEMENTS_PATH, APP_ICON_SOURCE
 EOF
 }
 
@@ -37,6 +37,7 @@ CODESIGN_IDENTITY="${CODESIGN_IDENTITY:-}"
 ENTITLEMENTS_PATH="${ENTITLEMENTS_PATH:-}"
 CLEAN_OUTPUT=1
 SIGN_MODE="adhoc"
+APP_ICON_SOURCE="${APP_ICON_SOURCE:-Assets/stayhere_logo_recreated.svg}"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -96,6 +97,49 @@ done
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
+generate_app_icon() {
+    local source_file="$1"
+    local destination_file="$2"
+    local master_png
+
+    if [[ ! -f "$source_file" ]]; then
+        return 1
+    fi
+
+    if ! command -v rsvg-convert >/dev/null 2>&1; then
+        echo "Missing required tool: rsvg-convert" >&2
+        return 1
+    fi
+
+    if ! command -v python3 >/dev/null 2>&1; then
+        echo "Missing required tool: python3" >&2
+        return 1
+    fi
+
+    master_png="$(mktemp "${TMPDIR:-/tmp}/stayhere.icon.XXXXXX.png")"
+    trap 'rm -f "$master_png"' RETURN
+
+    rsvg-convert -w 1024 -h 1024 "$source_file" -o "$master_png"
+
+    python3 - "$master_png" "$destination_file" <<'PY'
+import sys
+
+try:
+    from PIL import Image
+except ImportError as exc:
+    raise SystemExit(f"Missing required Python package: Pillow ({exc})")
+
+source_path, destination_path = sys.argv[1], sys.argv[2]
+sizes = [(16, 16), (32, 32), (128, 128), (256, 256), (512, 512), (1024, 1024)]
+
+with Image.open(source_path) as image:
+    image.save(destination_path, format="ICNS", sizes=sizes)
+PY
+
+    rm -f "$master_png"
+    trap - RETURN
+}
+
 if [[ -z "$BUILD_NUMBER" ]]; then
     BUILD_NUMBER="$(git rev-parse --short HEAD 2>/dev/null || echo 1)"
 fi
@@ -120,10 +164,15 @@ app_bundle="$OUTPUT_DIR/$APP_NAME.app"
 contents="$app_bundle/Contents"
 macos_dir="$contents/MacOS"
 resources_dir="$contents/Resources"
+icon_file="$resources_dir/$APP_NAME.icns"
 
 mkdir -p "$macos_dir" "$resources_dir"
 cp "$binary" "$macos_dir/$APP_NAME"
 chmod +x "$macos_dir/$APP_NAME"
+
+if [[ -f "$APP_ICON_SOURCE" ]]; then
+    generate_app_icon "$APP_ICON_SOURCE" "$icon_file"
+fi
 
 cat > "$contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -144,6 +193,8 @@ cat > "$contents/Info.plist" <<EOF
   <string>$APP_VERSION</string>
   <key>CFBundleVersion</key>
   <string>$BUILD_NUMBER</string>
+  <key>CFBundleIconFile</key>
+  <string>$APP_NAME</string>
   <key>LSUIElement</key>
   <true/>
 </dict>

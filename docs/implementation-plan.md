@@ -107,7 +107,7 @@ Shared Swift package / static lib:
 **Permissions (all required for full feature set):**
 
 - Accessibility (AX for focus + Dock element hit-testing).
-- Input Monitoring (global mouse event tap for Dock clicks).
+- Optional global input capture for Dock click interception.
 - Automation (optional AppleScript for "New Window").
 
 **Distribution:** Developer ID signed + notarized `.dmg`; **not** App Store. Private CGS from your process is enough for move/focus on many systems.
