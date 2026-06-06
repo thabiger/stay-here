@@ -154,7 +154,7 @@ final class SpaceSwitcherController {
 
     private func moveSelection(offset: Int) {
         guard var session else { return }
-        let ordered = registry.orderedSpaceIDs()
+        let ordered = registry.switchableOrderedSpaceIDs()
         let currentSelection = session.selectedSpaceID ?? session.startingSpaceID
         let nextSelection = offset > 0
             ? SpaceCycling.nextSpaceID(currentSpaceID: currentSelection, orderedSpaceIDs: ordered)
@@ -257,14 +257,16 @@ final class SpaceSwitcherController {
     }
 
     private func buildSnapshot() -> SpaceSwitcherSnapshot {
-        let orderedIDs = registry.orderedSpaceIDs()
+        let orderedIDs = registry.switchableOrderedSpaceIDs()
         let selectedID = session?.selectedSpaceID ?? registry.activeSpaceID
         let items = orderedIDs.map { id in
-            SpaceSwitcherItem(
+            let isEnabled = registry.isSwitchableSpace(id)
+            return SpaceSwitcherItem(
                 id: id,
-                title: "\(registry.namespaceLabel(for: id))  \(registry.name(for: id))",
+                title: "\(registry.namespaceLabel(for: id))  \(registry.displayName(for: id))",
                 isSelected: id == selectedID,
-                isCurrent: id == registry.activeSpaceID
+                isCurrent: id == registry.activeSpaceID,
+                isEnabled: isEnabled
             )
         }
         return SpaceSwitcherSnapshot(items: items, title: "Space Switcher")

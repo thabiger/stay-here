@@ -224,6 +224,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         case .unknownSpace:
             return
+        case .unsupportedSpaceKind:
+            presentMissionControlShortcutWarning(
+                title: "This space can't be switched",
+                message: """
+                StayHere can switch regular desktops through Mission Control shortcuts, but macOS does not expose an equivalent shortcut for fullscreen app spaces.
+
+                The space will stay visible in StayHere, but it is currently informational only unless you are already on it.
+                """
+            )
         case .unsupportedDesktop(let index):
             presentMissionControlShortcutWarning(
                 title: "Desktop \(index) can't be switched",

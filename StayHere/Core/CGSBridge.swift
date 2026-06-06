@@ -57,7 +57,14 @@ public enum CGSBridge {
             for space in managed {
                 if let spaceID = parsedSpaceID(from: space) {
                     ordered.append(spaceID)
-                    spaces.append(SpaceIdentity(id: spaceID, display: display))
+                    spaces.append(
+                        SpaceIdentity(
+                            id: spaceID,
+                            display: display,
+                            kind: parsedSpaceKind(from: space),
+                            systemName: parsedSpaceName(from: space)
+                        )
+                    )
                 }
             }
             orderedIDsByDisplay[display] = ordered
@@ -126,6 +133,48 @@ public enum CGSBridge {
         }
         if let managed = payload["ManagedSpaceID"] as? String, let value = Int(managed) {
             return value
+        }
+        return nil
+    }
+
+    private static func parsedSpaceKind(from payload: [String: Any]) -> SpaceKind {
+        if let type = payload["type"] as? NSNumber {
+            switch type.intValue {
+            case 0:
+                return .desktop
+            case 4:
+                return .fullscreen
+            default:
+                return .unknown
+            }
+        }
+        if let tileLayoutManager = payload["TileLayoutManager"] as? [String: Any],
+           tileLayoutManager.isEmpty == false {
+            return .fullscreen
+        }
+        return .unknown
+    }
+
+    private static func parsedSpaceName(from payload: [String: Any]) -> String? {
+        let candidates: [Any?] = [
+            payload["name"],
+            payload["Name"],
+            payload["title"],
+            payload["Title"]
+        ]
+        for candidate in candidates {
+            if let value = (candidate as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
+               value.isEmpty == false {
+                return value
+            }
+        }
+        if let tileLayoutManager = payload["TileLayoutManager"] as? [String: Any] {
+            for key in ["name", "Name", "title", "Title"] {
+                if let value = (tileLayoutManager[key] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
+                   value.isEmpty == false {
+                    return value
+                }
+            }
         }
         return nil
     }

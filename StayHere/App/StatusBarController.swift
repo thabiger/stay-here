@@ -58,14 +58,15 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         guard !isEditingSpaceName else { return }
         self.registry = registry
         menu.removeAllItems()
-        let spaceIDs = registry.orderedSpaceIDs()
+        let spaceIDs = registry.switchableOrderedSpaceIDs()
         for id in spaceIDs {
             let row = NSMenuItem(title: "", action: nil, keyEquivalent: "")
             row.representedObject = NSNumber(value: id)
+            row.isEnabled = registry.isSwitchableSpace(id)
             row.view = SpaceMenuRowView(
                 spaceID: id,
                 namespaceLabel: registry.namespaceLabel(for: id),
-                name: registry.name(for: id),
+                name: registry.displayName(for: id),
                 controller: self
             )
             menu.addItem(row)
@@ -95,6 +96,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
     fileprivate func selectSpace(_ spaceID: Int) {
         guard !isEditingSpaceName else { return }
+        guard registry?.isSwitchableSpace(spaceID) == true else { return }
         // Defer until menu tracking ends; Ctrl+N shortcuts are ignored while the menu is open.
         menu.cancelTracking()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in

@@ -7,6 +7,7 @@ public final class SpaceRegistry: ObservableObject {
         case switched
         case alreadyActive
         case unknownSpace
+        case unsupportedSpaceKind
         case unsupportedDesktop(index: Int)
         case eventPostFailed(index: Int)
         case switchUnmatched(index: Int, expectedSpaceID: Int, actualSpaceID: Int?)
@@ -74,10 +75,16 @@ public final class SpaceRegistry: ObservableObject {
             reconcileUnknownSpaces()
         }
 
-        if snapshot.orderedIDsByDisplay != nativeOrderByDisplay {
-            nativeOrderByDisplay = snapshot.orderedIDsByDisplay
+        let desktopNativeOrder = snapshot.orderedIDsByDisplay.mapValues { order in
+            order.filter { spaceID in
+                snapshot.spaces.first(where: { $0.id == spaceID })?.kind == .desktop
+            }
+        }
+
+        if desktopNativeOrder != nativeOrderByDisplay {
+            nativeOrderByDisplay = desktopNativeOrder
             var numbers: [Int: Int] = [:]
-            for order in snapshot.orderedIDsByDisplay.values {
+            for order in desktopNativeOrder.values {
                 for (idx, spaceID) in order.enumerated() {
                     numbers[spaceID] = idx + 1
                 }
@@ -104,9 +111,33 @@ public final class SpaceRegistry: ObservableObject {
         labels[spaceID]?.name ?? "Unnamed space"
     }
 
+    public func displayName(for spaceID: Int) -> String {
+        let customName = name(for: spaceID)
+        if customName != "Unnamed space" {
+            return customName
+        }
+        return space(for: spaceID)?.systemName ?? customName
+    }
+
     public func namespaceLabel(for spaceID: Int) -> String {
-        guard let number = desktopNumberBySpaceID[spaceID] else { return "Desktop ?" }
-        return "Desktop \(number)"
+        switch space(for: spaceID)?.kind {
+        case .desktop:
+            guard let number = desktopNumberBySpaceID[spaceID] else { return "Desktop ?" }
+            return "Desktop \(number)"
+        case .fullscreen:
+            return "Full Screen"
+        case .unknown, .none:
+            return "Space"
+        }
+    }
+
+    public func space(for spaceID: Int) -> SpaceIdentity? {
+        spaces.first(where: { $0.id == spaceID })
+    }
+
+    public func isSwitchableSpace(_ spaceID: Int) -> Bool {
+        guard let space = space(for: spaceID) else { return false }
+        return space.kind == .desktop
     }
 
     public func rename(spaceID: Int, name: String) {
@@ -158,6 +189,10 @@ public final class SpaceRegistry: ObservableObject {
         return ids
     }
 
+    public func switchableOrderedSpaceIDs() -> [Int] {
+        orderedSpaceIDs().filter(isSwitchableSpace)
+    }
+
     public func snapshotJSON() -> String {
         let snap = SpaceStateSnapshot(
             timestampISO8601: ISO8601DateFormatter().string(from: Date()),
@@ -175,7 +210,7 @@ public final class SpaceRegistry: ObservableObject {
     }
 
     public func activeNameSummary() -> String {
-        activeSpaceID.map { name(for: $0) } ?? "Unnamed space"
+        activeSpaceID.map { displayName(for: $0) } ?? "Unnamed space"
     }
 
     public func activeName() -> String {
@@ -187,6 +222,11 @@ public final class SpaceRegistry: ObservableObject {
         if before == spaceID {
             Logger.shared.info("switch-space requested=\(spaceID) skipped=already-active")
             return .alreadyActive
+        }
+
+        guard isSwitchableSpace(spaceID) else {
+            Logger.shared.error("switch-space requested=\(spaceID) failed=unsupported-space-kind")
+            return .unsupportedSpaceKind
         }
 
         let snapshot = CGSBridge.managedSnapshot()

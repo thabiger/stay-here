@@ -153,8 +153,15 @@ public struct MissionControlShortcutCheck {
     }
 
     static func currentDesktopCount(snapshot: CGSBridge.ManagedSnapshot = CGSBridge.managedSnapshot()) -> Int {
-        let detectedCount = snapshot.orderedIDsByDisplay.values.map(\.count).max()
-            ?? snapshot.spaces.count
+        let desktopIDs = Set(
+            snapshot.spaces
+                .filter { $0.kind == .desktop }
+                .map(\.id)
+        )
+        let detectedCount = snapshot.orderedIDsByDisplay.values
+            .map { order in order.filter { desktopIDs.contains($0) }.count }
+            .max()
+            ?? desktopIDs.count
         return max(1, min(detectedCount, requiredShortcuts.count))
     }
 

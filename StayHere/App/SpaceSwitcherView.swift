@@ -6,6 +6,7 @@ struct SpaceSwitcherItem: Identifiable, Equatable {
     let title: String
     let isSelected: Bool
     let isCurrent: Bool
+    let isEnabled: Bool
 }
 
 struct SpaceSwitcherSnapshot: Equatable {
@@ -55,6 +56,8 @@ struct SpaceSwitcherView: View {
             rowContent(for: item)
         }
         .buttonStyle(.plain)
+        .disabled(item.isEnabled == false)
+        .opacity(item.isEnabled ? 1 : 0.58)
     }
 
     private func rowContent(for item: SpaceSwitcherItem) -> some View {
@@ -64,6 +67,11 @@ struct SpaceSwitcherView: View {
                 .foregroundStyle(item.isSelected ? .white : .primary)
                 .lineLimit(1)
                 .truncationMode(.tail)
+            if item.isEnabled == false {
+                Text("Unavailable")
+                    .font(.system(size: 11.5, weight: .medium))
+                    .foregroundStyle(item.isSelected ? .white.opacity(0.9) : .secondary)
+            }
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 12)
