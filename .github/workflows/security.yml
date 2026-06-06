@@ -1,0 +1,65 @@
+name: Security
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  gitleaks:
+    name: Gitleaks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Scan for secrets
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  semgrep:
+    name: Semgrep
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    container:
+      image: semgrep/semgrep
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Scan source code
+        run: semgrep scan --config auto --error
+
+  trivy:
+    name: Trivy
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Trivy
+        uses: aquasecurity/setup-trivy@v0.2.3
+        with:
+          version: latest
+
+      - name: Scan repository
+        run: |
+          set -euo pipefail
+          trivy fs --skip-dirs .git --scanners vuln,misconfig,secret,license --severity HIGH,CRITICAL --exit-code 1 .
