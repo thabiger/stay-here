@@ -34,7 +34,7 @@ jobs:
   semgrep:
     name: Semgrep
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     container:
       image: semgrep/semgrep
 
@@ -48,7 +48,7 @@ jobs:
   trivy:
     name: Trivy
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
 
     steps:
       - name: Check out repository
