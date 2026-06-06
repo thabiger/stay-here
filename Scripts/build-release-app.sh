@@ -103,17 +103,17 @@ generate_app_icon() {
     local master_png
 
     if [[ ! -f "$source_file" ]]; then
-        return 1
+        return 0
     fi
 
     if ! command -v rsvg-convert >/dev/null 2>&1; then
-        echo "Missing required tool: rsvg-convert" >&2
-        return 1
+        echo "Skipping custom app icon because rsvg-convert is not available."
+        return 0
     fi
 
     if ! command -v python3 >/dev/null 2>&1; then
-        echo "Missing required tool: python3" >&2
-        return 1
+        echo "Skipping custom app icon because python3 is not available."
+        return 0
     fi
 
     master_png="$(mktemp "${TMPDIR:-/tmp}/stayhere.icon.XXXXXX.png")"
@@ -121,13 +121,14 @@ generate_app_icon() {
 
     rsvg-convert -w 1024 -h 1024 "$source_file" -o "$master_png"
 
-    python3 - "$master_png" "$destination_file" <<'PY'
+    if ! python3 - "$master_png" "$destination_file" <<'PY'
 import sys
 
 try:
     from PIL import Image
 except ImportError as exc:
-    raise SystemExit(f"Missing required Python package: Pillow ({exc})")
+    print(f"Skipping custom app icon because Pillow is unavailable: {exc}")
+    raise SystemExit(0)
 
 source_path, destination_path = sys.argv[1], sys.argv[2]
 sizes = [(16, 16), (32, 32), (128, 128), (256, 256), (512, 512), (1024, 1024)]
@@ -135,6 +136,12 @@ sizes = [(16, 16), (32, 32), (128, 128), (256, 256), (512, 512), (1024, 1024)]
 with Image.open(source_path) as image:
     image.save(destination_path, format="ICNS", sizes=sizes)
 PY
+    then
+        echo "Skipping custom app icon because icon conversion failed."
+        rm -f "$master_png"
+        trap - RETURN
+        return 0
+    fi
 
     rm -f "$master_png"
     trap - RETURN
@@ -174,6 +181,13 @@ if [[ -f "$APP_ICON_SOURCE" ]]; then
     generate_app_icon "$APP_ICON_SOURCE" "$icon_file"
 fi
 
+if [[ -f "$icon_file" ]]; then
+    icon_plist_entry="  <key>CFBundleIconFile</key>
+  <string>$APP_NAME</string>"
+else
+    icon_plist_entry=""
+fi
+
 cat > "$contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -193,8 +207,7 @@ cat > "$contents/Info.plist" <<EOF
   <string>$APP_VERSION</string>
   <key>CFBundleVersion</key>
   <string>$BUILD_NUMBER</string>
-  <key>CFBundleIconFile</key>
-  <string>$APP_NAME</string>
+${icon_plist_entry}
   <key>LSUIElement</key>
   <true/>
 </dict>
