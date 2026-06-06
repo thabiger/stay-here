@@ -2,15 +2,15 @@ import XCTest
 import Core
 
 final class WindowSwitcherSettingsTests: XCTestCase {
-    func testDefaultShortcutIsCommandTab() {
+    func testDefaultShortcutIsOptionBacktick() {
         let suiteName = "WindowSwitcherSettingsTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
 
         let settings = WindowSwitcherSettings(defaults: defaults)
 
-        XCTAssertEqual(settings.shortcutText, "command+tab")
-        XCTAssertEqual(settings.shortcut.displayString, "command+tab")
+        XCTAssertEqual(settings.shortcutText, "option+`")
+        XCTAssertEqual(settings.shortcut.displayString, "option+backtick")
         XCTAssertFalse(settings.showMinimizedWindows)
         XCTAssertFalse(settings.showHiddenWindows)
     }

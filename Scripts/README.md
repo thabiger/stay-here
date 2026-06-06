@@ -29,6 +29,14 @@ This writes artifacts into `dist/` by default:
 - `dist/StayHere.app`
 - `dist/StayHere.zip`
 - `dist/StayHere.dmg`
+- `dist/StayHere.zip.sha256`
+- `dist/StayHere.dmg.sha256`
+
+The packaging script derives release metadata when it can:
+
+- `APP_VERSION` comes from the current git tag when the checkout is on a release tag like `v1.2.3`.
+- `BUILD_NUMBER` comes from `GITHUB_RUN_NUMBER`, then `GITHUB_SHA`, then the short git commit SHA.
+- The app bundle is verified after build, before the ZIP and DMG are created.
 
 ## Signing
 

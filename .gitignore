@@ -4,6 +4,7 @@
 Packages/
 build/
 dist/
+dist-test/
 *.xcodeproj/project.xcworkspace/xcuserdata/
 *.xcodeproj/xcuserdata/
 *.xcworkspace/xcuserdata/
@@ -50,3 +51,5 @@ Icon
 *.log
 tmp/
 temp/
+
+.private/

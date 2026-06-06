@@ -77,12 +77,14 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         }
         menu.addItem(NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ",").withTarget(self))
 
-        let debug = NSMenuItem(title: "Debug", action: nil, keyEquivalent: "")
-        let debugMenu = NSMenu()
-        debugMenu.addItem(NSMenuItem(title: "Copy space state", action: #selector(copyState), keyEquivalent: "").withTarget(self))
-        debugMenu.addItem(NSMenuItem(title: "Open logs", action: #selector(openLogs), keyEquivalent: "").withTarget(self))
-        debug.submenu = debugMenu
-        menu.addItem(debug)
+        if DiagnosticsSettings.shared.isEnabled {
+            let debug = NSMenuItem(title: "Debug", action: nil, keyEquivalent: "")
+            let debugMenu = NSMenu()
+            debugMenu.addItem(NSMenuItem(title: "Copy space state", action: #selector(copyState), keyEquivalent: "").withTarget(self))
+            debugMenu.addItem(NSMenuItem(title: "Open logs", action: #selector(openLogs), keyEquivalent: "").withTarget(self))
+            debug.submenu = debugMenu
+            menu.addItem(debug)
+        }
 
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit StayHere", action: #selector(quit), keyEquivalent: "q").withTarget(self))

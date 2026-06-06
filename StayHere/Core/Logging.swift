@@ -7,6 +7,9 @@ public final class Logger {
     private let queue = DispatchQueue(label: "stayhere.logger")
     private let logURL: URL
     private let iso = ISO8601DateFormatter()
+    private var verboseLoggingEnabled: Bool {
+        DiagnosticsSettings.shared.isEnabled
+    }
 
     private init() {
         let logsDir = FileManager.default.homeDirectoryForCurrentUser
@@ -16,6 +19,7 @@ public final class Logger {
     }
 
     public func info(_ message: String) {
+        guard verboseLoggingEnabled else { return }
         write("INFO", message)
     }
 

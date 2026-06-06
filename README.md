@@ -21,13 +21,30 @@ For the best experience, set up StayHere in this order:
 4. Optionally add single-window apps.
 5. Turn off a couple of macOS Space behaviors that fight with the app.
 
-## Permissions
+## Permissions And Security
 
 StayHere needs these permissions in System Settings:
 
 - **Accessibility** - used to focus apps, react to Dock interactions, and control space-related behavior.
 
+StayHere also uses a global mouse event tap when Dock click interception is enabled. That is what lets it notice Dock clicks and decide whether to handle them itself or let macOS proceed normally.
+
+Some future app-specific actions may request **Automation** permission if StayHere needs to send Apple Events to another app, for example to trigger a target app's built-in `New Window` command. The current release does not rely on Automation for the core menu bar, Space, or window switching features.
+
 If you change the app bundle identifier, signing identity, or reinstall the app under a different name, macOS may treat it as a different app and ask for permissions again.
+
+## Distribution Model
+
+StayHere is distributed outside the Mac App Store on purpose.
+
+- The app depends on Accessibility for its core behavior.
+- Dock click interception uses a global input event tap.
+- StayHere reads and moves window/space state through private CGS APIs.
+
+Those APIs are useful for this workflow, but they are private and can change across macOS releases. That means the app can need maintenance after system updates, and the exact behavior may vary between macOS versions.
+
+The release model is direct download from GitHub Releases, with signed and notarized builds planned for public distribution.
+Pull requests should also pass CI, dependency review, and CodeQL before changes are merged.
 
 ## Mission Control shortcuts
 
