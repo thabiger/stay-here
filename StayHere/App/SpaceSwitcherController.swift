@@ -23,6 +23,8 @@ final class SpaceSwitcherController {
     private var session: Session?
     private var panelPair: (window: NSPanel, hosting: NSHostingController<SpaceSwitcherView>)?
 
+    internal var hasActiveSession: Bool { session != nil }
+
     init(
         settings: SettingsRepository,
         registry: SpaceRegistry,
@@ -78,7 +80,7 @@ final class SpaceSwitcherController {
         runLoopSource = nil
     }
 
-    private func handle(event: CGEvent) -> Unmanaged<CGEvent>? {
+    internal func handle(event: CGEvent) -> Unmanaged<CGEvent>? {
         switch event.type {
         case .tapDisabledByTimeout, .tapDisabledByUserInput:
             if let eventTap {
@@ -95,42 +97,50 @@ final class SpaceSwitcherController {
     }
 
     private func handleKeyDown(event: CGEvent) -> Unmanaged<CGEvent>? {
+        let keycode = event.getIntegerValueField(.keyboardEventKeycode)
+        let eventFlags = event.flags
         let configuredShortcut = session?.shortcut ?? shortcutProvider()
 
-        guard event.getIntegerValueField(.keyboardEventKeycode) == configuredShortcut.keyCode else {
+        guard keycode == configuredShortcut.keyCode else {
             if session != nil {
-                cancelSession()
+                DispatchQueue.main.async { [weak self] in self?.cancelSession() }
                 return nil
             }
             return Unmanaged.passUnretained(event)
         }
 
-        guard event.flags.contains(configuredShortcut.modifiers) else {
+        guard eventFlags.contains(configuredShortcut.modifiers) else {
             return Unmanaged.passUnretained(event)
         }
 
-        ensureSession(using: configuredShortcut)
-
-        if shouldMoveBackward(event: event, shortcut: configuredShortcut) {
-            moveSelection(offset: -1)
-        } else {
-            moveSelection(offset: 1)
+        let shouldGoBackward = shouldMoveBackward(event: event, shortcut: configuredShortcut)
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.ensureSession(using: configuredShortcut)
+            self.moveSelection(offset: shouldGoBackward ? -1 : 1)
+            self.showPanel()
         }
-        showPanel()
         return nil
     }
 
-    private func handleFlagsChanged(event: CGEvent) -> Unmanaged<CGEvent>? {
-        guard let session, modifierFlags(from: event.flags).intersection(session.shortcut.modifiers).isEmpty else {
+    internal func handleFlagsChanged(event: CGEvent) -> Unmanaged<CGEvent>? {
+        let activeModifiers = modifierFlags(from: event.flags)
+        guard let activeSession = session,
+              activeModifiers.intersection(activeSession.shortcut.modifiers).isEmpty else {
             return Unmanaged.passUnretained(event)
         }
 
-        if session.didChangeSelection, let selectedID = session.selectedSpaceID {
-            commitSelection(selectedID)
-        } else {
-            dismissPanel()
+        let didChange = activeSession.didChangeSelection
+        let selectedID = activeSession.selectedSpaceID
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            if didChange, let selectedID {
+                self.commitSelection(selectedID)
+            } else {
+                self.dismissPanel()
+            }
+            self.session = nil
         }
-        self.session = nil
         return nil
     }
 
@@ -177,11 +187,12 @@ final class SpaceSwitcherController {
         }
     }
 
-    private func cancelSession() {
+    internal func cancelSession() {
         DispatchQueue.main.async { [weak self] in
-            self?.dismissPanel()
+            guard let self else { return }
+            self.dismissPanel()
+            self.session = nil
         }
-        session = nil
     }
 
     private func showPanel() {
@@ -277,7 +288,7 @@ final class SpaceSwitcherController {
         return SpaceSwitcherSnapshot(items: items, title: "Space Switcher")
     }
 
-    private static let eventTapCallback: CGEventTapCallBack = { _, type, event, userInfo in
+    internal static let eventTapCallback: CGEventTapCallBack = { _, type, event, userInfo in
         guard let userInfo else { return Unmanaged.passUnretained(event) }
         let controller = Unmanaged<SpaceSwitcherController>.fromOpaque(userInfo).takeUnretainedValue()
         return controller.handle(event: event)

@@ -281,7 +281,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             presentMissionControlShortcutWarning(
                 title: "Desktop \(index) couldn't be switched",
                 message: """
-                StayHere couldn't send the Mission Control shortcut for Desktop \(index). Check System Settings > Keyboard > Keyboard Shortcuts > Mission Control and make sure \"Switch to Desktop \(index)\" is enabled.
+                StayHere couldn't send the Mission Control shortcut for Desktop \(index). Check System Settings > Keyboard > Keyboard Shortcuts > Mission Control and make sure "Switch to Desktop \(index)" is enabled.
 
                 For the best experience, consider enabling shortcuts for all desktops to prevent this issue in the future.
                 """
@@ -443,9 +443,3 @@ extension AppDelegate: NSWindowDelegate {
         demoteToAccessoryIfNoWindowsVisible()
     }
 }
-
-let app = NSApplication.shared
-// Keep a strong process-lifetime reference: NSApplication.delegate is not a retaining owner.
-let appDelegate = AppDelegate()
-app.delegate = appDelegate
-app.run()
