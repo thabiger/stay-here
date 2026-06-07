@@ -5,6 +5,10 @@ struct WindowSwitcherItem: Identifiable {
     let id: Int
     let icon: NSImage
     let title: String
+    /// Captured entry so the click callback can hand the controller a
+    /// fully-resolved `WindowEntry` without re-querying the window
+    /// list. The cache that produced it lives in `Session.entries`.
+    let entry: WindowSwitcherController.WindowEntry
     let isSelected: Bool
 }
 
@@ -16,7 +20,7 @@ struct WindowSwitcherSnapshot {
 
 struct WindowSwitcherView: View {
     let snapshot: WindowSwitcherSnapshot
-    let onSelect: (Int) -> Void
+    let onSelect: (WindowSwitcherController.WindowEntry) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -59,7 +63,7 @@ struct WindowSwitcherView: View {
     @ViewBuilder
     private func row(for item: WindowSwitcherItem) -> some View {
         Button {
-            onSelect(item.id)
+            onSelect(item.entry)
         } label: {
             rowContent(for: item)
         }

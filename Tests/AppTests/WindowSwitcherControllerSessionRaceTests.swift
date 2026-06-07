@@ -6,6 +6,8 @@ import Core
 private final class LocalMockCGSBridge: CGSBridgeProtocol {
     var activeSpaceIDValue: Int?
     var managedSnapshotValue: CGSBridge.ManagedSnapshot
+    var activeSpaceIDCallCount = 0
+    var managedSnapshotCallCount = 0
 
     init(
         activeSpaceIDValue: Int? = nil,
@@ -19,8 +21,16 @@ private final class LocalMockCGSBridge: CGSBridgeProtocol {
         self.managedSnapshotValue = managedSnapshotValue
     }
 
-    func activeSpaceID() -> Int? { activeSpaceIDValue }
-    func managedSnapshot() -> CGSBridge.ManagedSnapshot { managedSnapshotValue }
+    func activeSpaceID() -> Int? {
+        activeSpaceIDCallCount += 1
+        return activeSpaceIDValue
+    }
+
+    func managedSnapshot() -> CGSBridge.ManagedSnapshot {
+        managedSnapshotCallCount += 1
+        return managedSnapshotValue
+    }
+
     func managedSpaces() -> [SpaceIdentity] { managedSnapshotValue.spaces }
     func switchByDesktopShortcut(index: Int) -> Bool { true }
     func spacesForWindow(windowID: Int) -> [Int] { [] }
@@ -158,5 +168,105 @@ final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
         }
         waitForMainQueue()
         XCTAssertTrue(controller.hasActiveSession, "A session should exist after a clean key-down on main thread")
+    }
+
+    // MARK: - Caching (P2/Q5)
+
+    /// P2/Q5: a session's entries should be populated when the session opens.
+    func testSessionEntriesAreCachedOnEnsureSession() {
+        let (controller, _) = makeController()
+        let keyDown = makeKeyEvent(keyCode: 50, flags: .maskCommand)
+        _ = controller.handle(event: keyDown)
+        waitForMainQueue()
+
+        XCTAssertTrue(controller.hasActiveSession)
+        XCTAssertNotNil(controller.testSessionEntries, "Session must cache the window list on creation")
+    }
+
+    /// P2/Q5: the session must remember the space context it was opened with.
+    func testSessionSpaceContextIsCachedOnEnsureSession() {
+        let (controller, _) = makeController()
+        let keyDown = makeKeyEvent(keyCode: 50, flags: .maskCommand)
+        _ = controller.handle(event: keyDown)
+        waitForMainQueue()
+
+        XCTAssertEqual(controller.testSessionSpaceID, 100, "Session must cache the space context (100) on creation")
+    }
+
+    /// P2/Q5: rapid keypresses must keep the same entries array (cached).
+    /// We verify the cgsBridge `managedSnapshot` and `activeSpaceID`
+    /// methods are NOT re-invoked on every keypress — that's the perf
+    /// win from caching the entries + spaceContext in `Session`.
+    func testMoveSelectionDoesNotRecomputeEntries() {
+        let (controller, bridge) = makeController()
+        let keyDown = makeKeyEvent(keyCode: 50, flags: .maskCommand)
+
+        _ = controller.handle(event: keyDown)
+        waitForMainQueue()
+        XCTAssertTrue(controller.hasActiveSession)
+
+        let snapshotCallsAfterFirst = bridge.managedSnapshotCallCount
+        let activeSpaceCallsAfterFirst = bridge.activeSpaceIDCallCount
+        XCTAssertGreaterThan(snapshotCallsAfterFirst, 0, "First keypress must populate the cache")
+        XCTAssertGreaterThan(activeSpaceCallsAfterFirst, 0, "First keypress must populate the cache")
+
+        // Fire several more keyDowns to drive moveSelection repeatedly.
+        for _ in 0..<5 {
+            _ = controller.handle(event: keyDown)
+        }
+        waitForMainQueue()
+
+        XCTAssertEqual(
+            bridge.managedSnapshotCallCount, snapshotCallsAfterFirst,
+            "managedSnapshot must NOT be called on subsequent keypresses (cached in Session)"
+        )
+        XCTAssertEqual(
+            bridge.activeSpaceIDCallCount, activeSpaceCallsAfterFirst,
+            "activeSpaceID must NOT be called on subsequent keypresses (cached in Session)"
+        )
+    }
+
+    /// P2/Q5: opening a new session must re-fetch the window list. The
+    /// cache is per-session and is rebuilt on session creation.
+    func testNewSessionRebuildsCache() {
+        let (controller, bridge) = makeController()
+        let keyDown = makeKeyEvent(keyCode: 50, flags: .maskCommand)
+
+        _ = controller.handle(event: keyDown)
+        waitForMainQueue()
+        let firstSnapshotCalls = bridge.managedSnapshotCallCount
+        let firstActiveSpaceCalls = bridge.activeSpaceIDCallCount
+
+        // Close the session and open a new one.
+        controller.cancelSession()
+        waitForMainQueue()
+
+        _ = controller.handle(event: keyDown)
+        waitForMainQueue()
+
+        XCTAssertGreaterThan(
+            bridge.managedSnapshotCallCount, firstSnapshotCalls,
+            "Opening a new session must re-fetch the snapshot"
+        )
+        XCTAssertGreaterThan(
+            bridge.activeSpaceIDCallCount, firstActiveSpaceCalls,
+            "Opening a new session must re-fetch the active space id"
+        )
+    }
+
+    /// P2/Q5: cancelSession must clear the cached entries (no leak across
+    /// consecutive switcher sessions).
+    func testCancelSessionClearsCachedEntries() {
+        let (controller, _) = makeController()
+        let keyDown = makeKeyEvent(keyCode: 50, flags: .maskCommand)
+
+        _ = controller.handle(event: keyDown)
+        waitForMainQueue()
+        XCTAssertNotNil(controller.testSessionEntries)
+
+        controller.cancelSession()
+        waitForMainQueue()
+
+        XCTAssertNil(controller.testSessionEntries, "Cancel must drop the cached entries")
     }
 }

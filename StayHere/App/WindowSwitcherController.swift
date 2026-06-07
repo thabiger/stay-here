@@ -10,13 +10,19 @@ final class WindowSwitcherController {
         let startingWindowID: Int?
         var selectedWindowID: Int?
         let shortcut: SpaceSwitcherShortcut
+        /// Cached window list snapshot taken when the session opened.
+        /// Stored in the session to avoid re-running the expensive
+        /// `CGWindowListCopyWindowInfo` WindowServer round-trip on every
+        /// keypress / panel update.
+        let entries: [WindowEntry]
+        let spaceContext: SpaceContext
 
         var didChangeSelection: Bool {
             selectedWindowID != nil && selectedWindowID != startingWindowID
         }
     }
 
-    private struct WindowEntry {
+    struct WindowEntry {
         let windowID: Int
         let pid: pid_t
         let appName: String
@@ -40,6 +46,22 @@ final class WindowSwitcherController {
     private var panelPair: (window: NSPanel, hosting: NSHostingController<WindowSwitcherView>)?
 
     internal var hasActiveSession: Bool { session != nil }
+
+    /// Test seam — exposes the cached window list from the active session.
+    /// Returns `nil` if no session is active.
+    internal var testSessionEntries: [WindowEntry]? {
+        session?.entries
+    }
+
+    /// Test seam — exposes the cached space context from the active session.
+    internal var testSessionSpaceID: Int? {
+        session?.spaceContext.spaceID
+    }
+
+    /// Test seam — exposes the selected window id from the active session.
+    internal var testSessionSelectedWindowID: Int? {
+        session?.selectedWindowID
+    }
 
     init(
         settings: SettingsRepository,
@@ -149,25 +171,31 @@ final class WindowSwitcherController {
 
         let didChange = activeSession.didChangeSelection
         let selectedID = activeSession.selectedWindowID
+        let cachedEntries = activeSession.entries
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
-            if didChange, let selectedID {
-                self.commitSelection(selectedID)
+            if didChange,
+               let selectedID,
+               let entry = cachedEntries.first(where: { $0.windowID == selectedID }) {
+                self.commitSelection(entry)
             } else {
                 self.dismissPanel()
+                self.session = nil
             }
-            self.session = nil
         }
         return nil
     }
 
     private func ensureSession(using shortcut: SpaceSwitcherShortcut) {
         if session == nil {
-            let entries = selectedWindowEntries()
+            guard let context = currentSpaceContext() else { return }
+            let entries = selectedWindowEntries(in: context)
             session = Session(
                 startingWindowID: entries.first?.windowID,
                 selectedWindowID: entries.first?.windowID,
-                shortcut: shortcut
+                shortcut: shortcut,
+                entries: entries,
+                spaceContext: context
             )
         }
     }
@@ -187,7 +215,7 @@ final class WindowSwitcherController {
 
     private func moveSelection(offset: Int) {
         guard var session else { return }
-        let entries = selectedWindowEntries()
+        let entries = session.entries
         guard !entries.isEmpty else { return }
         let ids = entries.map(\.windowID)
         let currentSelection = session.selectedWindowID ?? session.startingWindowID ?? ids.first
@@ -214,12 +242,12 @@ final class WindowSwitcherController {
         return orderedWindowIDs[(index - 1 + orderedWindowIDs.count) % orderedWindowIDs.count]
     }
 
-    private func commitSelection(_ windowID: Int) {
+    private func commitSelection(_ entry: WindowEntry) {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             self.dismissPanel()
             self.session = nil
-            self.focusWindow(windowID: windowID)
+            self.focusWindow(entry: entry)
         }
     }
 
@@ -266,8 +294,8 @@ final class WindowSwitcherController {
         let hosting = NSHostingController(
             rootView: WindowSwitcherView(
                 snapshot: snapshot,
-                onSelect: { [weak self] windowID in
-                    self?.commitSelection(windowID)
+                onSelect: { [weak self] entry in
+                    self?.commitSelection(entry)
                 }
             )
         )
@@ -282,8 +310,8 @@ final class WindowSwitcherController {
         guard let panelPair else { return }
         panelPair.hosting.rootView = WindowSwitcherView(
             snapshot: snapshot,
-            onSelect: { [weak self] windowID in
-                self?.commitSelection(windowID)
+            onSelect: { [weak self] entry in
+                self?.commitSelection(entry)
             }
         )
         resizePanel(for: snapshot)
@@ -307,13 +335,30 @@ final class WindowSwitcherController {
     }
 
     private func buildSnapshot() -> WindowSwitcherSnapshot {
-        let entries = selectedWindowEntries()
-        let selectedID = session?.selectedWindowID ?? entries.first?.windowID
+        let entries: [WindowEntry]
+        let selectedID: Int?
+        if let session {
+            entries = session.entries
+            selectedID = session.selectedWindowID ?? entries.first?.windowID
+        } else {
+            // No active session — fall back to a fresh fetch so the initial
+            // panel still has data to show.
+            guard let context = currentSpaceContext() else {
+                return WindowSwitcherSnapshot(
+                    items: [],
+                    title: "Window Switcher",
+                    emptyMessage: "No windows on this Space"
+                )
+            }
+            entries = selectedWindowEntries(in: context)
+            selectedID = entries.first?.windowID
+        }
         let items = entries.map { entry in
             WindowSwitcherItem(
                 id: entry.windowID,
                 icon: entry.icon,
                 title: displayTitle(for: entry),
+                entry: entry,
                 isSelected: entry.windowID == selectedID
             )
         }
@@ -324,8 +369,7 @@ final class WindowSwitcherController {
         )
     }
 
-    private func selectedWindowEntries() -> [WindowEntry] {
-        guard let context = currentSpaceContext() else { return [] }
+    private func selectedWindowEntries(in context: SpaceContext) -> [WindowEntry] {
         guard let raw = CGWindowListCopyWindowInfo(.optionAll, kCGNullWindowID) as? [[String: Any]] else {
             return []
         }
@@ -475,11 +519,8 @@ final class WindowSwitcherController {
         return icon
     }
 
-    private func focusWindow(windowID: Int) {
-        guard let entry = selectedWindowEntries().first(where: { $0.windowID == windowID }) else {
-            return
-        }
-
+    private func focusWindow(entry: WindowEntry) {
+        let entry = entry
         DispatchQueue.main.async {
             NSApp.activate(ignoringOtherApps: true)
             guard let app = NSRunningApplication(processIdentifier: entry.pid) else {
