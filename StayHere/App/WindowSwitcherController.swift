@@ -43,7 +43,7 @@ final class WindowSwitcherController {
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     private var session: Session?
-    private var panelPair: (window: NSPanel, hosting: NSHostingController<WindowSwitcherView>)?
+    var panelPair: (window: NSPanel, hosting: NSHostingController<WindowSwitcherView>)?
 
     internal var hasActiveSession: Bool { session != nil }
 
@@ -108,6 +108,7 @@ final class WindowSwitcherController {
 
     func stop() {
         dismissPanel()
+        panelPair = nil
         session = nil
         if let eventTap {
             CGEvent.tapEnable(tap: eventTap, enable: false)
