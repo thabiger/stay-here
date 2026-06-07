@@ -106,6 +106,7 @@ final class SetupChecklistAccessoryView: NSView {
     private func fixTargetTag(for target: SetupChecklistItem.FixTarget) -> Int {
         switch target {
         case .accessibility: return 1
+        case .inputMonitoring: return 3
         case .missionControlShortcuts: return 2
         }
     }
@@ -114,6 +115,7 @@ final class SetupChecklistAccessoryView: NSView {
         switch tag {
         case 1: return .accessibility
         case 2: return .missionControlShortcuts
+        case 3: return .inputMonitoring
         default: return nil
         }
     }

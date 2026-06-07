@@ -24,6 +24,7 @@ struct StayHereSetupStatus: Equatable {
 struct SetupChecklistItem: Equatable {
     enum FixTarget: Equatable {
         case accessibility
+        case inputMonitoring
         case missionControlShortcuts
     }
 
@@ -36,7 +37,7 @@ enum StayHereSetupCheck {
     static func checklistItems(for status: StayHereSetupStatus) -> [SetupChecklistItem] {
         var items: [SetupChecklistItem] = []
 
-        for permission in MacOSPermissionKind.allCases {
+        for permission in MacOSPermissionKind.availableCases {
             items.append(
                 SetupChecklistItem(
                     displayName: permission.displayName,
@@ -63,6 +64,8 @@ enum StayHereSetupCheck {
         switch target {
         case .accessibility:
             MacOSPermissionCheck.openSettings(for: .accessibility)
+        case .inputMonitoring:
+            MacOSPermissionCheck.openSettings(for: .inputMonitoring)
         case .missionControlShortcuts:
             let url = URL(string: "x-apple.systempreferences:com.apple.Keyboard-Settings.extension?KeyboardShortcuts")!
             NSWorkspace.shared.open(url)
@@ -74,6 +77,7 @@ private extension MacOSPermissionKind {
     var fixTarget: SetupChecklistItem.FixTarget {
         switch self {
         case .accessibility: return .accessibility
+        case .inputMonitoring: return .inputMonitoring
         }
     }
 }
