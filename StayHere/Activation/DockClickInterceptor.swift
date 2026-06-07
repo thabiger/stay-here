@@ -12,10 +12,17 @@ public final class DockClickInterceptor {
     private let handler: (String, Bool) -> Bool
     private var pendingDockClick: PendingDockClick?
 
-    private struct PendingDockClick {
+    struct PendingDockClick {
         let bundleID: String
         let optionHeld: Bool
     }
+
+    var testPendingDockClick: PendingDockClick? {
+        get { pendingDockClick }
+        set { pendingDockClick = newValue }
+    }
+
+    var testDockBundleIDResolver: ((CGPoint) -> String?)?
 
     public init(
         settings: SettingsRepository,
@@ -75,7 +82,7 @@ public final class DockClickInterceptor {
         eventTap = nil
     }
 
-    private func handle(proxy: CGEventTapProxy, event: CGEvent) -> Unmanaged<CGEvent>? {
+    func handle(proxy: CGEventTapProxy, event: CGEvent) -> Unmanaged<CGEvent>? {
         if event.type == .tapDisabledByTimeout || event.type == .tapDisabledByUserInput {
             if let tap = eventTap {
                 CGEvent.tapEnable(tap: tap, enable: true)
@@ -112,6 +119,12 @@ public final class DockClickInterceptor {
             let pending = pendingDockClick
             pendingDockClick = nil
 
+            if let pendingBundleID = pending?.bundleID,
+               let currentBundleID,
+               currentBundleID != pendingBundleID {
+                return Unmanaged.passUnretained(event)
+            }
+
             guard let bundleID = pending?.bundleID ?? currentBundleID else {
                 return Unmanaged.passUnretained(event)
             }
@@ -129,6 +142,10 @@ public final class DockClickInterceptor {
     }
 
     private func dockBundleID(at point: CGPoint) -> String? {
+        if let testDockBundleIDResolver {
+            return testDockBundleIDResolver(point)
+        }
+
         guard let dock = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock").first else {
             return nil
         }
