@@ -48,14 +48,15 @@ public struct MissionControlShortcutCheck {
     public static func check(
         desktopCount: Int? = nil,
         defaults: UserDefaults = .standard,
-        preferencesURL: URL? = nil
+        preferencesURL: URL? = nil,
+        cgsBridge: any CGSBridgeProtocol = CGSBridge.live
     ) -> Result {
         let hotKeys = loadHotKeys(
             defaults: defaults,
             preferencesURL: preferencesURL,
             preferPersistentStore: shouldPreferPersistentStore(defaults: defaults, preferencesURL: preferencesURL)
         ) ?? [:]
-        let requiredRequirements = requirements(forDesktopCount: desktopCount ?? currentDesktopCount())
+        let requiredRequirements = requirements(forDesktopCount: desktopCount ?? currentDesktopCount(cgsBridge: cgsBridge))
         let failingRequirements = requiredRequirements.filter { failureDescription(for: $0, hotKeys: hotKeys) != nil }
         let isSatisfied = failingRequirements.isEmpty
         let shortcutRangeDescription = shortcutRangeDescription(forDesktopCount: requiredRequirements.count)
@@ -161,7 +162,11 @@ public struct MissionControlShortcutCheck {
         return preferencesURL.standardizedFileURL
     }
 
-    static func currentDesktopCount(snapshot: CGSBridge.ManagedSnapshot = CGSBridge.managedSnapshot()) -> Int {
+    static func currentDesktopCount(
+        snapshot: CGSBridge.ManagedSnapshot? = nil,
+        cgsBridge: any CGSBridgeProtocol = CGSBridge.live
+    ) -> Int {
+        let snapshot = snapshot ?? cgsBridge.managedSnapshot()
         let desktopIDs = Set(
             snapshot.spaces
                 .filter { $0.kind == .desktop }

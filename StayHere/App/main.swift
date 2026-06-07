@@ -5,19 +5,26 @@ import Core
 import Activation
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private let registry = SpaceRegistry()
+    private let cgsBridge: any CGSBridgeProtocol = CGSBridge.live
+    private lazy var registry = SpaceRegistry(cgsBridge: cgsBridge)
     private let statusController = StatusBarController()
     private let hudController = HUDController()
-    private lazy var activationController = ActivationController(currentSpaceID: { [weak self] in
-        self?.registry.activeSpaceID
-    }, activeSpaceIDs: { [weak self] in
-        guard let id = self?.registry.activeSpaceID else { return [] }
-        return Set([id])
-    }, switchToSpace: { [weak self] spaceID in
-        self?.performSpaceSwitch(spaceID)
-    }, onShowSingleWindowHint: { [weak self] message in
-        self?.hudController.show(message: message)
-    })
+    private lazy var activationController = ActivationController(
+        windowIndex: WindowIndex(cgsBridge: cgsBridge),
+        currentSpaceID: { [weak self] in
+            self?.registry.activeSpaceID
+        },
+        activeSpaceIDs: { [weak self] in
+            guard let id = self?.registry.activeSpaceID else { return [] }
+            return Set([id])
+        },
+        switchToSpace: { [weak self] spaceID in
+            self?.performSpaceSwitch(spaceID)
+        },
+        onShowSingleWindowHint: { [weak self] message in
+            self?.hudController.show(message: message)
+        }
+    )
     private lazy var spaceSwitcherController = SpaceSwitcherController(
         registry: registry,
         switchToSpace: { [weak self] spaceID in
@@ -25,7 +32,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     )
     private lazy var windowSwitcherController = WindowSwitcherController(
-        registry: registry
+        registry: registry,
+        cgsBridge: cgsBridge
     )
     private var settingsWindow: NSWindow?
     private var settingsHostingController: NSHostingController<SettingsView>?

@@ -30,6 +30,7 @@ final class WindowSwitcherController {
     }
 
     private let registry: SpaceRegistry
+    private let cgsBridge: any CGSBridgeProtocol
     private let shortcutProvider: () -> SpaceSwitcherShortcut
 
     private var eventTap: CFMachPort?
@@ -39,9 +40,11 @@ final class WindowSwitcherController {
 
     init(
         registry: SpaceRegistry,
+        cgsBridge: any CGSBridgeProtocol = CGSBridge.live,
         shortcutProvider: @escaping () -> SpaceSwitcherShortcut = { WindowSwitcherSettings.shared.shortcut }
     ) {
         self.registry = registry
+        self.cgsBridge = cgsBridge
         self.shortcutProvider = shortcutProvider
     }
 
@@ -327,7 +330,7 @@ final class WindowSwitcherController {
             }
 
             if (item["kCGWindowWorkspace"] as? NSNumber) == nil {
-                let spaceIDs = CGSBridge.spacesForWindow(windowID: windowNumber.intValue)
+                let spaceIDs = cgsBridge.spacesForWindow(windowID: windowNumber.intValue)
                 guard spaceIDs.contains(context.spaceID) else { return nil }
             }
 
@@ -361,8 +364,8 @@ final class WindowSwitcherController {
     }
 
     private func currentSpaceContext() -> SpaceContext? {
-        let snapshot = CGSBridge.managedSnapshot()
-        guard let activeSpaceID = CGSBridge.activeSpaceID()
+        let snapshot = cgsBridge.managedSnapshot()
+        guard let activeSpaceID = cgsBridge.activeSpaceID()
             ?? registry.activeSpaceID
             ?? snapshot.activeByDisplay.values.first else {
             return nil

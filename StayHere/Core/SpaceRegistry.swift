@@ -21,6 +21,7 @@ public final class SpaceRegistry: ObservableObject {
     @Published public private(set) var desktopNumberBySpaceID: [Int: Int] = [:]
     @Published public private(set) var nativeOrderByDisplay: [String: [Int]] = [:]
 
+    private let cgsBridge: any CGSBridgeProtocol
     private let store: SpaceStore
     private let persistQueue = DispatchQueue(label: "stayhere.persist", qos: .utility)
     private let snapshotQueue = DispatchQueue(label: "stayhere.snapshot", qos: .userInitiated)
@@ -29,7 +30,11 @@ public final class SpaceRegistry: ObservableObject {
     private let refreshRetryInterval: TimeInterval = 0.05
     private let refreshRetryLimit = 8
 
-    public init(store: SpaceStore = SpaceStore()) {
+    public init(
+        store: SpaceStore = SpaceStore(),
+        cgsBridge: any CGSBridgeProtocol = CGSBridge.live
+    ) {
+        self.cgsBridge = cgsBridge
         self.store = store
         let persisted = store.load()
         self.labels = persisted.labels
@@ -40,13 +45,13 @@ public final class SpaceRegistry: ObservableObject {
     }
 
     public func refreshSpaces() {
-        apply(snapshot: CGSBridge.managedSnapshot())
+        apply(snapshot: cgsBridge.managedSnapshot())
     }
 
     public func refreshSpacesAsync() {
         snapshotQueue.async { [weak self] in
             guard let self else { return }
-            let snapshot = CGSBridge.managedSnapshot()
+            let snapshot = self.cgsBridge.managedSnapshot()
             DispatchQueue.main.async {
                 self.apply(snapshot: snapshot)
             }
@@ -63,7 +68,7 @@ public final class SpaceRegistry: ObservableObject {
     }
 
     private func apply(snapshot: CGSBridge.ManagedSnapshot) {
-        let global = CGSBridge.activeSpaceID()
+        let global = cgsBridge.activeSpaceID()
         let selectedDisplay = displayForCurrentFocus(snapshot: snapshot, globalActiveID: global)
         let discovered = snapshot.spaces.filter { space in
             guard let selectedDisplay else { return true }
@@ -229,7 +234,7 @@ public final class SpaceRegistry: ObservableObject {
             return .unsupportedSpaceKind
         }
 
-        let snapshot = CGSBridge.managedSnapshot()
+        let snapshot = cgsBridge.managedSnapshot()
         guard let display = spaces.first(where: { $0.id == spaceID })?.display
             ?? snapshot.spaces.first(where: { $0.id == spaceID })?.display,
               let nativeOrder = nativeOrderByDisplay[display] ?? snapshot.orderedIDsByDisplay[display],
@@ -245,7 +250,7 @@ public final class SpaceRegistry: ObservableObject {
             return .unsupportedDesktop(index: shortcutIndex)
         }
 
-        let posted = CGSBridge.switchByDesktopShortcut(index: shortcutIndex)
+        let posted = cgsBridge.switchByDesktopShortcut(index: shortcutIndex)
         guard posted else {
             Logger.shared.error("switch-space failed=event-post")
             return .eventPostFailed(index: shortcutIndex)

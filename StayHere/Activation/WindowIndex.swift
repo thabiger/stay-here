@@ -26,7 +26,11 @@ public struct AppWindowSummary {
 }
 
 public final class WindowIndex {
-    public init() {}
+    private let cgsBridge: any CGSBridgeProtocol
+
+    public init(cgsBridge: any CGSBridgeProtocol = CGSBridge.live) {
+        self.cgsBridge = cgsBridge
+    }
 
     public func summarize(bundleID: String, activeSpaceIDs: Set<Int>, targetSpaceID: Int?) -> AppWindowSummary? {
         guard let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first else {
@@ -75,7 +79,7 @@ public final class WindowIndex {
                 bundleID: NSRunningApplication(processIdentifier: pid)?.bundleIdentifier,
                 isOnScreen: onScreen,
                 layer: layer.intValue,
-                spaceIDs: CGSBridge.spacesForWindow(windowID: windowNumber.intValue)
+                spaceIDs: cgsBridge.spacesForWindow(windowID: windowNumber.intValue)
             )
         }
     }

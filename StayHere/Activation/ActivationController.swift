@@ -2,7 +2,7 @@ import Foundation
 import Core
 
 public final class ActivationController {
-    private let windowIndex = WindowIndex()
+    private let windowIndex: WindowIndex
     private let policy = ActivationPolicy()
     private let executor: ActivationExecutor
     private var interceptor: DockClickInterceptor?
@@ -10,11 +10,13 @@ public final class ActivationController {
     private let activeSpaceIDs: () -> Set<Int>
 
     public init(
+        windowIndex: WindowIndex = WindowIndex(),
         currentSpaceID: @escaping () -> Int?,
         activeSpaceIDs: @escaping () -> Set<Int>,
         switchToSpace: @escaping (Int) -> Void = { _ in },
         onShowSingleWindowHint: @escaping (String) -> Void = { _ in }
     ) {
+        self.windowIndex = windowIndex
         self.currentSpaceID = currentSpaceID
         self.activeSpaceIDs = activeSpaceIDs
         self.executor = ActivationExecutor(

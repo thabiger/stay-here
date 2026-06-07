@@ -46,6 +46,15 @@ public final class SpaceStore {
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
     }
 
+    public init(fileURL: URL) {
+        self.fileURL = fileURL
+        try? FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+    }
+
     private func migrateLegacyStoreIfNeeded(from legacyURL: URL, to currentURL: URL) {
         guard !FileManager.default.fileExists(atPath: currentURL.path),
               FileManager.default.fileExists(atPath: legacyURL.path)

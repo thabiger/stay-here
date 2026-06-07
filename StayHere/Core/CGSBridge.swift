@@ -2,23 +2,35 @@ import Foundation
 import CoreGraphics
 import AppKit
 
-public enum CGSBridge {
+public protocol CGSBridgeProtocol {
+    func activeSpaceID() -> Int?
+    func managedSnapshot() -> CGSBridge.ManagedSnapshot
+    func managedSpaces() -> [SpaceIdentity]
+    func switchByDesktopShortcut(index: Int) -> Bool
+    func spacesForWindow(windowID: Int) -> [Int]
+}
+
+public struct CGSBridge: CGSBridgeProtocol {
     private typealias CGSConnectionID = UInt32
     private typealias CGSSpaceID = UInt64
 
+    public static let live = CGSBridge()
+
     private static let handle = dlopen("/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics", RTLD_NOW)
+
+    public init() {}
 
     private static func symbol<T>(_ name: String, as _: T.Type) -> T? {
         guard let handle, let sym = dlsym(handle, name) else { return nil }
         return unsafeBitCast(sym, to: T.self)
     }
 
-    public static func activeSpaceID() -> Int? {
+    public func activeSpaceID() -> Int? {
         typealias MainConn = @convention(c) () -> CGSConnectionID
         typealias GetActive = @convention(c) (CGSConnectionID) -> CGSSpaceID
 
-        guard let main: MainConn = symbol("_CGSDefaultConnection", as: MainConn.self) ?? symbol("CGSMainConnectionID", as: MainConn.self),
-              let getActive: GetActive = symbol("CGSGetActiveSpace", as: GetActive.self) else {
+        guard let main: MainConn = Self.symbol("_CGSDefaultConnection", as: MainConn.self) ?? Self.symbol("CGSMainConnectionID", as: MainConn.self),
+              let getActive: GetActive = Self.symbol("CGSGetActiveSpace", as: GetActive.self) else {
             return nil
         }
 
@@ -31,14 +43,24 @@ public enum CGSBridge {
         public let activeByDisplay: [String: Int]
         /// Mission Control order per display (matches Ctrl+number shortcuts).
         public let orderedIDsByDisplay: [String: [Int]]
+
+        public init(
+            spaces: [SpaceIdentity],
+            activeByDisplay: [String: Int],
+            orderedIDsByDisplay: [String: [Int]]
+        ) {
+            self.spaces = spaces
+            self.activeByDisplay = activeByDisplay
+            self.orderedIDsByDisplay = orderedIDsByDisplay
+        }
     }
 
-    public static func managedSnapshot() -> ManagedSnapshot {
+    public func managedSnapshot() -> ManagedSnapshot {
         typealias MainConn = @convention(c) () -> CGSConnectionID
         typealias CopyManaged = @convention(c) (CGSConnectionID) -> Unmanaged<CFArray>?
 
-        guard let main: MainConn = symbol("_CGSDefaultConnection", as: MainConn.self) ?? symbol("CGSMainConnectionID", as: MainConn.self),
-              let copyManaged: CopyManaged = symbol("CGSCopyManagedDisplaySpaces", as: CopyManaged.self),
+        guard let main: MainConn = Self.symbol("_CGSDefaultConnection", as: MainConn.self) ?? Self.symbol("CGSMainConnectionID", as: MainConn.self),
+              let copyManaged: CopyManaged = Self.symbol("CGSCopyManagedDisplaySpaces", as: CopyManaged.self),
               let array = copyManaged(main())?.takeRetainedValue() as? [[String: Any]] else {
             return ManagedSnapshot(spaces: [], activeByDisplay: [:], orderedIDsByDisplay: [:])
         }
@@ -49,20 +71,20 @@ public enum CGSBridge {
         for displayEntry in array {
             let display = (displayEntry["Display Identifier"] as? String) ?? "unknown-display"
             if let current = displayEntry["Current Space"] as? [String: Any],
-               let spaceID = parsedSpaceID(from: current) {
+               let spaceID = Self.parsedSpaceID(from: current) {
                 activeByDisplay[display] = spaceID
             }
             let managed = displayEntry["Spaces"] as? [[String: Any]] ?? []
             var ordered: [Int] = []
             for space in managed {
-                if let spaceID = parsedSpaceID(from: space) {
+                if let spaceID = Self.parsedSpaceID(from: space) {
                     ordered.append(spaceID)
                     spaces.append(
                         SpaceIdentity(
                             id: spaceID,
                             display: display,
-                            kind: parsedSpaceKind(from: space),
-                            systemName: parsedSpaceName(from: space)
+                            kind: Self.parsedSpaceKind(from: space),
+                            systemName: Self.parsedSpaceName(from: space)
                         )
                     )
                 }
@@ -72,27 +94,27 @@ public enum CGSBridge {
         return ManagedSnapshot(spaces: spaces, activeByDisplay: activeByDisplay, orderedIDsByDisplay: orderedIDsByDisplay)
     }
 
-    public static func managedSpaces() -> [SpaceIdentity] {
+    public func managedSpaces() -> [SpaceIdentity] {
         managedSnapshot().spaces
     }
 
     /// Posts Ctrl+1…9 to match Mission Control desktop shortcuts.
-    public static func switchByDesktopShortcut(index: Int) -> Bool {
+    public func switchByDesktopShortcut(index: Int) -> Bool {
         guard (1...9).contains(index) else { return false }
         let keyCodes: [Int: CGKeyCode] = [
             1: 18, 2: 19, 3: 20, 4: 21, 5: 23, 6: 22,
             7: 26, 8: 28, 9: 25,
         ]
         guard let keyCode = keyCodes[index] else { return false }
-        return postControlKey(keyCode: keyCode)
+        return Self.postControlKey(keyCode: keyCode)
     }
 
-    public static func spacesForWindow(windowID: Int) -> [Int] {
+    public func spacesForWindow(windowID: Int) -> [Int] {
         typealias MainConn = @convention(c) () -> CGSConnectionID
         typealias CopySpacesForWindows = @convention(c) (CGSConnectionID, Int32, CFArray) -> Unmanaged<CFArray>?
 
-        guard let main: MainConn = symbol("_CGSDefaultConnection", as: MainConn.self) ?? symbol("CGSMainConnectionID", as: MainConn.self),
-              let copySpaces: CopySpacesForWindows = symbol("CGSCopySpacesForWindows", as: CopySpacesForWindows.self) else {
+        guard let main: MainConn = Self.symbol("_CGSDefaultConnection", as: MainConn.self) ?? Self.symbol("CGSMainConnectionID", as: MainConn.self),
+              let copySpaces: CopySpacesForWindows = Self.symbol("CGSCopySpacesForWindows", as: CopySpacesForWindows.self) else {
             return []
         }
 
