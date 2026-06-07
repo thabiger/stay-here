@@ -11,8 +11,24 @@ final class WindowSwitcherSettingsTests: XCTestCase {
 
         XCTAssertEqual(settings.shortcutText, "option+`")
         XCTAssertEqual(settings.shortcut.displayString, "option+backtick")
+        XCTAssertTrue(settings.isEnabled)
+        XCTAssertEqual(settings.titleFormat, .appNameOnly)
         XCTAssertFalse(settings.showMinimizedWindows)
         XCTAssertFalse(settings.showHiddenWindows)
+    }
+
+    func testPersistsEnabledFlag() {
+        let suiteName = "WindowSwitcherSettingsTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let settings = WindowSwitcherSettings(defaults: defaults)
+        settings.isEnabled = false
+
+        XCTAssertFalse(settings.isEnabled)
+
+        let reread = WindowSwitcherSettings(defaults: defaults)
+        XCTAssertFalse(reread.isEnabled)
     }
 
     func testParsesCustomShortcutText() {
@@ -46,5 +62,46 @@ final class WindowSwitcherSettingsTests: XCTestCase {
         let reread = WindowSwitcherSettings(defaults: defaults)
         XCTAssertTrue(reread.showMinimizedWindows)
         XCTAssertTrue(reread.showHiddenWindows)
+    }
+
+    func testPersistsTitleFormat() {
+        let suiteName = "WindowSwitcherSettingsTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let settings = WindowSwitcherSettings(defaults: defaults)
+        settings.titleFormat = .appNameAndWindowTitle
+
+        XCTAssertEqual(settings.titleFormat, .appNameAndWindowTitle)
+
+        let reread = WindowSwitcherSettings(defaults: defaults)
+        XCTAssertEqual(reread.titleFormat, .appNameAndWindowTitle)
+    }
+
+    func testFormatsWindowTitleBasedOnSetting() {
+        XCTAssertEqual(
+            WindowSwitcherSettings.displayTitle(
+                appName: "Notes",
+                windowTitle: "Untitled",
+                format: .appNameOnly
+            ),
+            "Notes"
+        )
+        XCTAssertEqual(
+            WindowSwitcherSettings.displayTitle(
+                appName: "Notes",
+                windowTitle: "Untitled",
+                format: .appNameAndWindowTitle
+            ),
+            "Notes: Untitled"
+        )
+        XCTAssertEqual(
+            WindowSwitcherSettings.displayTitle(
+                appName: "Notes",
+                windowTitle: nil,
+                format: .appNameAndWindowTitle
+            ),
+            "Notes"
+        )
     }
 }

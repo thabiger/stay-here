@@ -20,7 +20,7 @@ final class WindowSwitcherController {
         let windowID: Int
         let pid: pid_t
         let appName: String
-        let title: String
+        let windowTitle: String?
         let icon: NSImage
     }
 
@@ -287,12 +287,13 @@ final class WindowSwitcherController {
 
     private func buildSnapshot() -> WindowSwitcherSnapshot {
         let entries = selectedWindowEntries()
+        let settings = WindowSwitcherSettings.shared
         let selectedID = session?.selectedWindowID ?? entries.first?.windowID
         let items = entries.map { entry in
             WindowSwitcherItem(
                 id: entry.windowID,
                 icon: entry.icon,
-                title: displayTitle(for: entry),
+                title: displayTitle(for: entry, settings: settings),
                 isSelected: entry.windowID == selectedID
             )
         }
@@ -309,6 +310,7 @@ final class WindowSwitcherController {
         guard let raw = CGWindowListCopyWindowInfo(.optionAll, kCGNullWindowID) as? [[String: Any]] else {
             return []
         }
+        var accessibilityTitleCache: [pid_t: [Int: String]] = [:]
 
         return raw.compactMap { item in
             guard let owner = item[kCGWindowOwnerPID as String] as? NSNumber,
@@ -343,12 +345,16 @@ final class WindowSwitcherController {
             let appName = application?.localizedName
                 ?? (item[kCGWindowOwnerName as String] as? String)
                 ?? "App"
-            let title = title(for: item, appName: appName)
+            let windowTitle = title(for: item) ?? accessibilityTitle(
+                for: pid,
+                windowNumber: windowNumber.intValue,
+                cache: &accessibilityTitleCache
+            )
             return WindowEntry(
                 windowID: windowNumber.intValue,
                 pid: pid,
                 appName: appName,
-                title: title,
+                windowTitle: windowTitle,
                 icon: icon(for: application)
             )
         }
@@ -372,16 +378,70 @@ final class WindowSwitcherController {
         return SpaceContext(spaceID: activeSpaceID, desktopNumber: desktopNumber)
     }
 
-    private func displayTitle(for entry: WindowEntry) -> String {
-        if entry.title == entry.appName {
-            return entry.appName
-        }
-        return "\(entry.appName) - \(entry.title)"
+    private func displayTitle(for entry: WindowEntry, settings: WindowSwitcherSettings) -> String {
+        WindowSwitcherSettings.displayTitle(
+            appName: entry.appName,
+            windowTitle: entry.windowTitle,
+            format: settings.titleFormat
+        )
     }
 
-    private func title(for item: [String: Any], appName: String) -> String {
+    private func title(for item: [String: Any]) -> String? {
         let raw = (item[kCGWindowName as String] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return raw.isEmpty ? appName : raw
+        return raw.isEmpty ? nil : raw
+    }
+
+    private func accessibilityTitle(
+        for pid: pid_t,
+        windowNumber: Int,
+        cache: inout [pid_t: [Int: String]]
+    ) -> String? {
+        if let cached = cache[pid] {
+            return cached[windowNumber]
+        }
+
+        let titles = accessibilityWindowTitles(for: pid)
+        cache[pid] = titles
+        return titles[windowNumber]
+    }
+
+    private func accessibilityWindowTitles(for pid: pid_t) -> [Int: String] {
+        let appElement = AXUIElementCreateApplication(pid)
+        var windowsRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &windowsRef) == .success,
+              let windows = windowsRef as? [AXUIElement],
+              !windows.isEmpty else {
+            return [:]
+        }
+
+        var titles: [Int: String] = [:]
+        for window in windows {
+            guard let number = accessibilityWindowNumber(for: window),
+                  let title = accessibilityWindowTitle(for: window) else {
+                continue
+            }
+            titles[number] = title
+        }
+        return titles
+    }
+
+    private func accessibilityWindowNumber(for window: AXUIElement) -> Int? {
+        var numberRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(window, "AXWindowNumber" as CFString, &numberRef) == .success,
+              let number = numberRef as? NSNumber else {
+            return nil
+        }
+        return number.intValue
+    }
+
+    private func accessibilityWindowTitle(for window: AXUIElement) -> String? {
+        var titleRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(window, kAXTitleAttribute as CFString, &titleRef) == .success,
+              let title = titleRef as? String else {
+            return nil
+        }
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 
     private func icon(for application: NSRunningApplication?) -> NSImage {
@@ -410,16 +470,16 @@ final class WindowSwitcherController {
             app.unhide()
             let activated = app.activate(options: [.activateIgnoringOtherApps, .activateAllWindows])
             if !activated || !app.isActive {
-                self.raiseWindow(pid: entry.pid, title: entry.title)
+                self.raiseWindow(pid: entry.pid, title: entry.windowTitle ?? entry.appName)
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
                     guard let app = NSRunningApplication(processIdentifier: entry.pid), !app.isActive else { return }
                     app.activate(options: [.activateIgnoringOtherApps, .activateAllWindows])
-                    self.raiseWindow(pid: entry.pid, title: entry.title)
+                    self.raiseWindow(pid: entry.pid, title: entry.windowTitle ?? entry.appName)
                 }
                 return
             }
 
-            self.raiseWindow(pid: entry.pid, title: entry.title)
+            self.raiseWindow(pid: entry.pid, title: entry.windowTitle ?? entry.appName)
         }
     }
 

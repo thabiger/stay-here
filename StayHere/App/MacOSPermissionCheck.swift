@@ -2,6 +2,17 @@ import AppKit
 import ApplicationServices
 import CoreGraphics
 
+struct ScreenRecordingPermissionCheck {
+    static var isGranted: Bool {
+        CGPreflightScreenCaptureAccess()
+    }
+
+    static func openSettings() {
+        let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")!
+        NSWorkspace.shared.open(url)
+    }
+}
+
 struct MacOSPermissionStatus: Equatable {
     let accessibilityGranted: Bool
 

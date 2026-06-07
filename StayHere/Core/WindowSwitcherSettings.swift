@@ -1,11 +1,27 @@
 import Foundation
 import CoreGraphics
 
+public enum WindowSwitcherTitleFormat: String, CaseIterable, Hashable {
+    case appNameOnly
+    case appNameAndWindowTitle
+
+    public var displayName: String {
+        switch self {
+        case .appNameOnly:
+            return "App name only"
+        case .appNameAndWindowTitle:
+            return "App name: window title"
+        }
+    }
+}
+
 public final class WindowSwitcherSettings {
     public static let shared = WindowSwitcherSettings()
 
     private let defaults: UserDefaults
     private let key = "windowSwitcher.shortcut"
+    private let enabledKey = "windowSwitcher.enabled"
+    private let titleFormatKey = "windowSwitcher.titleFormat"
     private let showMinimizedWindowsKey = "windowSwitcher.showMinimizedWindows"
     private let showHiddenWindowsKey = "windowSwitcher.showHiddenWindows"
     private let defaultShortcutText = "option+`"
@@ -23,6 +39,33 @@ public final class WindowSwitcherSettings {
         }
         set {
             defaults.set(newValue.trimmingCharacters(in: .whitespacesAndNewlines), forKey: key)
+        }
+    }
+
+    public var isEnabled: Bool {
+        get {
+            if defaults.object(forKey: enabledKey) != nil {
+                return defaults.bool(forKey: enabledKey)
+            }
+
+            return true
+        }
+        set {
+            defaults.set(newValue, forKey: enabledKey)
+        }
+    }
+
+    public var titleFormat: WindowSwitcherTitleFormat {
+        get {
+            if let stored = defaults.string(forKey: titleFormatKey),
+               let format = WindowSwitcherTitleFormat(rawValue: stored) {
+                return format
+            }
+
+            return .appNameOnly
+        }
+        set {
+            defaults.set(newValue.rawValue, forKey: titleFormatKey)
         }
     }
 
@@ -50,6 +93,21 @@ public final class WindowSwitcherSettings {
         set {
             defaults.set(newValue, forKey: showHiddenWindowsKey)
         }
+    }
+
+    public static func displayTitle(
+        appName: String,
+        windowTitle: String?,
+        format: WindowSwitcherTitleFormat
+    ) -> String {
+        let trimmedWindowTitle = windowTitle?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard format == .appNameAndWindowTitle,
+              !trimmedWindowTitle.isEmpty,
+              trimmedWindowTitle != appName else {
+            return appName
+        }
+
+        return "\(appName): \(trimmedWindowTitle)"
     }
 
     public static func parseShortcut(_ text: String) -> SpaceSwitcherShortcut? {

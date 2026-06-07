@@ -17,7 +17,7 @@ For the best experience, set up StayHere in this order:
 
 1. Grant the required macOS permissions.
 2. Enable the Mission Control keyboard shortcuts.
-3. Set your preferred Space and Window switcher shortcuts.
+3. Set your preferred Space and Window switcher shortcuts, or disable either switcher if you do not want it active.
 4. Optionally add single-window apps.
 5. Turn off a couple of macOS Space behaviors that fight with the app.
 
@@ -78,6 +78,7 @@ StayHere uses these shortcuts internally for space switching, so they need to st
 
 The space picker opens when you press the configured shortcut.
 
+- You can turn the Space Switcher on or off in Settings
 - Default: `option+tab`
 - You can change it in the app Settings
 
@@ -107,13 +108,16 @@ At least one modifier is required.
 
 The window picker opens when you press the configured shortcut.
 
+- You can turn the Window Switcher on or off in Settings
 - Default: `command+tab`
 - It only shows windows on the current Space
 - Each row includes the app icon to make the list easier to scan
 
 Shortcut syntax is the same as the Space switcher.
 
-In Settings, the Window Switcher section also lets you show minimized windows and hidden windows if you want a broader list.
+In Settings, the Window Switcher section also lets you show minimized windows, hidden windows, and choose whether rows show just the app name or `App Name: Window Title` when a title is available.
+
+If you choose `App Name: Window Title`, grant StayHere **Screen Recording** permission in `System Settings > Privacy & Security > Screen & System Audio Recording`. macOS hides other apps’ window names from `CGWindowListCopyWindowInfo` until that permission is granted.
 
 ## Single-window apps
 

@@ -14,8 +14,12 @@ final class SettingsCoordinator: ObservableObject {
     @Published var diagnosticsEnabled: Bool = DiagnosticsSettings.shared.isEnabled
     @Published var dockClickInterceptionEnabled: Bool = true
     @Published var singleWindowAppBundleIDsText: String = ""
+    @Published var spaceSwitcherEnabled: Bool = true
     @Published var spaceSwitcherShortcutText: String = ""
+    @Published var windowSwitcherEnabled: Bool = true
     @Published var windowSwitcherShortcutText: String = ""
+    @Published var windowSwitcherTitleFormat: WindowSwitcherTitleFormat = .appNameOnly
+    @Published var screenRecordingGranted: Bool = ScreenRecordingPermissionCheck.isGranted
     @Published var windowSwitcherShowMinimizedWindows: Bool = false
     @Published var windowSwitcherShowHiddenWindows: Bool = false
     @Published var hudDisplayDuration: Double = HUDSettings.shared.displayDuration
@@ -41,8 +45,12 @@ final class SettingsCoordinator: ObservableObject {
         diagnosticsEnabled = diagnosticsSettings.isEnabled
         dockClickInterceptionEnabled = activationSettings.dockClickInterceptionEnabled
         singleWindowAppBundleIDsText = ActivationSettings.serializeSingleWindowAppBundleIDs(activationSettings.singleWindowAppBundleIDs)
+        spaceSwitcherEnabled = spaceSwitcherSettings.isEnabled
         spaceSwitcherShortcutText = spaceSwitcherSettings.shortcutText
+        windowSwitcherEnabled = windowSwitcherSettings.isEnabled
         windowSwitcherShortcutText = windowSwitcherSettings.shortcutText
+        windowSwitcherTitleFormat = windowSwitcherSettings.titleFormat
+        screenRecordingGranted = ScreenRecordingPermissionCheck.isGranted
         windowSwitcherShowMinimizedWindows = windowSwitcherSettings.showMinimizedWindows
         windowSwitcherShowHiddenWindows = windowSwitcherSettings.showHiddenWindows
         hudDisplayDuration = HUDSettings.shared.displayDuration
@@ -53,8 +61,11 @@ final class SettingsCoordinator: ObservableObject {
         diagnosticsSettings.isEnabled = diagnosticsEnabled
         activationSettings.dockClickInterceptionEnabled = dockClickInterceptionEnabled
         activationSettings.singleWindowAppBundleIDs = ActivationSettings.parseSingleWindowAppBundleIDs(from: singleWindowAppBundleIDsText)
+        spaceSwitcherSettings.isEnabled = spaceSwitcherEnabled
         spaceSwitcherSettings.shortcutText = spaceSwitcherShortcutText
+        windowSwitcherSettings.isEnabled = windowSwitcherEnabled
         windowSwitcherSettings.shortcutText = windowSwitcherShortcutText
+        windowSwitcherSettings.titleFormat = windowSwitcherTitleFormat
         windowSwitcherSettings.showMinimizedWindows = windowSwitcherShowMinimizedWindows
         windowSwitcherSettings.showHiddenWindows = windowSwitcherShowHiddenWindows
         HUDSettings.shared.displayDuration = hudDisplayDuration
@@ -125,6 +136,7 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Space Switcher Shortcut")
                         .font(.headline)
+                    Toggle("Enable Space Switcher", isOn: $coordinator.spaceSwitcherEnabled)
                     TextField("option+tab", text: $coordinator.spaceSwitcherShortcutText)
                         .textFieldStyle(.roundedBorder)
                     Text("This combo opens the space picker. Use modifier names like `option`, `shift`, `control`, `command` plus a key like `tab`, `space`, or a letter. Example: `control+space`.")
@@ -135,6 +147,7 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Window Switcher Shortcut")
                         .font(.headline)
+                    Toggle("Enable Window Switcher", isOn: $coordinator.windowSwitcherEnabled)
                     TextField("command+tab", text: $coordinator.windowSwitcherShortcutText)
                         .textFieldStyle(.roundedBorder)
                     Text("This combo opens the window picker for windows on the current Space. The default replaces the macOS app switcher, but you can change it to any supported shortcut.")
@@ -147,9 +160,30 @@ struct SettingsView: View {
                         .font(.headline)
                     Toggle("Show minimized windows", isOn: $coordinator.windowSwitcherShowMinimizedWindows)
                     Toggle("Show hidden windows", isOn: $coordinator.windowSwitcherShowHiddenWindows)
+                    Picker("Window row titles", selection: $coordinator.windowSwitcherTitleFormat) {
+                        ForEach(WindowSwitcherTitleFormat.allCases, id: \.self) { format in
+                            Text(format.displayName).tag(format)
+                        }
+                    }
+                    .pickerStyle(.segmented)
                     Text("When enabled, the picker includes minimized or hidden windows that belong to the current Space.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
+                    Text("Choose whether rows show only the app name or `App Name: Window Title` when a window title is available.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    if coordinator.windowSwitcherTitleFormat == .appNameAndWindowTitle && !coordinator.screenRecordingGranted {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Screen Recording is needed to show window titles. macOS hides window names from `CGWindowListCopyWindowInfo` until the app is approved.")
+                                .font(.footnote.weight(.bold))
+                                .foregroundStyle(.red)
+                            Button("Open Screen Recording Settings") {
+                                ScreenRecordingPermissionCheck.openSettings()
+                            }
+                            .buttonStyle(.borderless)
+                            .foregroundStyle(.red)
+                        }
+                    }
                 }
 
                 VStack(alignment: .leading, spacing: 6) {

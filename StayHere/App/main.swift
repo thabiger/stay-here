@@ -170,6 +170,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func flushSettingsAndUI() {
         settingsCoordinator?.commitAll()
         applyAppearanceImmediately()
+        syncEventDrivenControllers()
         statusController.setTitle(registry.activeNameSummary())
         statusController.rebuildSpaceItems(registry: registry)
         settingsCoordinator = nil
@@ -202,8 +203,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func startEventDrivenControllers() {
         activationController.start()
-        spaceSwitcherController.start()
-        windowSwitcherController.start()
+        syncEventDrivenControllers()
+    }
+
+    private func syncEventDrivenControllers() {
+        if SpaceSwitcherSettings.shared.isEnabled {
+            spaceSwitcherController.start()
+        } else {
+            spaceSwitcherController.stop()
+        }
+
+        if WindowSwitcherSettings.shared.isEnabled {
+            windowSwitcherController.start()
+        } else {
+            windowSwitcherController.stop()
+        }
     }
 
     private func showSetupRequirementsIfNeeded() {

@@ -11,6 +11,21 @@ final class SpaceSwitcherSettingsTests: XCTestCase {
 
         XCTAssertEqual(settings.shortcutText, "option+tab")
         XCTAssertEqual(settings.shortcut.displayString, "option+tab")
+        XCTAssertTrue(settings.isEnabled)
+    }
+
+    func testPersistsEnabledFlag() {
+        let suiteName = "SpaceSwitcherSettingsTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let settings = SpaceSwitcherSettings(defaults: defaults)
+        settings.isEnabled = false
+
+        XCTAssertFalse(settings.isEnabled)
+
+        let reread = SpaceSwitcherSettings(defaults: defaults)
+        XCTAssertFalse(reread.isEnabled)
     }
 
     func testParsesCustomShortcutText() {

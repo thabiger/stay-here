@@ -44,6 +44,7 @@ public final class SpaceSwitcherSettings {
 
     private let defaults: UserDefaults
     private let key = "spaceSwitcher.shortcut"
+    private let enabledKey = "spaceSwitcher.enabled"
     private let defaultShortcutText = "option+tab"
 
     public init(defaults: UserDefaults = .standard) {
@@ -59,6 +60,19 @@ public final class SpaceSwitcherSettings {
         }
         set {
             defaults.set(newValue.trimmingCharacters(in: .whitespacesAndNewlines), forKey: key)
+        }
+    }
+
+    public var isEnabled: Bool {
+        get {
+            if defaults.object(forKey: enabledKey) != nil {
+                return defaults.bool(forKey: enabledKey)
+            }
+
+            return true
+        }
+        set {
+            defaults.set(newValue, forKey: enabledKey)
         }
     }
 

@@ -9,6 +9,7 @@
 - Added a configurable global space switcher picker, defaulting to `Option+Tab`, with support for custom shortcuts in Settings.
 - Added a configurable window switcher picker, defaulting to `Command+Tab`, showing current-space windows with app icons.
 - Added window switcher visibility options for minimized and hidden windows.
+- Added a window switcher title-format option to show `App Name: Window Title` rows in Settings.
 - Added shortcut syntax documentation and parser support for `tab`, `space`, `return`, `escape`, `delete`, arrow keys, letters, digits, and `backtick` / `` ` ``.
 
 ## phase-1 (unreleased)
