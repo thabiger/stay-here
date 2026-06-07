@@ -509,9 +509,9 @@ final class WindowSwitcherController {
             return windowTitle == title
         } ?? windows.first!
 
-        AXUIElementSetAttributeValue(target, kAXMinimizedAttribute as CFString, kCFBooleanFalse!)
+        AXUIElementSetAttributeValue(target, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
         AXUIElementPerformAction(target, kAXRaiseAction as CFString)
-        AXUIElementSetAttributeValue(target, kAXMainAttribute as CFString, kCFBooleanTrue!)
+        AXUIElementSetAttributeValue(target, kAXMainAttribute as CFString, kCFBooleanTrue)
     }
 
     private static let eventTapCallback: CGEventTapCallBack = { _, type, event, userInfo in

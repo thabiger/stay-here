@@ -144,7 +144,7 @@ public final class ActivationExecutor {
 
         let target = windows.first(where: isStandardWindow) ?? windows.first!
         AXUIElementPerformAction(target, kAXRaiseAction as CFString)
-        AXUIElementSetAttributeValue(target, kAXMainAttribute as CFString, kCFBooleanTrue!)
+        AXUIElementSetAttributeValue(target, kAXMainAttribute as CFString, kCFBooleanTrue)
     }
 
     private func isStandardWindow(_ element: AXUIElement) -> Bool {
