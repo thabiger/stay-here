@@ -45,7 +45,7 @@ public final class SpaceSwitcherSettings {
     private let defaults: UserDefaults
     private let key = "spaceSwitcher.shortcut"
     private let enabledKey = "spaceSwitcher.enabled"
-    private let defaultShortcutText = "option+tab"
+    private let defaultShortcutText = "command+tab"
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -77,7 +77,7 @@ public final class SpaceSwitcherSettings {
     }
 
     public var shortcut: SpaceSwitcherShortcut {
-        Self.parseShortcut(shortcutText) ?? Self.parseShortcut(defaultShortcutText) ?? SpaceSwitcherShortcut(keyCode: 48, modifiers: [.maskAlternate])
+        Self.parseShortcut(shortcutText) ?? Self.parseShortcut(defaultShortcutText) ?? SpaceSwitcherShortcut(keyCode: 48, modifiers: [.maskCommand])
     }
 
     public static func parseShortcut(_ text: String) -> SpaceSwitcherShortcut? {

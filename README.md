@@ -79,7 +79,7 @@ StayHere uses these shortcuts internally for space switching, so they need to st
 The space picker opens when you press the configured shortcut.
 
 - You can turn the Space Switcher on or off in Settings
-- Default: `option+tab`
+- Default: `command+tab`
 - You can change it in the app Settings
 
 Shortcut syntax is plain text:

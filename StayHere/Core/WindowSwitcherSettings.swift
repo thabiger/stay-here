@@ -24,7 +24,7 @@ public final class WindowSwitcherSettings {
     private let titleFormatKey = "windowSwitcher.titleFormat"
     private let showMinimizedWindowsKey = "windowSwitcher.showMinimizedWindows"
     private let showHiddenWindowsKey = "windowSwitcher.showHiddenWindows"
-    private let defaultShortcutText = "option+`"
+    private let defaultShortcutText = "command+`"
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -70,7 +70,7 @@ public final class WindowSwitcherSettings {
     }
 
     public var shortcut: SpaceSwitcherShortcut {
-        Self.parseShortcut(shortcutText) ?? Self.parseShortcut(defaultShortcutText) ?? SpaceSwitcherShortcut(keyCode: 48, modifiers: [.maskCommand])
+        Self.parseShortcut(shortcutText) ?? Self.parseShortcut(defaultShortcutText) ?? SpaceSwitcherShortcut(keyCode: 50, modifiers: [.maskCommand])
     }
 
     public var showMinimizedWindows: Bool {

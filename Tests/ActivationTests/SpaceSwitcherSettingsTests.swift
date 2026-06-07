@@ -2,15 +2,15 @@ import XCTest
 import Core
 
 final class SpaceSwitcherSettingsTests: XCTestCase {
-    func testDefaultShortcutIsOptionTab() {
+    func testDefaultShortcutIsCommandTab() {
         let suiteName = "SpaceSwitcherSettingsTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
 
         let settings = SpaceSwitcherSettings(defaults: defaults)
 
-        XCTAssertEqual(settings.shortcutText, "option+tab")
-        XCTAssertEqual(settings.shortcut.displayString, "option+tab")
+        XCTAssertEqual(settings.shortcutText, "command+tab")
+        XCTAssertEqual(settings.shortcut.displayString, "command+tab")
         XCTAssertTrue(settings.isEnabled)
     }
 
