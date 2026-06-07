@@ -21,6 +21,7 @@ final class AppRuntimeCoordinator: AppCoordinating {
     private var cancellables: Set<AnyCancellable> = []
     private var menuRebuildWorkItem: DispatchWorkItem?
     private var activeSpaceObserver: NSObjectProtocol?
+    private var lastObservedActiveSpaceID: Int?
 
     init(
         settings: SettingsRepository,
@@ -129,21 +130,21 @@ final class AppRuntimeCoordinator: AppCoordinating {
     }
 
     private func bindRegistry() {
-        registry.$activeSpaceID
-            .receive(on: RunLoop.main)
-            .sink { [weak self] id in
-                guard let self, !self.isSettingsOpen else { return }
-                self.statusController.setTitle(self.registry.activeNameSummary())
-                if id != nil {
-                    self.hudController.show(name: self.registry.activeName())
-                }
-            }
-            .store(in: &cancellables)
+        lastObservedActiveSpaceID = registry.activeSpaceID
 
-        registry.$labels.combineLatest(registry.$spaces)
+        registry.objectWillChange
             .receive(on: RunLoop.main)
-            .sink { [weak self] _, _ in
-                self?.scheduleMenuRebuild()
+            .sink { [weak self] in
+                guard let self, !self.isSettingsOpen else { return }
+                let activeSpaceID = self.registry.activeSpaceID
+                self.statusController.setTitle(self.registry.activeNameSummary())
+                if activeSpaceID != self.lastObservedActiveSpaceID {
+                    self.lastObservedActiveSpaceID = activeSpaceID
+                    if activeSpaceID != nil {
+                        self.hudController.show(name: self.registry.activeName())
+                    }
+                }
+                self.scheduleMenuRebuild()
             }
             .store(in: &cancellables)
     }
