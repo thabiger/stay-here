@@ -36,8 +36,7 @@ public final class DockClickInterceptor {
 
         let mask = (1 << CGEventType.leftMouseDown.rawValue) | (1 << CGEventType.leftMouseUp.rawValue)
         let callback: CGEventTapCallBack = { proxy, type, event, refcon in
-            guard (type == .leftMouseDown || type == .leftMouseUp),
-                  let refcon else { return Unmanaged.passRetained(event) }
+            guard let refcon else { return Unmanaged.passUnretained(event) }
 
             let interceptor = Unmanaged<DockClickInterceptor>.fromOpaque(refcon).takeUnretainedValue()
             return interceptor.handle(proxy: proxy, event: event)
@@ -81,12 +80,12 @@ public final class DockClickInterceptor {
             if let tap = eventTap {
                 CGEvent.tapEnable(tap: tap, enable: true)
             }
-            return Unmanaged.passRetained(event)
+            return Unmanaged.passUnretained(event)
         }
 
         if !isDockClickInterceptionEnabled() {
             pendingDockClick = nil
-            return Unmanaged.passRetained(event)
+            return Unmanaged.passUnretained(event)
         }
 
         let optionHeld = event.flags.contains(.maskAlternate)
@@ -95,12 +94,12 @@ public final class DockClickInterceptor {
         switch event.type {
         case .leftMouseDown:
             guard let bundleID = dockBundleID(at: point) else {
-                return Unmanaged.passRetained(event)
+                return Unmanaged.passUnretained(event)
             }
 
             guard shouldIntercept(bundleID, optionHeld) else {
                 Logger.shared.info("activation dock-down passthrough=true option=\(optionHeld)")
-                return Unmanaged.passRetained(event)
+                return Unmanaged.passUnretained(event)
             }
 
             pendingDockClick = PendingDockClick(bundleID: bundleID, optionHeld: optionHeld)
@@ -113,7 +112,7 @@ public final class DockClickInterceptor {
             pendingDockClick = nil
 
             guard let bundleID = pending?.bundleID ?? currentBundleID else {
-                return Unmanaged.passRetained(event)
+                return Unmanaged.passUnretained(event)
             }
 
             let resolvedOptionHeld = pending?.optionHeld ?? optionHeld
@@ -121,10 +120,10 @@ public final class DockClickInterceptor {
             if handler(bundleID, resolvedOptionHeld) {
                 return nil
             }
-            return Unmanaged.passRetained(event)
+            return Unmanaged.passUnretained(event)
 
         default:
-            return Unmanaged.passRetained(event)
+            return Unmanaged.passUnretained(event)
         }
     }
 
