@@ -78,7 +78,7 @@ final class WindowSwitcherController {
         self.eventTap = eventTap
         let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0)
         runLoopSource = source
-        CFRunLoopAddSource(CFRunLoopGetCurrent(), source, .commonModes)
+        CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         CGEvent.tapEnable(tap: eventTap, enable: true)
     }
 
@@ -89,7 +89,7 @@ final class WindowSwitcherController {
             CGEvent.tapEnable(tap: eventTap, enable: false)
         }
         if let runLoopSource {
-            CFRunLoopRemoveSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
         }
         eventTap = nil
         runLoopSource = nil
