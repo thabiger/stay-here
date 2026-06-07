@@ -321,11 +321,8 @@ final class WindowSwitcherController {
     private func resizePanel(for snapshot: WindowSwitcherSnapshot) {
         guard let panelPair else { return }
         let width: CGFloat = 560
-        let rowHeight: CGFloat = 40
-        let headerHeight: CGFloat = 54
-        let bodyHeight: CGFloat = snapshot.items.isEmpty ? 56 : CGFloat(min(snapshot.items.count, 10)) * rowHeight + 20
-        let height = headerHeight + bodyHeight
         let screenFrame = NSScreen.main?.visibleFrame ?? NSScreen.screens.first?.visibleFrame ?? .zero
+        let height = Self.panelHeight(itemCount: snapshot.items.count, screenHeight: screenFrame.height)
         let frame = NSRect(
             x: screenFrame.midX - width / 2,
             y: screenFrame.midY - height / 2 + 30,
@@ -333,6 +330,19 @@ final class WindowSwitcherController {
             height: height
         )
         panelPair.window.setFrame(frame, display: true)
+    }
+
+    internal static func panelHeight(itemCount: Int, screenHeight: CGFloat) -> CGFloat {
+        let rowHeight: CGFloat = 40
+        let headerHeight: CGFloat = 54
+        let listPadding: CGFloat = 20
+        let emptyBodyHeight: CGFloat = 56
+        let bodyHeight = itemCount == 0
+            ? emptyBodyHeight
+            : CGFloat(itemCount) * rowHeight + listPadding
+        let minimumHeight = headerHeight + min(emptyBodyHeight, rowHeight + listPadding)
+        let maxHeight = max(screenHeight - 80, minimumHeight)
+        return min(headerHeight + bodyHeight, maxHeight)
     }
 
     private func buildSnapshot() -> WindowSwitcherSnapshot {

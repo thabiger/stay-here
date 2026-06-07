@@ -269,4 +269,16 @@ final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
 
         XCTAssertNil(controller.testSessionEntries, "Cancel must drop the cached entries")
     }
+
+    func testPanelHeightAllowsMoreThanTenRowsWhenScreenHasRoom() {
+        let height = WindowSwitcherController.panelHeight(itemCount: 14, screenHeight: 1000)
+
+        XCTAssertEqual(height, 634, "Taller screens should allow more than the previous ten visible rows")
+    }
+
+    func testPanelHeightStillCapsToAvailableScreenHeight() {
+        let height = WindowSwitcherController.panelHeight(itemCount: 30, screenHeight: 700)
+
+        XCTAssertEqual(height, 620, "Panel height should stop at the available visible screen height")
+    }
 }
