@@ -8,7 +8,7 @@ struct WindowSwitcherItem: Identifiable {
     /// Captured entry so the click callback can hand the controller a
     /// fully-resolved `WindowEntry` without re-querying the window
     /// list. The cache that produced it lives in `Session.entries`.
-    let entry: WindowSwitcherController.WindowEntry
+    let entry: WindowEntry
     let isSelected: Bool
 }
 
@@ -20,7 +20,7 @@ struct WindowSwitcherSnapshot {
 
 struct WindowSwitcherView: View {
     let snapshot: WindowSwitcherSnapshot
-    let onSelect: (WindowSwitcherController.WindowEntry) -> Void
+    let onSelect: (WindowEntry) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
