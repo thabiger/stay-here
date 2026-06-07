@@ -92,6 +92,9 @@ struct SettingsView: View {
                     Text("When enabled, StayHere shows the Debug menu and writes verbose logs. Leave this off for normal use.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
+                    Text("Warning: log entries may include bundle IDs, space names, and window titles. The log file is restricted to your user account (0o600).")
+                        .font(.footnote)
+                        .foregroundStyle(.orange)
                     Button("Open Logs") {
                         Logger.shared.openLogsInFinder()
                     }
