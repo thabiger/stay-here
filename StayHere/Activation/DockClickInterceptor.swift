@@ -83,7 +83,8 @@ public final class DockClickInterceptor {
             return Unmanaged.passUnretained(event)
         }
 
-        if !isDockClickInterceptionEnabled() {
+        let dockClickEnabled = isDockClickInterceptionEnabled()
+        if !dockClickEnabled {
             pendingDockClick = nil
             return Unmanaged.passUnretained(event)
         }
