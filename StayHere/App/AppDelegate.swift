@@ -8,9 +8,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let settings: SettingsRepository
     private let cgsBridge: any CGSBridgeProtocol
     private let appearanceManager: AppearanceManager
+    private let lifecycleCoordinator: AppLifecycleCoordinator
     private lazy var registry = SpaceRegistry(cgsBridge: cgsBridge)
     private let statusController: StatusBarController
     private let hudController: HUDController
+    private lazy var settingsWindowManager = SettingsWindowManager(
+        settings: settings,
+        appearanceManager: appearanceManager,
+        onAppearanceChange: { [weak self] in
+            self?.applyAppearanceImmediately()
+        },
+        onWillOpen: { [weak self] in
+            self?.pauseBackgroundUpdates()
+        },
+        onDidClose: { [weak self] in
+            self?.settingsWindowDidClose()
+        }
+    )
+    private lazy var switchPresentationHelper = SpaceSwitchPresentationHelper(
+        appearanceManager: appearanceManager
+    )
     private lazy var activationController = ActivationController(
         settings: settings,
         windowIndex: WindowIndex(cgsBridge: cgsBridge),
@@ -40,11 +57,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         registry: registry,
         cgsBridge: cgsBridge
     )
-    private var settingsWindow: NSWindow?
-    private var settingsHostingController: NSHostingController<SettingsView>?
-    private var settingsCoordinator: SettingsCoordinator?
     private var cancellables: Set<AnyCancellable> = []
-    private var pollTimer: Timer?
     private var menuRebuildWorkItem: DispatchWorkItem?
 
     init(
@@ -54,17 +67,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.settings = settings
         self.cgsBridge = cgsBridge
         self.appearanceManager = AppearanceManager(settings: settings)
+        self.lifecycleCoordinator = AppLifecycleCoordinator(appearanceManager: self.appearanceManager)
         self.statusController = StatusBarController(settings: settings, appearanceManager: appearanceManager)
         self.hudController = HUDController(settings: settings, appearanceManager: appearanceManager)
         super.init()
     }
 
-    var isSettingsOpen: Bool { settingsWindow != nil }
+    var isSettingsOpen: Bool { settingsWindowManager.isOpen }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.setActivationPolicy(.accessory)
-        appearanceManager.applyCurrentMode()
-
         statusController.configure(
             onOpenSettings: { [weak self] in self?.showSettings() },
             onCopyState: { [weak self] in self?.copySpaceState() },
@@ -114,62 +125,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             object: NSWorkspace.shared
         )
 
-        pollTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            guard let self, !self.isSettingsOpen else { return }
-            self.registry.refreshSpacesSoon()
-        }
-
-        registry.refreshSpacesAsync()
-        statusController.rebuildSpaceItems(registry: registry)
-        showSetupRequirementsIfNeeded()
+        lifecycleCoordinator.applicationDidFinishLaunching(
+            isSettingsOpen: { [weak self] in self?.isSettingsOpen ?? false },
+            refreshSpacesSoon: { [weak self] in self?.registry.refreshSpacesSoon() },
+            refreshSpacesAsync: { [weak self] in self?.registry.refreshSpacesAsync() },
+            rebuildSpaceItems: { [weak self] in
+                guard let self else { return }
+                self.statusController.rebuildSpaceItems(registry: self.registry)
+            },
+            startEventDrivenControllers: { [weak self] in self?.startEventDrivenControllers() },
+            presentSetupRequirementsWarning: { [weak self] in self?.presentSetupRequirementsWarning() }
+        )
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        Logger.shared.info("application will terminate")
-        Logger.shared.flush()
-        spaceSwitcherController.stop()
-        windowSwitcherController.stop()
-        activationController.stop()
+        lifecycleCoordinator.applicationWillTerminate { [weak self] in
+            self?.spaceSwitcherController.stop()
+            self?.windowSwitcherController.stop()
+            self?.activationController.stop()
+        }
     }
 
     @objc private func activeSpaceChanged() {
-        guard !isSettingsOpen else { return }
-        registry.refreshSpacesSoon()
+        lifecycleCoordinator.handleActiveSpaceChanged(
+            isSettingsOpen: isSettingsOpen,
+            refreshSpacesSoon: { [weak self] in self?.registry.refreshSpacesSoon() }
+        )
     }
 
     private func showSettings() {
-        pauseBackgroundUpdates()
-
-        if settingsWindow == nil {
-            registry.refreshSpaces()
-            let coordinator = SettingsCoordinator(
-                settings: settings,
-                onAppearanceChange: { [weak self] in
-                    self?.applyAppearanceImmediately()
-                }
-            )
-            settingsCoordinator = coordinator
-            let host = NSHostingController(rootView: SettingsView(coordinator: coordinator))
-            settingsHostingController = host
-            let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 720, height: 760),
-                styleMask: [.titled, .closable, .miniaturizable, .resizable],
-                backing: .buffered,
-                defer: false
-            )
-            window.minSize = NSSize(width: 640, height: 720)
-            window.center()
-            window.title = "StayHere Settings"
-            window.contentViewController = host
-            window.isReleasedWhenClosed = false
-            window.delegate = self
-            appearanceManager.applyCurrentMode(to: [window])
-            settingsWindow = window
-        } else {
-            settingsCoordinator?.load()
-        }
-
-        presentWindow(settingsWindow)
+        settingsWindowManager.showSettings(refreshRegistry: { [weak self] in
+            self?.registry.refreshSpaces()
+        })
     }
 
     private func pauseBackgroundUpdates() {
@@ -192,32 +179,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return trimmed.isEmpty ? "Unnamed space" : trimmed
     }
 
-    private func flushSettingsAndUI() {
-        settingsCoordinator?.commitAll()
+    private func settingsWindowDidClose() {
         applyAppearanceImmediately()
         syncEventDrivenControllers()
         statusController.setTitle(registry.activeNameSummary())
         statusController.rebuildSpaceItems(registry: registry)
-        settingsCoordinator = nil
     }
 
     private func applyAppearanceImmediately() {
         appearanceManager.applyCurrentMode()
         statusController.applyCurrentAppearance()
-    }
-
-    private func presentWindow(_ window: NSWindow?) {
-        guard let window else { return }
-        NSApp.setActivationPolicy(.regular)
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
-    }
-
-    private func demoteToAccessoryIfNoWindowsVisible() {
-        let hasVisibleOwnedWindow = NSApp.windows.contains { $0.isVisible }
-        if !hasVisibleOwnedWindow {
-            NSApp.setActivationPolicy(.accessory)
-        }
     }
 
     private func copySpaceState() {
@@ -245,59 +216,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func showSetupRequirementsIfNeeded() {
-        let status = StayHereSetupStatus.current()
-        guard !status.isSatisfied else {
-            startEventDrivenControllers()
-            return
-        }
-
-        Logger.shared.error("setup requirements missing count=\(status.missingDescriptions.count)")
-        presentSetupRequirementsWarning()
-    }
-
     private func performSpaceSwitch(_ spaceID: Int) {
         let result = registry.switchToSpace(spaceID)
-        switch result {
-        case .switched, .alreadyActive:
-            return
-        case .unknownSpace:
-            return
-        case .unsupportedSpaceKind:
-            presentMissionControlShortcutWarning(
-                title: "This space can't be switched",
-                message: """
-                StayHere can switch regular desktops through Mission Control shortcuts, but macOS does not expose an equivalent shortcut for fullscreen app spaces.
-
-                The space will stay visible in StayHere, but it is currently informational only unless you are already on it.
-                """
-            )
-        case .unsupportedDesktop(let index):
-            presentMissionControlShortcutWarning(
-                title: "Desktop \(index) can't be switched",
-                message: "StayHere can switch only desktops 1 through 9 using Mission Control shortcuts."
-            )
-        case .eventPostFailed(let index):
-            presentMissionControlShortcutWarning(
-                title: "Desktop \(index) couldn't be switched",
-                message: """
-                StayHere couldn't send the Mission Control shortcut for Desktop \(index). Check System Settings > Keyboard > Keyboard Shortcuts > Mission Control and make sure "Switch to Desktop \(index)" is enabled.
-
-                For the best experience, consider enabling shortcuts for all desktops to prevent this issue in the future.
-                """
-            )
-        case .switchUnmatched(let index, _, _):
-            presentMissionControlShortcutWarning(
-                title: "Desktop \(index) didn't switch",
-                message: """
-                StayHere sent the Mission Control shortcut for Desktop \(index), but macOS stayed on the current desktop.
-
-                This usually means "Switch to Desktop \(index)" is not active yet in System Settings, or macOS has not picked up a recently added desktop shortcut while StayHere was already running. Open System Settings > Keyboard > Keyboard Shortcuts > Mission Control and confirm "Switch to Desktop \(index)" is enabled.
-
-                If you just added or enabled that shortcut, quit and reopen StayHere once so it re-syncs with the updated Mission Control configuration.
-                """
-            )
-        }
+        switchPresentationHelper.presentWarning(for: result)
     }
 
     private func presentSetupRequirementsWarning() {
@@ -347,7 +268,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             )
             alert.accessoryView = checklist
             self.appearanceManager.applyCurrentMode(to: [alert.window])
-            self.ensureAlertWidth(alert, minimumWidth: 720)
+            self.switchPresentationHelper.ensureAlertWidth(alert, minimumWidth: 720)
 
             checklist.refresh(with: StayHereSetupStatus.current())
             let response = alert.runModal()
@@ -384,62 +305,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             alert.informativeText = "Quit and reopen StayHere to apply the macOS permission changes."
             alert.addButton(withTitle: "OK")
             self.appearanceManager.applyCurrentMode(to: [alert.window])
-            self.ensureAlertWidth(alert, minimumWidth: 420)
+            self.switchPresentationHelper.ensureAlertWidth(alert, minimumWidth: 420)
             _ = alert.runModal()
         }
-    }
-
-    private func presentMissionControlShortcutWarning(title: String, message: String) {
-        DispatchQueue.main.async {
-            NSApp.activate(ignoringOtherApps: true)
-
-            let alert = NSAlert()
-            alert.alertStyle = .warning
-            alert.messageText = title
-            alert.informativeText = message
-            alert.addButton(withTitle: "Open System Settings")
-            alert.addButton(withTitle: "OK")
-            self.appearanceManager.applyCurrentMode(to: [alert.window])
-            self.ensureAlertWidth(alert, minimumWidth: 560)
-
-            if alert.runModal() == .alertFirstButtonReturn {
-                self.openKeyboardShortcutsSettings()
-            }
-        }
-    }
-
-    private func openKeyboardShortcutsSettings() {
-        if let deepLink = URL(string: "x-apple.systempreferences:com.apple.Keyboard-Settings.extension?KeyboardShortcuts"),
-           NSWorkspace.shared.open(deepLink) {
-            return
-        }
-
-        let settingsURL = URL(fileURLWithPath: "/System/Applications/System Settings.app")
-        NSWorkspace.shared.open(settingsURL)
-    }
-
-    private func ensureAlertWidth(_ alert: NSAlert, minimumWidth: CGFloat) {
-        let window = alert.window
-        window.layoutIfNeeded()
-        var frame = window.frame
-        guard frame.width < minimumWidth else { return }
-        frame.size.width = minimumWidth
-        window.setFrame(frame, display: false)
-    }
-}
-
-extension AppDelegate: NSWindowDelegate {
-    func windowWillClose(_ notification: Notification) {
-        guard let window = notification.object as? NSWindow, window === settingsWindow else {
-            demoteToAccessoryIfNoWindowsVisible()
-            return
-        }
-
-        flushSettingsAndUI()
-
-        settingsHostingController = nil
-        settingsWindow = nil
-
-        demoteToAccessoryIfNoWindowsVisible()
     }
 }
