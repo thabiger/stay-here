@@ -3,20 +3,25 @@ import Core
 
 public final class ActivationController {
     private let windowIndex: WindowIndex
-    private let policy = ActivationPolicy()
+    private let policy: ActivationPolicy
     private let executor: ActivationExecutor
+    private let settings: SettingsRepository
     private var interceptor: DockClickInterceptor?
     private let currentSpaceID: () -> Int?
     private let activeSpaceIDs: () -> Set<Int>
 
     public init(
+        settings: SettingsRepository,
         windowIndex: WindowIndex = WindowIndex(),
+        policy: ActivationPolicy? = nil,
         currentSpaceID: @escaping () -> Int?,
         activeSpaceIDs: @escaping () -> Set<Int>,
         switchToSpace: @escaping (Int) -> Void = { _ in },
         onShowSingleWindowHint: @escaping (String) -> Void = { _ in }
     ) {
         self.windowIndex = windowIndex
+        self.policy = policy ?? ActivationPolicy(settings: settings)
+        self.settings = settings
         self.currentSpaceID = currentSpaceID
         self.activeSpaceIDs = activeSpaceIDs
         self.executor = ActivationExecutor(
@@ -28,6 +33,7 @@ public final class ActivationController {
 
     public func start() {
         let interceptor = DockClickInterceptor(
+            settings: settings,
             shouldIntercept: { [weak self] bundleID, optionHeld in
                 self?.shouldInterceptDockClick(bundleID: bundleID, optionHeld: optionHeld) ?? false
             },
@@ -61,7 +67,7 @@ public final class ActivationController {
         let decision = policy.decide(context)
         if log {
             Logger.shared.info(
-                "activation decision=\(decision.rawValue) enabled=\(ActivationSettings.shared.dockClickInterceptionEnabled) option=\(optionHeld) target=\(context.targetSpaceID ?? -1) current_space_count=\(context.activeSpaceIDs.count) window_count=\(context.appWindowSummary?.totalWindowCount ?? 0)"
+                "activation decision=\(decision.rawValue) enabled=\(settings.activationDockClickInterceptionEnabled) option=\(optionHeld) target=\(context.targetSpaceID ?? -1) current_space_count=\(context.activeSpaceIDs.count) window_count=\(context.appWindowSummary?.totalWindowCount ?? 0)"
             )
         }
         return decision

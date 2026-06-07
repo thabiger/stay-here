@@ -7,11 +7,14 @@ public final class Logger {
     private let queue = DispatchQueue(label: "stayhere.logger")
     private let logURL: URL
     private let iso = ISO8601DateFormatter()
-    private var verboseLoggingEnabled: Bool {
-        DiagnosticsSettings.shared.isEnabled
+    private let settings: SettingsRepository
+
+    public convenience init() {
+        self.init(settings: UserDefaultsSettingsRepository())
     }
 
-    private init() {
+    public init(settings: SettingsRepository) {
+        self.settings = settings
         let logsDir = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Logs/StayHere", isDirectory: true)
         try? FileManager.default.createDirectory(at: logsDir, withIntermediateDirectories: true)
@@ -19,7 +22,7 @@ public final class Logger {
     }
 
     public func info(_ message: String) {
-        guard verboseLoggingEnabled else { return }
+        guard settings.diagnosticsEnabled else { return }
         write("INFO", message)
     }
 

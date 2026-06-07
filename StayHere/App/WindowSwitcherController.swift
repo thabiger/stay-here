@@ -31,6 +31,7 @@ final class WindowSwitcherController {
 
     private let registry: SpaceRegistry
     private let cgsBridge: any CGSBridgeProtocol
+    private let settings: SettingsRepository
     private let shortcutProvider: () -> SpaceSwitcherShortcut
 
     private var eventTap: CFMachPort?
@@ -39,13 +40,19 @@ final class WindowSwitcherController {
     private var panelPair: (window: NSPanel, hosting: NSHostingController<WindowSwitcherView>)?
 
     init(
+        settings: SettingsRepository,
         registry: SpaceRegistry,
         cgsBridge: any CGSBridgeProtocol = CGSBridge.live,
-        shortcutProvider: @escaping () -> SpaceSwitcherShortcut = { WindowSwitcherSettings.shared.shortcut }
+        shortcutProvider: (() -> SpaceSwitcherShortcut)? = nil
     ) {
         self.registry = registry
         self.cgsBridge = cgsBridge
-        self.shortcutProvider = shortcutProvider
+        self.settings = settings
+        self.shortcutProvider = shortcutProvider ?? {
+            SpaceSwitcherShortcut.parse(settings.windowSwitcherShortcutText)
+                ?? SpaceSwitcherShortcut.parse("command+`")
+                ?? SpaceSwitcherShortcut(keyCode: 50, modifiers: [.maskCommand])
+        }
     }
 
     deinit {
@@ -290,13 +297,12 @@ final class WindowSwitcherController {
 
     private func buildSnapshot() -> WindowSwitcherSnapshot {
         let entries = selectedWindowEntries()
-        let settings = WindowSwitcherSettings.shared
         let selectedID = session?.selectedWindowID ?? entries.first?.windowID
         let items = entries.map { entry in
             WindowSwitcherItem(
                 id: entry.windowID,
                 icon: entry.icon,
-                title: displayTitle(for: entry, settings: settings),
+                title: displayTitle(for: entry),
                 isSelected: entry.windowID == selectedID
             )
         }
@@ -309,7 +315,6 @@ final class WindowSwitcherController {
 
     private func selectedWindowEntries() -> [WindowEntry] {
         guard let context = currentSpaceContext() else { return [] }
-        let settings = WindowSwitcherSettings.shared
         guard let raw = CGWindowListCopyWindowInfo(.optionAll, kCGNullWindowID) as? [[String: Any]] else {
             return []
         }
@@ -338,10 +343,10 @@ final class WindowSwitcherController {
             let application = NSRunningApplication(processIdentifier: pid)
             let isOnScreen = (item[kCGWindowIsOnscreen as String] as? NSNumber)?.boolValue ?? false
             if application?.isHidden == true {
-                if !settings.showHiddenWindows {
+                if !settings.windowSwitcherShowHiddenWindows {
                     return nil
                 }
-            } else if !isOnScreen && !settings.showMinimizedWindows {
+            } else if !isOnScreen && !settings.windowSwitcherShowMinimizedWindows {
                 return nil
             }
 
@@ -381,11 +386,11 @@ final class WindowSwitcherController {
         return SpaceContext(spaceID: activeSpaceID, desktopNumber: desktopNumber)
     }
 
-    private func displayTitle(for entry: WindowEntry, settings: WindowSwitcherSettings) -> String {
-        WindowSwitcherSettings.displayTitle(
+    private func displayTitle(for entry: WindowEntry) -> String {
+        WindowSwitcherTitleFormat.displayTitle(
             appName: entry.appName,
             windowTitle: entry.windowTitle,
-            format: settings.titleFormat
+            format: settings.windowSwitcherTitleFormat
         )
     }
 

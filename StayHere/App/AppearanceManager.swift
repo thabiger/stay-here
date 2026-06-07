@@ -1,22 +1,28 @@
 import AppKit
 import Core
 
-enum AppearanceManager {
-    static var currentAppearance: NSAppearance? {
-        nsAppearance(for: AppearanceSettings.shared.mode)
+final class AppearanceManager {
+    private let settings: SettingsRepository
+
+    init(settings: SettingsRepository) {
+        self.settings = settings
     }
 
-    static var currentModeIsDark: Bool {
+    var currentAppearance: NSAppearance? {
+        Self.nsAppearance(for: settings.appearanceMode)
+    }
+
+    var currentModeIsDark: Bool {
         let appearance = currentAppearance ?? NSApp.effectiveAppearance
         return appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
     }
 
-    static func applyCurrentMode(to windows: [NSWindow] = NSApp.windows) {
-        apply(mode: AppearanceSettings.shared.mode, to: windows)
+    func applyCurrentMode(to windows: [NSWindow] = NSApp.windows) {
+        apply(mode: settings.appearanceMode, to: windows)
     }
 
-    static func apply(mode: AppearanceMode, to windows: [NSWindow] = NSApp.windows) {
-        let appearance = nsAppearance(for: mode)
+    func apply(mode: AppearanceMode, to windows: [NSWindow] = NSApp.windows) {
+        let appearance = Self.nsAppearance(for: mode)
         NSApp.appearance = appearance
 
         for window in windows {

@@ -5,11 +5,14 @@ import Core
 import Activation
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private let cgsBridge: any CGSBridgeProtocol = CGSBridge.live
+    private let settings: SettingsRepository
+    private let cgsBridge: any CGSBridgeProtocol
+    private let appearanceManager: AppearanceManager
     private lazy var registry = SpaceRegistry(cgsBridge: cgsBridge)
-    private let statusController = StatusBarController()
-    private let hudController = HUDController()
+    private let statusController: StatusBarController
+    private let hudController: HUDController
     private lazy var activationController = ActivationController(
+        settings: settings,
         windowIndex: WindowIndex(cgsBridge: cgsBridge),
         currentSpaceID: { [weak self] in
             self?.registry.activeSpaceID
@@ -26,12 +29,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     )
     private lazy var spaceSwitcherController = SpaceSwitcherController(
+        settings: settings,
         registry: registry,
         switchToSpace: { [weak self] spaceID in
             self?.performSpaceSwitch(spaceID)
         }
     )
     private lazy var windowSwitcherController = WindowSwitcherController(
+        settings: settings,
         registry: registry,
         cgsBridge: cgsBridge
     )
@@ -42,11 +47,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var pollTimer: Timer?
     private var menuRebuildWorkItem: DispatchWorkItem?
 
+    init(
+        settings: SettingsRepository = UserDefaultsSettingsRepository(),
+        cgsBridge: any CGSBridgeProtocol = CGSBridge.live
+    ) {
+        self.settings = settings
+        self.cgsBridge = cgsBridge
+        self.appearanceManager = AppearanceManager(settings: settings)
+        self.statusController = StatusBarController(settings: settings, appearanceManager: appearanceManager)
+        self.hudController = HUDController(settings: settings, appearanceManager: appearanceManager)
+        super.init()
+    }
+
     var isSettingsOpen: Bool { settingsWindow != nil }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
-        AppearanceManager.applyCurrentMode()
+        appearanceManager.applyCurrentMode()
 
         statusController.configure(
             onOpenSettings: { [weak self] in self?.showSettings() },
@@ -126,7 +143,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if settingsWindow == nil {
             registry.refreshSpaces()
             let coordinator = SettingsCoordinator(
-                activationSettings: ActivationSettings.shared,
+                settings: settings,
                 onAppearanceChange: { [weak self] in
                     self?.applyAppearanceImmediately()
                 }
@@ -146,7 +163,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             window.contentViewController = host
             window.isReleasedWhenClosed = false
             window.delegate = self
-            AppearanceManager.applyCurrentMode(to: [window])
+            appearanceManager.applyCurrentMode(to: [window])
             settingsWindow = window
         } else {
             settingsCoordinator?.load()
@@ -185,7 +202,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func applyAppearanceImmediately() {
-        AppearanceManager.applyCurrentMode()
+        appearanceManager.applyCurrentMode()
         statusController.applyCurrentAppearance()
     }
 
@@ -215,13 +232,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func syncEventDrivenControllers() {
-        if SpaceSwitcherSettings.shared.isEnabled {
+        if settings.spaceSwitcherEnabled {
             spaceSwitcherController.start()
         } else {
             spaceSwitcherController.stop()
         }
 
-        if WindowSwitcherSettings.shared.isEnabled {
+        if settings.windowSwitcherEnabled {
             windowSwitcherController.start()
         } else {
             windowSwitcherController.stop()
@@ -329,7 +346,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 supplementaryText: supplementaryText
             )
             alert.accessoryView = checklist
-            AppearanceManager.applyCurrentMode(to: [alert.window])
+            self.appearanceManager.applyCurrentMode(to: [alert.window])
             self.ensureAlertWidth(alert, minimumWidth: 720)
 
             checklist.refresh(with: StayHereSetupStatus.current())
@@ -366,7 +383,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             alert.messageText = "StayHere couldn't reload"
             alert.informativeText = "Quit and reopen StayHere to apply the macOS permission changes."
             alert.addButton(withTitle: "OK")
-            AppearanceManager.applyCurrentMode(to: [alert.window])
+            self.appearanceManager.applyCurrentMode(to: [alert.window])
             self.ensureAlertWidth(alert, minimumWidth: 420)
             _ = alert.runModal()
         }
@@ -382,7 +399,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             alert.informativeText = message
             alert.addButton(withTitle: "Open System Settings")
             alert.addButton(withTitle: "OK")
-            AppearanceManager.applyCurrentMode(to: [alert.window])
+            self.appearanceManager.applyCurrentMode(to: [alert.window])
             self.ensureAlertWidth(alert, minimumWidth: 560)
 
             if alert.runModal() == .alertFirstButtonReturn {

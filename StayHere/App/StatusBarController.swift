@@ -5,6 +5,8 @@ import Foundation
 final class StatusBarController: NSObject, NSMenuDelegate {
     private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let menu = NSMenu()
+    private let settings: SettingsRepository
+    private let appearanceManager: AppearanceManager
 
     private var onOpenSettings: (() -> Void)?
     private var onCopyState: (() -> Void)?
@@ -18,8 +20,18 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     private var suppressNextEditRebuild = false
     private var title = "Unnamed space"
 
+    init(settings: SettingsRepository, appearanceManager: AppearanceManager) {
+        self.settings = settings
+        self.appearanceManager = appearanceManager
+        super.init()
+    }
+
     var isEditingSpaceName: Bool {
         editingSpaceID != nil
+    }
+
+    fileprivate var currentAppearance: NSAppearance? {
+        appearanceManager.currentAppearance
     }
 
     func configure(
@@ -77,7 +89,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         }
         menu.addItem(NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ",").withTarget(self))
 
-        if DiagnosticsSettings.shared.isEnabled {
+        if settings.diagnosticsEnabled {
             let debug = NSMenuItem(title: "Debug", action: nil, keyEquivalent: "")
             let debugMenu = NSMenu()
             debugMenu.addItem(NSMenuItem(title: "Copy space state", action: #selector(copyState), keyEquivalent: "").withTarget(self))
@@ -185,7 +197,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     }
 
     private func applyAppearance() {
-        let appearance = AppearanceManager.currentAppearance
+        let appearance = appearanceManager.currentAppearance
         menu.appearance = appearance
         for item in menu.items {
             item.view?.appearance = appearance
@@ -198,7 +210,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
     private func updateStatusItemTitle() {
         guard let button = item.button else { return }
-        if AppearanceSettings.shared.mode == .light {
+        if settings.appearanceMode == .light {
             button.attributedTitle = NSAttributedString(
                 string: title,
                 attributes: [
@@ -265,7 +277,7 @@ private final class SpaceMenuRowView: NSView, NSTextFieldDelegate {
         addSubview(namespaceField)
         addSubview(nameField)
         addSubview(editor)
-        applyAppearance(AppearanceManager.currentAppearance)
+        applyAppearance(self.controller?.currentAppearance)
     }
 
     required init?(coder: NSCoder) {

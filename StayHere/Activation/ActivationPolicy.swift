@@ -41,10 +41,22 @@ public final class ActivationPolicy {
     private let isSingleWindowApp: (String) -> Bool
     private let isAppRunning: (String) -> Bool
 
+    public convenience init(
+        settings: SettingsRepository,
+        isAppRunning: @escaping (String) -> Bool = { bundleID in
+            !NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).isEmpty
+        }
+    ) {
+        self.init(
+            isSingleWindowApp: { bundleID in
+                settings.activationSingleWindowAppBundleIDs.contains(bundleID)
+            },
+            isAppRunning: isAppRunning
+        )
+    }
+
     public init(
-        isSingleWindowApp: @escaping (String) -> Bool = { bundleID in
-            ActivationSettings.shared.singleWindowAppBundleIDs.contains(bundleID)
-        },
+        isSingleWindowApp: @escaping (String) -> Bool = { _ in false },
         isAppRunning: @escaping (String) -> Bool = { bundleID in
             !NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).isEmpty
         }

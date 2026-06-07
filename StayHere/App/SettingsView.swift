@@ -3,15 +3,11 @@ import Core
 import Activation
 
 final class SettingsCoordinator: ObservableObject {
-    let activationSettings: ActivationSettings
-    let appearanceSettings: AppearanceSettings
-    let diagnosticsSettings: DiagnosticsSettings
-    let spaceSwitcherSettings: SpaceSwitcherSettings
-    let windowSwitcherSettings: WindowSwitcherSettings
+    let settings: SettingsRepository
     private let onAppearanceChange: () -> Void
 
     @Published var appearanceMode: AppearanceMode = .system
-    @Published var diagnosticsEnabled: Bool = DiagnosticsSettings.shared.isEnabled
+    @Published var diagnosticsEnabled: Bool = false
     @Published var dockClickInterceptionEnabled: Bool = true
     @Published var singleWindowAppBundleIDsText: String = ""
     @Published var spaceSwitcherEnabled: Bool = true
@@ -22,57 +18,49 @@ final class SettingsCoordinator: ObservableObject {
     @Published var screenRecordingGranted: Bool = ScreenRecordingPermissionCheck.isGranted
     @Published var windowSwitcherShowMinimizedWindows: Bool = false
     @Published var windowSwitcherShowHiddenWindows: Bool = false
-    @Published var hudDisplayDuration: Double = HUDSettings.shared.displayDuration
+    @Published var hudDisplayDuration: Double = 1.8
 
     init(
-        activationSettings: ActivationSettings,
-        appearanceSettings: AppearanceSettings = .shared,
-        diagnosticsSettings: DiagnosticsSettings = .shared,
-        spaceSwitcherSettings: SpaceSwitcherSettings = .shared,
-        windowSwitcherSettings: WindowSwitcherSettings = .shared,
+        settings: SettingsRepository,
         onAppearanceChange: @escaping () -> Void = {}
     ) {
-        self.activationSettings = activationSettings
-        self.appearanceSettings = appearanceSettings
-        self.diagnosticsSettings = diagnosticsSettings
-        self.spaceSwitcherSettings = spaceSwitcherSettings
-        self.windowSwitcherSettings = windowSwitcherSettings
+        self.settings = settings
         self.onAppearanceChange = onAppearanceChange
     }
 
     func load() {
-        appearanceMode = appearanceSettings.mode
-        diagnosticsEnabled = diagnosticsSettings.isEnabled
-        dockClickInterceptionEnabled = activationSettings.dockClickInterceptionEnabled
-        singleWindowAppBundleIDsText = ActivationSettings.serializeSingleWindowAppBundleIDs(activationSettings.singleWindowAppBundleIDs)
-        spaceSwitcherEnabled = spaceSwitcherSettings.isEnabled
-        spaceSwitcherShortcutText = spaceSwitcherSettings.shortcutText
-        windowSwitcherEnabled = windowSwitcherSettings.isEnabled
-        windowSwitcherShortcutText = windowSwitcherSettings.shortcutText
-        windowSwitcherTitleFormat = windowSwitcherSettings.titleFormat
+        appearanceMode = settings.appearanceMode
+        diagnosticsEnabled = settings.diagnosticsEnabled
+        dockClickInterceptionEnabled = settings.activationDockClickInterceptionEnabled
+        singleWindowAppBundleIDsText = SingleWindowAppBundleIDList.serialize(settings.activationSingleWindowAppBundleIDs)
+        spaceSwitcherEnabled = settings.spaceSwitcherEnabled
+        spaceSwitcherShortcutText = settings.spaceSwitcherShortcutText
+        windowSwitcherEnabled = settings.windowSwitcherEnabled
+        windowSwitcherShortcutText = settings.windowSwitcherShortcutText
+        windowSwitcherTitleFormat = settings.windowSwitcherTitleFormat
         screenRecordingGranted = ScreenRecordingPermissionCheck.isGranted
-        windowSwitcherShowMinimizedWindows = windowSwitcherSettings.showMinimizedWindows
-        windowSwitcherShowHiddenWindows = windowSwitcherSettings.showHiddenWindows
-        hudDisplayDuration = HUDSettings.shared.displayDuration
+        windowSwitcherShowMinimizedWindows = settings.windowSwitcherShowMinimizedWindows
+        windowSwitcherShowHiddenWindows = settings.windowSwitcherShowHiddenWindows
+        hudDisplayDuration = settings.hudDisplayDuration
     }
 
     func commitAll() {
-        appearanceSettings.mode = appearanceMode
-        diagnosticsSettings.isEnabled = diagnosticsEnabled
-        activationSettings.dockClickInterceptionEnabled = dockClickInterceptionEnabled
-        activationSettings.singleWindowAppBundleIDs = ActivationSettings.parseSingleWindowAppBundleIDs(from: singleWindowAppBundleIDsText)
-        spaceSwitcherSettings.isEnabled = spaceSwitcherEnabled
-        spaceSwitcherSettings.shortcutText = spaceSwitcherShortcutText
-        windowSwitcherSettings.isEnabled = windowSwitcherEnabled
-        windowSwitcherSettings.shortcutText = windowSwitcherShortcutText
-        windowSwitcherSettings.titleFormat = windowSwitcherTitleFormat
-        windowSwitcherSettings.showMinimizedWindows = windowSwitcherShowMinimizedWindows
-        windowSwitcherSettings.showHiddenWindows = windowSwitcherShowHiddenWindows
-        HUDSettings.shared.displayDuration = hudDisplayDuration
+        settings.appearanceMode = appearanceMode
+        settings.diagnosticsEnabled = diagnosticsEnabled
+        settings.activationDockClickInterceptionEnabled = dockClickInterceptionEnabled
+        settings.activationSingleWindowAppBundleIDs = SingleWindowAppBundleIDList.parse(singleWindowAppBundleIDsText)
+        settings.spaceSwitcherEnabled = spaceSwitcherEnabled
+        settings.spaceSwitcherShortcutText = spaceSwitcherShortcutText
+        settings.windowSwitcherEnabled = windowSwitcherEnabled
+        settings.windowSwitcherShortcutText = windowSwitcherShortcutText
+        settings.windowSwitcherTitleFormat = windowSwitcherTitleFormat
+        settings.windowSwitcherShowMinimizedWindows = windowSwitcherShowMinimizedWindows
+        settings.windowSwitcherShowHiddenWindows = windowSwitcherShowHiddenWindows
+        settings.hudDisplayDuration = hudDisplayDuration
     }
 
     func applyAppearanceMode() {
-        appearanceSettings.mode = appearanceMode
+        settings.appearanceMode = appearanceMode
         onAppearanceChange()
     }
 }

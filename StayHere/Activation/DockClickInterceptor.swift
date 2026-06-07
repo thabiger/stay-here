@@ -7,6 +7,7 @@ import Core
 public final class DockClickInterceptor {
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
+    private let isDockClickInterceptionEnabled: () -> Bool
     private let shouldIntercept: (String, Bool) -> Bool
     private let handler: (String, Bool) -> Bool
     private var pendingDockClick: PendingDockClick?
@@ -17,9 +18,11 @@ public final class DockClickInterceptor {
     }
 
     public init(
+        settings: SettingsRepository,
         shouldIntercept: @escaping (String, Bool) -> Bool,
         handler: @escaping (String, Bool) -> Bool
     ) {
+        self.isDockClickInterceptionEnabled = { settings.activationDockClickInterceptionEnabled }
         self.shouldIntercept = shouldIntercept
         self.handler = handler
     }
@@ -81,7 +84,7 @@ public final class DockClickInterceptor {
             return Unmanaged.passRetained(event)
         }
 
-        if !ActivationSettings.shared.dockClickInterceptionEnabled {
+        if !isDockClickInterceptionEnabled() {
             pendingDockClick = nil
             return Unmanaged.passRetained(event)
         }

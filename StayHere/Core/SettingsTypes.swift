@@ -1,6 +1,52 @@
 import Foundation
 import CoreGraphics
 
+public enum AppearanceMode: String, CaseIterable, Equatable {
+    case system
+    case light
+    case dark
+
+    public var displayName: String {
+        switch self {
+        case .system:
+            return "System"
+        case .light:
+            return "Light"
+        case .dark:
+            return "Dark"
+        }
+    }
+}
+
+public enum WindowSwitcherTitleFormat: String, CaseIterable, Hashable {
+    case appNameOnly
+    case appNameAndWindowTitle
+
+    public var displayName: String {
+        switch self {
+        case .appNameOnly:
+            return "App name only"
+        case .appNameAndWindowTitle:
+            return "App name: window title"
+        }
+    }
+
+    public static func displayTitle(
+        appName: String,
+        windowTitle: String?,
+        format: WindowSwitcherTitleFormat
+    ) -> String {
+        let trimmedWindowTitle = windowTitle?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard format == .appNameAndWindowTitle,
+              !trimmedWindowTitle.isEmpty,
+              trimmedWindowTitle != appName else {
+            return appName
+        }
+
+        return "\(appName): \(trimmedWindowTitle)"
+    }
+}
+
 public struct SpaceSwitcherShortcut: Equatable {
     public let keyCode: CGKeyCode
     public let modifiers: CGEventFlags
@@ -37,50 +83,8 @@ public struct SpaceSwitcherShortcut: Equatable {
             return "key\(keyCode)"
         }
     }
-}
 
-public final class SpaceSwitcherSettings {
-    public static let shared = SpaceSwitcherSettings()
-
-    private let defaults: UserDefaults
-    private let key = "spaceSwitcher.shortcut"
-    private let enabledKey = "spaceSwitcher.enabled"
-    private let defaultShortcutText = "command+tab"
-
-    public init(defaults: UserDefaults = .standard) {
-        self.defaults = defaults
-    }
-
-    public var shortcutText: String {
-        get {
-            if let stored = defaults.string(forKey: key), !stored.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                return stored
-            }
-            return defaultShortcutText
-        }
-        set {
-            defaults.set(newValue.trimmingCharacters(in: .whitespacesAndNewlines), forKey: key)
-        }
-    }
-
-    public var isEnabled: Bool {
-        get {
-            if defaults.object(forKey: enabledKey) != nil {
-                return defaults.bool(forKey: enabledKey)
-            }
-
-            return true
-        }
-        set {
-            defaults.set(newValue, forKey: enabledKey)
-        }
-    }
-
-    public var shortcut: SpaceSwitcherShortcut {
-        Self.parseShortcut(shortcutText) ?? Self.parseShortcut(defaultShortcutText) ?? SpaceSwitcherShortcut(keyCode: 48, modifiers: [.maskCommand])
-    }
-
-    public static func parseShortcut(_ text: String) -> SpaceSwitcherShortcut? {
+    public static func parse(_ text: String) -> SpaceSwitcherShortcut? {
         let cleaned = text
             .lowercased()
             .replacingOccurrences(of: " ", with: "")
@@ -104,10 +108,12 @@ public final class SpaceSwitcherSettings {
         }
 
         guard !modifiers.isEmpty else { return nil }
-        guard let keyCode = keyCode(for: keyToken) else { return nil }
+        guard let keyCode = ShortcutKeyCodes.keyCode(for: keyToken) else { return nil }
         return SpaceSwitcherShortcut(keyCode: keyCode, modifiers: modifiers)
     }
+}
 
+public enum ShortcutKeyCodes {
     public static func keyCode(for token: String) -> CGKeyCode? {
         switch token {
         case "tab": return 48
@@ -168,5 +174,30 @@ public final class SpaceSwitcherSettings {
         default:
             return nil
         }
+    }
+}
+
+public enum SingleWindowAppBundleIDList {
+    public static let defaultBundleIDs: [String] = [
+        "com.apple.Notes",
+        "com.openai.codex"
+    ]
+
+    public static func parse(_ text: String) -> [String] {
+        var seen = Set<String>()
+        return text
+            .split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .filter { seen.insert($0).inserted }
+    }
+
+    public static func serialize(_ bundleIDs: [String]) -> String {
+        var seen = Set<String>()
+        return bundleIDs
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .filter { seen.insert($0).inserted }
+            .joined(separator: "\n")
     }
 }

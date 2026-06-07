@@ -24,13 +24,18 @@ final class SpaceSwitcherController {
     private var panelPair: (window: NSPanel, hosting: NSHostingController<SpaceSwitcherView>)?
 
     init(
+        settings: SettingsRepository,
         registry: SpaceRegistry,
         switchToSpace: @escaping (Int) -> Void,
-        shortcutProvider: @escaping () -> SpaceSwitcherShortcut = { SpaceSwitcherSettings.shared.shortcut }
+        shortcutProvider: (() -> SpaceSwitcherShortcut)? = nil
     ) {
         self.registry = registry
         self.switchToSpace = switchToSpace
-        self.shortcutProvider = shortcutProvider
+        self.shortcutProvider = shortcutProvider ?? {
+            SpaceSwitcherShortcut.parse(settings.spaceSwitcherShortcutText)
+                ?? SpaceSwitcherShortcut.parse("command+tab")
+                ?? SpaceSwitcherShortcut(keyCode: 48, modifiers: [.maskCommand])
+        }
     }
 
     deinit {
