@@ -53,3 +53,6 @@ tmp/
 temp/
 
 .private/
+.opencode/
+opencode.json
+docs/code-review*/**

@@ -35,31 +35,10 @@ jobs:
           set -euo pipefail
           Scripts/package-release.sh --output-dir dist
 
-      - name: Prepare release notes
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-
-          lines = Path("CHANGELOG.md").read_text().splitlines()
-          body = []
-          capture = False
-
-          for line in lines:
-              if line.startswith("## "):
-                  if capture:
-                      break
-                  capture = True
-                  continue
-              if capture:
-                  body.append(line)
-
-          notes = "\n".join(body).strip()
-          if not notes:
-              raise SystemExit("No release notes found in CHANGELOG.md")
-
-          Path("dist/release-notes.md").write_text(notes + "\n")
-          PY
+       - name: Build Changelog
+         run: |
+           set -euo pipefail
+           Scripts/build-changelogs.sh ${{ github.ref_name }}
 
       - name: Verify release artifacts
         run: |
