@@ -344,6 +344,16 @@ public final class SpaceRegistry: ObservableObject {
     }
 
     private func verifySwitchResult(expectedSpaceID: Int) -> Bool {
+        // TODO(C5/P1): convert switchToSpace to async/await and call this from
+        // a background queue. Today every call site invokes switchToSpace from
+        // the main thread, so this method blocks the UI for up to 400 ms and
+        // processes untrusted input events via RunLoop.run(until:).
+        //
+        // The precondition guard is intentionally not added here yet: it
+        // would crash every existing caller. Add `dispatchPrecondition(
+        // condition: .notOnQueue(.main))` at the top of this method as part
+        // of the async conversion (see roadmap mid/long-term tier).
+
         if activeSpaceID == expectedSpaceID {
             return true
         }
