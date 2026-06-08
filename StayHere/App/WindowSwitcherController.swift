@@ -238,8 +238,7 @@ final class WindowSwitcherController: SwitcherEventSessionHandling {
 
     func switcherCommitOrDismissActiveSession() {
         guard let activeSession = session else { return }
-        if activeSession.didChangeSelection,
-           let selectedID = activeSession.selectedWindowID,
+        if let selectedID = activeSession.selectedWindowID,
            let entry = activeSession.entries.first(where: { $0.windowID == selectedID }) {
             commitSelection(entry)
         } else {

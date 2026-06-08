@@ -1,5 +1,6 @@
 import XCTest
 import CoreGraphics
+import AppKit
 import Core
 @testable import StayHereApp
 
@@ -37,7 +38,10 @@ private final class LocalMockCGSBridge: CGSBridgeProtocol {
 }
 
 final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
-    private func makeController() -> (WindowSwitcherController, LocalMockCGSBridge) {
+    private func makeController(
+        windowInfo: @escaping () -> [[String: Any]]? = { [] },
+        focusService: WindowFocusService = WindowFocusService()
+    ) -> (WindowSwitcherController, LocalMockCGSBridge) {
         let snapshot = CGSBridge.ManagedSnapshot(
             spaces: [
                 SpaceIdentity(id: 100, display: "display-a", kind: .desktop)
@@ -55,12 +59,27 @@ final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
             .appendingPathComponent("spaces.json")
         let store = SpaceStore(fileURL: fileURL)
         let registry = SpaceRegistry(store: store, cgsBridge: bridge)
+        let listProvider = WindowListProvider(
+            registry: registry,
+            cgsBridge: bridge,
+            settings: UserDefaultsSettingsRepository(),
+            windowInfoProvider: windowInfo,
+            runningApplicationProvider: { _ in nil },
+            accessibilityWindowTitlesProvider: { _ in [:] },
+            iconProvider: { _ in NSImage(size: NSSize(width: 18, height: 18)) }
+        )
         let controller = WindowSwitcherController(
             settings: UserDefaultsSettingsRepository(),
             registry: registry,
-            cgsBridge: bridge
+            cgsBridge: bridge,
+            listProvider: listProvider,
+            focusService: focusService
         )
         return (controller, bridge)
+    }
+
+    private func makeController() -> (WindowSwitcherController, LocalMockCGSBridge) {
+        makeController(windowInfo: { [] })
     }
 
     private func makeKeyEvent(
@@ -280,5 +299,43 @@ final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
         let height = WindowSwitcherController.panelHeight(itemCount: 30, screenHeight: 700)
 
         XCTAssertEqual(height, 620, "Panel height should stop at the available visible screen height")
+    }
+
+    func testModifierReleaseCommitsSelectedWindowEvenWhenSelectionMatchesStartingWindow() {
+        var focusCallCount = 0
+        let observedFocusService = WindowFocusService(
+            runningApplicationProvider: { _ in nil },
+            accessibilityWindowsProvider: { _ in [] },
+            retryScheduler: { _ in },
+            applicationActivator: { focusCallCount += 1 }
+        )
+        let (controller, _) = makeController(
+            windowInfo: {
+                [[
+                    kCGWindowOwnerPID as String: NSNumber(value: 42),
+                    kCGWindowNumber as String: NSNumber(value: 1),
+                    kCGWindowLayer as String: NSNumber(value: 0),
+                    kCGWindowIsOnscreen as String: NSNumber(value: true),
+                    kCGWindowOwnerName as String: "Notes",
+                    "kCGWindowWorkspace": NSNumber(value: 1),
+                    kCGWindowName as String: "Doc"
+                ]]
+            },
+            focusService: observedFocusService
+        )
+
+        let keyDown = makeKeyEvent(keyCode: 50, flags: .maskCommand)
+        _ = controller.handle(event: keyDown)
+        waitForMainQueue()
+
+        XCTAssertEqual(controller.testSessionEntries?.map(\.windowID), [1])
+        XCTAssertEqual(controller.testSessionSelectedWindowID, 1)
+
+        controller.switcherCommitOrDismissActiveSession()
+        waitForMainQueue()
+        waitForMainQueue()
+
+        XCTAssertEqual(focusCallCount, 1, "Releasing modifiers should still commit the selected entry even if it matches the starting window")
+        XCTAssertFalse(controller.hasActiveSession)
     }
 }

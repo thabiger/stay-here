@@ -41,6 +41,7 @@ final class WindowFocusService {
                 return
             }
 
+            let wasActive = app.isActive
             _ = app.unhide()
             let activated = app.activate(options: [.activateIgnoringOtherApps, .activateAllWindows])
             if !activated || !app.isActive {
@@ -54,6 +55,11 @@ final class WindowFocusService {
             }
 
             self.raiseWindow(pid: entry.pid, title: entry.windowTitle ?? entry.appName)
+            if !wasActive {
+                self.retryScheduler {
+                    self.raiseWindow(pid: entry.pid, title: entry.windowTitle ?? entry.appName)
+                }
+            }
         }
     }
 

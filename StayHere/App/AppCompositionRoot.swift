@@ -60,6 +60,9 @@ final class AppCompositionRoot: NSObject {
             self?.runtimeCallbackSink.settingsWindowDidClose()
         }
     )
+    lazy var aboutWindowManager = AboutWindowManager(
+        appearanceManager: appearanceManager
+    )
     lazy var activationController = ActivationController(
         settings: settings,
         windowIndex: WindowIndex(cgsBridge: cgsBridge),
@@ -97,6 +100,7 @@ final class AppCompositionRoot: NSObject {
         statusController: statusController,
         hudController: hudController,
         settingsWindowManager: settingsWindowManager,
+        aboutWindowManager: aboutWindowManager,
         activationController: activationController,
         spaceSwitcherController: spaceSwitcherController,
         windowSwitcherController: windowSwitcherController,

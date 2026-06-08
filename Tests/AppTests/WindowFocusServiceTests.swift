@@ -48,22 +48,26 @@ final class WindowFocusServiceTests: XCTestCase {
 
     func testActivationSuccessStillRaisesTargetWindow() {
         let app = FakeRunningApplication(isActive: false, activateResults: [true])
-        var raised = false
-        var madeMain = false
-        var unminimized = false
+        var raiseCallCount = 0
+        var makeMainCallCount = 0
+        var unminimizeCallCount = 0
+        var retryScheduled = false
         let service = WindowFocusService(
             runningApplicationProvider: { _ in app },
             accessibilityWindowsProvider: { _ in
                 [
                     WindowFocusTarget(
                         title: "Doc",
-                        unminimize: { unminimized = true },
-                        raise: { raised = true },
-                        makeMain: { madeMain = true }
+                        unminimize: { unminimizeCallCount += 1 },
+                        raise: { raiseCallCount += 1 },
+                        makeMain: { makeMainCallCount += 1 }
                     )
                 ]
             },
-            retryScheduler: { _ in XCTFail("Retry should not be scheduled on successful activation") },
+            retryScheduler: { work in
+                retryScheduled = true
+                work()
+            },
             applicationActivator: {}
         )
 
@@ -72,9 +76,37 @@ final class WindowFocusServiceTests: XCTestCase {
 
         XCTAssertEqual(app.unhideCallCount, 1)
         XCTAssertEqual(app.activateCallCount, 1)
-        XCTAssertTrue(unminimized)
-        XCTAssertTrue(raised)
-        XCTAssertTrue(madeMain)
+        XCTAssertTrue(retryScheduled, "A just-activated app should get a follow-up raise to avoid release-time focus races")
+        XCTAssertEqual(unminimizeCallCount, 2)
+        XCTAssertEqual(raiseCallCount, 2)
+        XCTAssertEqual(makeMainCallCount, 2)
+    }
+
+    func testAlreadyActiveAppsDoNotScheduleFollowUpRaise() {
+        let app = FakeRunningApplication(isActive: true, activateResults: [true])
+        var retryScheduled = false
+        var raiseCallCount = 0
+        let service = WindowFocusService(
+            runningApplicationProvider: { _ in app },
+            accessibilityWindowsProvider: { _ in
+                [
+                    WindowFocusTarget(
+                        title: "Doc",
+                        unminimize: {},
+                        raise: { raiseCallCount += 1 },
+                        makeMain: {}
+                    )
+                ]
+            },
+            retryScheduler: { _ in retryScheduled = true },
+            applicationActivator: {}
+        )
+
+        service.focusWindow(entry: WindowEntry(windowID: 1, pid: 55, appName: "Notes", windowTitle: "Doc", icon: NSImage()))
+        waitForMainQueue()
+
+        XCTAssertFalse(retryScheduled)
+        XCTAssertEqual(raiseCallCount, 1)
     }
 
     func testActivationFailureRunsRetryPath() {

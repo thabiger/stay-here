@@ -12,6 +12,7 @@ final class AppRuntimeCoordinator: AppCoordinating {
     private let statusController: StatusBarController
     private let hudController: HUDController
     private let settingsWindowManager: SettingsWindowManager
+    private let aboutWindowManager: AboutWindowManager
     private let activationController: ActivationController
     private let spaceSwitcherController: SpaceSwitcherController
     private let windowSwitcherController: WindowSwitcherController
@@ -31,6 +32,7 @@ final class AppRuntimeCoordinator: AppCoordinating {
         statusController: StatusBarController,
         hudController: HUDController,
         settingsWindowManager: SettingsWindowManager,
+        aboutWindowManager: AboutWindowManager,
         activationController: ActivationController,
         spaceSwitcherController: SpaceSwitcherController,
         windowSwitcherController: WindowSwitcherController,
@@ -44,6 +46,7 @@ final class AppRuntimeCoordinator: AppCoordinating {
         self.statusController = statusController
         self.hudController = hudController
         self.settingsWindowManager = settingsWindowManager
+        self.aboutWindowManager = aboutWindowManager
         self.activationController = activationController
         self.spaceSwitcherController = spaceSwitcherController
         self.windowSwitcherController = windowSwitcherController
@@ -107,6 +110,7 @@ final class AppRuntimeCoordinator: AppCoordinating {
     private func configureStatusController() {
         statusController.configure(
             onOpenSettings: { [weak self] in self?.showSettings() },
+            onOpenAbout: { [weak self] in self?.showAbout() },
             onCopyState: { [weak self] in self?.copySpaceState() },
             onOpenLogs: {
                 Logger.shared.openLogsInFinder()
@@ -173,6 +177,10 @@ final class AppRuntimeCoordinator: AppCoordinating {
         settingsWindowManager.showSettings(refreshRegistry: { [weak self] in
             self?.registry.refreshSpaces()
         })
+    }
+
+    private func showAbout() {
+        aboutWindowManager.showAbout()
     }
 
     private func scheduleMenuRebuild() {
