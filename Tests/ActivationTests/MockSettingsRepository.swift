@@ -14,6 +14,12 @@ final class MockSettingsRepository: SettingsRepository {
         set { diagnosticsEnabledStorage = newValue }
     }
 
+    var automaticUpdateChecksEnabledStorage: Bool = true
+    var automaticUpdateChecksEnabled: Bool {
+        get { automaticUpdateChecksEnabledStorage }
+        set { automaticUpdateChecksEnabledStorage = newValue }
+    }
+
     var spaceSwitcherEnabledStorage: Bool = true
     var spaceSwitcherEnabled: Bool {
         get { spaceSwitcherEnabledStorage }

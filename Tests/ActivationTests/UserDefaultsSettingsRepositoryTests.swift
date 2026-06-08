@@ -26,6 +26,22 @@ final class UserDefaultsSettingsRepositoryTests: XCTestCase {
         XCTAssertEqual(reader.appearanceMode, .dark)
     }
 
+    func testAutomaticUpdateChecksDefaultToEnabled() {
+        let defaults = makeDefaults()
+        let settings = UserDefaultsSettingsRepository(defaults: defaults)
+
+        XCTAssertTrue(settings.automaticUpdateChecksEnabled)
+    }
+
+    func testAutomaticUpdateChecksPersist() {
+        let defaults = makeDefaults()
+        let writer = UserDefaultsSettingsRepository(defaults: defaults)
+        writer.automaticUpdateChecksEnabled = false
+
+        let reader = UserDefaultsSettingsRepository(defaults: defaults)
+        XCTAssertFalse(reader.automaticUpdateChecksEnabled)
+    }
+
     func testSpaceSwitcherDefaultsAreCommandTab() {
         let defaults = makeDefaults()
         let settings = UserDefaultsSettingsRepository(defaults: defaults)

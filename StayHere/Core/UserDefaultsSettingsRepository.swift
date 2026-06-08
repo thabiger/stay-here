@@ -5,6 +5,7 @@ public final class UserDefaultsSettingsRepository: SettingsRepository {
         static let appearanceMode = "appearance.mode"
 
         static let diagnosticsEnabled = "diagnostics.enabled"
+        static let automaticUpdateChecksEnabled = "updates.automatic.enabled"
 
         static let spaceSwitcherEnabled = "spaceSwitcher.enabled"
         static let spaceSwitcherShortcut = "spaceSwitcher.shortcut"
@@ -24,6 +25,7 @@ public final class UserDefaultsSettingsRepository: SettingsRepository {
 
     private enum Defaults {
         static let appearanceMode: AppearanceMode = .system
+        static let automaticUpdateChecksEnabled: Bool = true
         static let spaceSwitcherShortcut = "command+tab"
         static let spaceSwitcherEnabled: Bool = true
         static let windowSwitcherShortcut = "command+`"
@@ -70,6 +72,18 @@ public final class UserDefaultsSettingsRepository: SettingsRepository {
         }
         set {
             defaults.set(newValue, forKey: Key.diagnosticsEnabled)
+        }
+    }
+
+    public var automaticUpdateChecksEnabled: Bool {
+        get {
+            if defaults.object(forKey: Key.automaticUpdateChecksEnabled) != nil {
+                return defaults.bool(forKey: Key.automaticUpdateChecksEnabled)
+            }
+            return Defaults.automaticUpdateChecksEnabled
+        }
+        set {
+            defaults.set(newValue, forKey: Key.automaticUpdateChecksEnabled)
         }
     }
 
