@@ -1,6 +1,9 @@
 import AppKit
+import Core
 
 final class HUDController {
+    private let settings: SettingsRepository
+    private let appearanceManager: AppearanceManager
     private let hudWidth: CGFloat = 560
     private let cornerRadius: CGFloat = 18
     private let horizontalPadding: CGFloat = 20
@@ -8,6 +11,11 @@ final class HUDController {
     private let textFont = NSFont.systemFont(ofSize: 18, weight: .semibold)
     private var windowPair: (window: NSWindow, label: NSTextField)?
     private var hideTask: DispatchWorkItem?
+
+    init(settings: SettingsRepository, appearanceManager: AppearanceManager) {
+        self.settings = settings
+        self.appearanceManager = appearanceManager
+    }
 
     func show(name: String) {
         show(message: name)
@@ -21,7 +29,7 @@ final class HUDController {
         pair.window.orderFrontRegardless()
 
         hideTask?.cancel()
-        let duration = HUDSettings.shared.displayDuration
+        let duration = settings.hudDisplayDuration
         let task = DispatchWorkItem { [weak self] in
             guard let pair = self?.windowPair else { return }
             NSAnimationContext.runAnimationGroup { context in
@@ -82,7 +90,7 @@ final class HUDController {
     }
 
     private func applyAppearance(to window: NSWindow, label: NSTextField) {
-        let appearance = AppearanceManager.currentAppearance
+        let appearance = appearanceManager.currentAppearance
         window.appearance = appearance
         window.contentView?.appearance = appearance
         label.appearance = appearance
@@ -91,7 +99,7 @@ final class HUDController {
         window.contentView?.layer?.cornerCurve = .continuous
         window.contentView?.layer?.masksToBounds = true
         window.contentView?.layer?.borderWidth = 1
-        if AppearanceManager.currentModeIsDark {
+        if appearanceManager.currentModeIsDark {
             window.contentView?.layer?.backgroundColor = NSColor(calibratedWhite: 0.08, alpha: 0.94).cgColor
             window.contentView?.layer?.borderColor = NSColor.white.withAlphaComponent(0.12).cgColor
             label.textColor = .white

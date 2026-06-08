@@ -78,6 +78,42 @@ final class ActivationPolicyTests: XCTestCase {
         XCTAssertEqual(decision, .singleWindowHint)
     }
 
+    func testConvenienceInitReadsSingleWindowBundleIDsFromSettings() {
+        let settings = MockSettingsRepository()
+        settings.activationSingleWindowAppBundleIDs = ["com.example.Configured"]
+        let policy = ActivationPolicy(
+            settings: settings,
+            isAppRunning: { _ in true }
+        )
+        let decision = policy.decide(
+            makeContext(
+                bundleID: "com.example.Configured",
+                summary: makeSummary(totalWindows: 5, currentSpaceWindows: 0, targetSpaceWindows: 0),
+                optionHeld: false
+            )
+        )
+
+        XCTAssertEqual(decision, .singleWindowHint)
+    }
+
+    func testConvenienceInitIgnoresBundleIDsNotInSettings() {
+        let settings = MockSettingsRepository()
+        settings.activationSingleWindowAppBundleIDs = ["com.example.Configured"]
+        let policy = ActivationPolicy(
+            settings: settings,
+            isAppRunning: { _ in true }
+        )
+        let decision = policy.decide(
+            makeContext(
+                bundleID: "com.example.Other",
+                summary: makeSummary(totalWindows: 2, currentSpaceWindows: 0, targetSpaceWindows: 0),
+                optionHeld: false
+            )
+        )
+
+        XCTAssertEqual(decision, .createNewWindow)
+    }
+
     func testConfiguredSingleWindowAppSwitchesWithOptionEvenWithMultipleWindows() {
         let policy = ActivationPolicy(
             isSingleWindowApp: { $0 == "com.example.App" },
@@ -92,22 +128,6 @@ final class ActivationPolicyTests: XCTestCase {
         )
 
         XCTAssertEqual(decision, .switchToSingleWindowSpace)
-    }
-
-    func testSingleWindowAppListParsesOneBundleIDPerLine() {
-        let suiteName = "ActivationSettingsTests.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suiteName)!
-        defaults.removePersistentDomain(forName: suiteName)
-
-        let settings = ActivationSettings(defaults: defaults)
-        settings.singleWindowAppBundleIDs = [
-            "com.apple.Notes",
-            "  com.openai.codex  ",
-            "",
-            "com.apple.Notes"
-        ]
-
-        XCTAssertEqual(settings.singleWindowAppBundleIDs, ["com.apple.Notes", "com.openai.codex"])
     }
 
     func testSingleWindowOptionClickFallsThroughWhenSpaceCannotBeResolved() {

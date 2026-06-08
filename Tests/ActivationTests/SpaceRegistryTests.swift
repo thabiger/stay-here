@@ -64,6 +64,57 @@ final class SpaceRegistryTests: XCTestCase {
         XCTAssertEqual(registry.activeSpaceID, 102)
     }
 
+    func testRenamePersistsAcrossRegistryInstances() {
+        let store = makeStore()
+        let snapshot = CGSBridge.ManagedSnapshot(
+            spaces: [SpaceIdentity(id: 101, display: "display-a", kind: .desktop)],
+            activeByDisplay: ["display-a": 101],
+            orderedIDsByDisplay: ["display-a": [101]]
+        )
+
+        let writer = SpaceRegistry(
+            store: store,
+            cgsBridge: MockCGSBridge(activeSpaceIDValue: 101, managedSnapshotValue: snapshot)
+        )
+        writer.rename(spaceID: 101, name: "Inbox")
+        writer.persistNow()
+
+        let reader = SpaceRegistry(
+            store: store,
+            cgsBridge: MockCGSBridge(activeSpaceIDValue: 101, managedSnapshotValue: snapshot)
+        )
+
+        XCTAssertEqual(reader.name(for: 101), "Inbox")
+    }
+
+    func testMoveDisplayOrderPersistsAcrossRegistryInstances() {
+        let store = makeStore()
+        let snapshot = CGSBridge.ManagedSnapshot(
+            spaces: [
+                SpaceIdentity(id: 101, display: "display-a", kind: .desktop),
+                SpaceIdentity(id: 102, display: "display-a", kind: .desktop),
+                SpaceIdentity(id: 103, display: "display-a", kind: .desktop)
+            ],
+            activeByDisplay: ["display-a": 101],
+            orderedIDsByDisplay: ["display-a": [101, 102, 103]]
+        )
+
+        let writer = SpaceRegistry(
+            store: store,
+            cgsBridge: MockCGSBridge(activeSpaceIDValue: 101, managedSnapshotValue: snapshot)
+        )
+        writer.moveDisplayOrder(fromOffsets: IndexSet(integer: 2), toOffset: 0)
+        writer.persistNow()
+
+        let reader = SpaceRegistry(
+            store: store,
+            cgsBridge: MockCGSBridge(activeSpaceIDValue: 101, managedSnapshotValue: snapshot)
+        )
+
+        XCTAssertTrue(reader.usesCustomDisplayOrder)
+        XCTAssertEqual(reader.orderedSpaceIDs(), [103, 101, 102])
+    }
+
     private func makeStore() -> SpaceStore {
         let fileURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("SpaceRegistryTests")

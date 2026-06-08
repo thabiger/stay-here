@@ -20,6 +20,11 @@ let package = Package(
             name: "ActivationTests",
             dependencies: ["Activation", "Core"],
             path: "Tests/ActivationTests"
+        ),
+        .testTarget(
+            name: "AppTests",
+            dependencies: ["StayHereApp", "Core", "Activation"],
+            path: "Tests/AppTests"
         )
     ]
 )

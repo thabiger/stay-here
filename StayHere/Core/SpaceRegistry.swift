@@ -13,35 +13,40 @@ public final class SpaceRegistry: ObservableObject {
         case switchUnmatched(index: Int, expectedSpaceID: Int, actualSpaceID: Int?)
     }
 
-    @Published public private(set) var spaces: [SpaceIdentity] = []
-    @Published public private(set) var activeSpaceID: Int?
-    @Published public private(set) var labels: [Int: SpaceLabel] = [:]
-    @Published public private(set) var displayOrder: [Int] = []
-    @Published public private(set) var usesCustomDisplayOrder: Bool = false
-    @Published public private(set) var desktopNumberBySpaceID: [Int: Int] = [:]
-    @Published public private(set) var nativeOrderByDisplay: [String: [Int]] = [:]
+    public let objectWillChange = ObservableObjectPublisher()
+
+    public var spaces: [SpaceIdentity] { stateStore.spaces }
+    public var activeSpaceID: Int? { stateStore.activeSpaceID }
+    public var labels: [Int: SpaceLabel] { stateStore.labels }
+    public var displayOrder: [Int] { stateStore.displayOrder }
+    public var usesCustomDisplayOrder: Bool { stateStore.usesCustomDisplayOrder }
+    public var desktopNumberBySpaceID: [Int: Int] { stateStore.desktopNumberBySpaceID }
+    public var nativeOrderByDisplay: [String: [Int]] { stateStore.nativeOrderByDisplay }
 
     private let cgsBridge: any CGSBridgeProtocol
-    private let store: SpaceStore
-    private let persistQueue = DispatchQueue(label: "stayhere.persist", qos: .utility)
-    private let snapshotQueue = DispatchQueue(label: "stayhere.snapshot", qos: .userInitiated)
-    private var pendingPersist: DispatchWorkItem?
-    private var pendingRefresh: DispatchWorkItem?
-    private let refreshRetryInterval: TimeInterval = 0.05
-    private let refreshRetryLimit = 8
+    private let labelStore: SpaceLabelStore
+    private let switcherService: SpaceSwitcherService
+    private let stateStore: SpaceStateStore
+    private let orderingService: SpaceOrderingService
+    private var stateStoreObserver: AnyCancellable?
+    private lazy var switchingCoordinator = makeSwitchingCoordinator()
 
     public init(
         store: SpaceStore = SpaceStore(),
-        cgsBridge: any CGSBridgeProtocol = CGSBridge.live
+        cgsBridge: any CGSBridgeProtocol = CGSBridge.live,
+        labelStore: SpaceLabelStore? = nil,
+        switcherService: SpaceSwitcherService? = nil
     ) {
         self.cgsBridge = cgsBridge
-        self.store = store
-        let persisted = store.load()
-        self.labels = persisted.labels
-        self.displayOrder = persisted.displayOrder
-        self.usesCustomDisplayOrder = persisted.usesCustomDisplayOrder
+        self.labelStore = labelStore ?? SpaceLabelStore(store: store)
+        self.switcherService = switcherService ?? SpaceSwitcherService(cgsBridge: cgsBridge)
+        self.stateStore = SpaceStateStore()
+        self.orderingService = SpaceOrderingService()
+        self.stateStoreObserver = nil
+        bindStateStore()
+        syncPersistenceState()
         refreshSpaces()
-        reconcileUnknownSpaces()
+        reconcilePersistedSpaces()
     }
 
     public func refreshSpaces() {
@@ -49,59 +54,11 @@ public final class SpaceRegistry: ObservableObject {
     }
 
     public func refreshSpacesAsync() {
-        snapshotQueue.async { [weak self] in
-            guard let self else { return }
-            let snapshot = self.cgsBridge.managedSnapshot()
-            DispatchQueue.main.async {
-                self.apply(snapshot: snapshot)
-            }
-        }
+        switchingCoordinator.refreshSpacesAsync()
     }
 
     public func refreshSpacesSoon() {
-        pendingRefresh?.cancel()
-        pendingRefresh = nil
-        let baseline = activeSpaceID
-        refreshSpaces()
-        guard activeSpaceID == baseline else { return }
-        scheduleRefreshRetry(baseline: baseline, remainingAttempts: refreshRetryLimit)
-    }
-
-    private func apply(snapshot: CGSBridge.ManagedSnapshot) {
-        let global = cgsBridge.activeSpaceID()
-        let selectedDisplay = displayForCurrentFocus(snapshot: snapshot, globalActiveID: global)
-        let discovered = snapshot.spaces.filter { space in
-            guard let selectedDisplay else { return true }
-            return space.display == selectedDisplay
-        }
-        let nextSpaces = discovered.isEmpty ? fallbackSpaces() : discovered
-        if nextSpaces != spaces {
-            spaces = nextSpaces
-            reconcileUnknownSpaces()
-        }
-
-        let desktopNativeOrder = snapshot.orderedIDsByDisplay.mapValues { order in
-            order.filter { spaceID in
-                snapshot.spaces.first(where: { $0.id == spaceID })?.kind == .desktop
-            }
-        }
-
-        if desktopNativeOrder != nativeOrderByDisplay {
-            nativeOrderByDisplay = desktopNativeOrder
-            var numbers: [Int: Int] = [:]
-            for order in desktopNativeOrder.values {
-                for (idx, spaceID) in order.enumerated() {
-                    numbers[spaceID] = idx + 1
-                }
-            }
-            desktopNumberBySpaceID = numbers
-        }
-
-        let firstKnown = selectedDisplay.flatMap { snapshot.activeByDisplay[$0] } ?? snapshot.activeByDisplay.values.first
-        let nextActive = global ?? firstKnown ?? activeSpaceID ?? nextSpaces.first?.id
-        if nextActive != activeSpaceID {
-            activeSpaceID = nextActive
-        }
+        switchingCoordinator.refreshSpacesSoon()
     }
 
     public func handleSpaceChange() {
@@ -125,15 +82,11 @@ public final class SpaceRegistry: ObservableObject {
     }
 
     public func namespaceLabel(for spaceID: Int) -> String {
-        switch space(for: spaceID)?.kind {
-        case .desktop:
-            guard let number = desktopNumberBySpaceID[spaceID] else { return "Desktop ?" }
-            return "Desktop \(number)"
-        case .fullscreen:
-            return "Full Screen"
-        case .unknown, .none:
-            return "Space"
-        }
+        orderingService.namespaceLabel(
+            for: spaceID,
+            spaces: spaces,
+            desktopNumberBySpaceID: desktopNumberBySpaceID
+        )
     }
 
     public func space(for spaceID: Int) -> SpaceIdentity? {
@@ -146,56 +99,35 @@ public final class SpaceRegistry: ObservableObject {
     }
 
     public func rename(spaceID: Int, name: String) {
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        let normalized = trimmed.isEmpty ? "Unnamed space" : trimmed
-        if labels[spaceID]?.name == normalized {
-            return
-        }
-        var updated = labels
-        updated[spaceID] = SpaceLabel(name: normalized)
-        labels = updated
-        persist()
+        labelStore.rename(spaceID: spaceID, name: name, orderedSpaceIDs: orderedSpaceIDs())
+        syncPersistenceState()
     }
 
     public func moveDisplayOrder(fromOffsets: IndexSet, toOffset: Int) {
-        var ids = orderedSpaceIDs()
-        let removed = fromOffsets.compactMap { offset in
-            ids.indices.contains(offset) ? ids[offset] : nil
-        }
-        for offset in fromOffsets.sorted(by: >) where ids.indices.contains(offset) {
-            ids.remove(at: offset)
-        }
-
-        var insertionIndex = toOffset
-        for offset in fromOffsets where offset < toOffset {
-            insertionIndex -= 1
-        }
-        insertionIndex = max(0, min(insertionIndex, ids.count))
-        ids.insert(contentsOf: removed, at: insertionIndex)
-        displayOrder = ids
-        usesCustomDisplayOrder = true
-        persist()
+        labelStore.moveDisplayOrder(
+            fromOffsets: fromOffsets,
+            toOffset: toOffset,
+            currentOrderedSpaceIDs: orderedSpaceIDs()
+        )
+        syncPersistenceState()
     }
 
     public func orderedSpaceIDs() -> [Int] {
-        let desktopOrderedIDs = spaces
-            .sorted { desktopSortKey(for: $0.id) < desktopSortKey(for: $1.id) }
-            .map(\.id)
-
-        guard usesCustomDisplayOrder else {
-            return desktopOrderedIDs
-        }
-
-        let validIDs = Set(spaces.map(\.id))
-        var ids = displayOrder.filter { validIDs.contains($0) }
-        for id in desktopOrderedIDs where !ids.contains(id) {
-            ids.append(id)
-        }
-        return ids
+        orderingService.orderedSpaceIDs(
+            spaces: spaces,
+            displayOrder: displayOrder,
+            usesCustomDisplayOrder: usesCustomDisplayOrder,
+            desktopNumberBySpaceID: desktopNumberBySpaceID
+        )
     }
 
     public func switchableOrderedSpaceIDs() -> [Int] {
-        orderedSpaceIDs().filter(isSwitchableSpace)
+        orderingService.switchableOrderedSpaceIDs(
+            spaces: spaces,
+            displayOrder: displayOrder,
+            usesCustomDisplayOrder: usesCustomDisplayOrder,
+            desktopNumberBySpaceID: desktopNumberBySpaceID
+        )
     }
 
     public func snapshotJSON() -> String {
@@ -223,165 +155,71 @@ public final class SpaceRegistry: ObservableObject {
     }
 
     public func switchToSpace(_ spaceID: Int) -> SwitchResult {
-        let before = activeSpaceID
-        if before == spaceID {
-            Logger.shared.info("switch-space skipped=already-active")
-            return .alreadyActive
-        }
-
-        guard isSwitchableSpace(spaceID) else {
-            Logger.shared.error("switch-space failed=unsupported-space-kind")
-            return .unsupportedSpaceKind
-        }
-
-        let snapshot = cgsBridge.managedSnapshot()
-        guard let display = spaces.first(where: { $0.id == spaceID })?.display
-            ?? snapshot.spaces.first(where: { $0.id == spaceID })?.display,
-              let nativeOrder = nativeOrderByDisplay[display] ?? snapshot.orderedIDsByDisplay[display],
-              let shortcutIndex = nativeOrder.firstIndex(of: spaceID).map({ $0 + 1 }) else {
-            Logger.shared.error("switch-space failed=unknown-space")
-            return .unknownSpace
-        }
-
-        guard shortcutIndex <= 9 else {
-            Logger.shared.error(
-                "switch-space failed=desktop-no-shortcut"
-            )
-            return .unsupportedDesktop(index: shortcutIndex)
-        }
-
-        let posted = cgsBridge.switchByDesktopShortcut(index: shortcutIndex)
-        guard posted else {
-            Logger.shared.error("switch-space failed=event-post")
-            return .eventPostFailed(index: shortcutIndex)
-        }
-
-        Logger.shared.info("switch-space posted")
-
-        let matched = verifySwitchResult(expectedSpaceID: spaceID)
-        Logger.shared.info("switch-space result matched=\(matched)")
-        guard matched else {
-            Logger.shared.error("switch-space failed=shortcut-posted-but-unmatched")
-            refreshSpacesSoon()
-            return .switchUnmatched(index: shortcutIndex, expectedSpaceID: spaceID, actualSpaceID: activeSpaceID)
-        }
-
-        refreshSpacesSoon()
-        return .switched
+        switchingCoordinator.switchToSpace(spaceID)
     }
 
     public func switchToNextSpace() {
-        switchToAdjacentSpace(offset: 1)
+        switchingCoordinator.switchToNextSpace()
     }
 
     public func switchToPreviousSpace() {
-        switchToAdjacentSpace(offset: -1)
-    }
-
-    private func reconcileUnknownSpaces() {
-        var updated = labels
-        var changed = false
-        for id in spaces.map(\.id) where updated[id] == nil {
-            updated[id] = SpaceLabel(name: "Unnamed space")
-            changed = true
-        }
-        let valid = Set(spaces.map(\.id))
-        for key in updated.keys where !valid.contains(key) {
-            updated.removeValue(forKey: key)
-            changed = true
-        }
-        if changed {
-            labels = updated
-            persist()
-        }
-    }
-
-    private func fallbackSpaces() -> [SpaceIdentity] {
-        [SpaceIdentity(id: 1, display: "fallback-display")]
-    }
-
-    private func desktopSortKey(for spaceID: Int) -> (Int, Int) {
-        (desktopNumberBySpaceID[spaceID] ?? Int.max, spaceID)
-    }
-
-    private func displayForCurrentFocus(snapshot: CGSBridge.ManagedSnapshot, globalActiveID: Int?) -> String? {
-        if let globalActiveID,
-           let display = snapshot.activeByDisplay.first(where: { $0.value == globalActiveID })?.key {
-            return display
-        }
-        return snapshot.activeByDisplay.keys.sorted().first ?? snapshot.spaces.first?.display
-    }
-
-    private func persist() {
-        let payload = PersistedSpaces(
-            labels: labels,
-            displayOrder: orderedSpaceIDs(),
-            usesCustomDisplayOrder: usesCustomDisplayOrder
-        )
-        pendingPersist?.cancel()
-        let task = DispatchWorkItem { [store] in
-            do {
-                try store.save(payload)
-            } catch {
-                Logger.shared.error("persist-failed")
-            }
-        }
-        pendingPersist = task
-        persistQueue.asyncAfter(deadline: .now() + 0.2, execute: task)
-    }
-
-    private func scheduleRefreshRetry(baseline: Int?, remainingAttempts: Int) {
-        pendingRefresh?.cancel()
-        let task = DispatchWorkItem { [weak self] in
-            guard let self else { return }
-            self.refreshSpaces()
-            self.pendingRefresh = nil
-            guard self.activeSpaceID == baseline, remainingAttempts > 1 else { return }
-            self.scheduleRefreshRetry(baseline: baseline, remainingAttempts: remainingAttempts - 1)
-        }
-        pendingRefresh = task
-        DispatchQueue.main.asyncAfter(deadline: .now() + refreshRetryInterval, execute: task)
-    }
-
-    private func verifySwitchResult(expectedSpaceID: Int) -> Bool {
-        if activeSpaceID == expectedSpaceID {
-            return true
-        }
-
-        for _ in 0..<refreshRetryLimit {
-            RunLoop.current.run(until: Date().addingTimeInterval(refreshRetryInterval))
-            refreshSpaces()
-            if activeSpaceID == expectedSpaceID {
-                return true
-            }
-        }
-
-        return false
-    }
-
-    private func switchToAdjacentSpace(offset: Int) {
-        let ordered = orderedSpaceIDs()
-        let target = offset > 0
-            ? SpaceCycling.nextSpaceID(currentSpaceID: activeSpaceID, orderedSpaceIDs: ordered)
-            : SpaceCycling.previousSpaceID(currentSpaceID: activeSpaceID, orderedSpaceIDs: ordered)
-        guard let target else {
-            Logger.shared.info("switch-space cycle skipped=empty")
-            return
-        }
-        _ = switchToSpace(target)
+        switchingCoordinator.switchToPreviousSpace()
     }
 
     public func persistNow() {
-        pendingPersist?.cancel()
-        let payload = PersistedSpaces(
-            labels: labels,
-            displayOrder: orderedSpaceIDs(),
-            usesCustomDisplayOrder: usesCustomDisplayOrder
-        )
-        do {
-            try store.save(payload)
-        } catch {
-            Logger.shared.error("persist-failed")
+        labelStore.persistNow(orderedSpaceIDs: orderedSpaceIDs())
+    }
+
+    private func bindStateStore() {
+        stateStoreObserver = stateStore.objectWillChange.sink { [weak self] in
+            self?.objectWillChange.send()
         }
+    }
+
+    private func apply(snapshot: CGSBridge.ManagedSnapshot) {
+        let derivedState = orderingService.deriveState(
+            snapshot: snapshot,
+            globalActiveID: cgsBridge.activeSpaceID(),
+            previousActiveID: stateStore.activeSpaceID
+        )
+        let spacesChanged = derivedState.spaces != stateStore.spaces
+        stateStore.applyDerivedState(derivedState)
+        if spacesChanged {
+            reconcilePersistedSpaces()
+        }
+    }
+
+    private func reconcilePersistedSpaces() {
+        labelStore.reconcileLabels(for: spaces, orderedSpaceIDs: orderedSpaceIDs())
+        syncPersistenceState()
+    }
+
+    private func syncPersistenceState() {
+        stateStore.syncPersistenceState(
+            labels: labelStore.labels,
+            displayOrder: labelStore.displayOrder,
+            usesCustomDisplayOrder: labelStore.usesCustomDisplayOrder
+        )
+    }
+
+    private func applyManagedSnapshot(_ snapshot: CGSBridge.ManagedSnapshot) {
+        apply(snapshot: snapshot)
+    }
+
+    private func makeSwitchingCoordinator() -> SpaceSwitchingCoordinator {
+        SpaceSwitchingCoordinator(
+            cgsBridge: cgsBridge,
+            stateStore: stateStore,
+            switcherService: switcherService,
+            orderedSpaceIDs: { [weak self] in
+                self?.orderedSpaceIDs() ?? []
+            },
+            refreshNow: { [weak self] in
+                self?.refreshSpaces()
+            },
+            applySnapshot: { [weak self] snapshot in
+                self?.applyManagedSnapshot(snapshot)
+            }
+        )
     }
 }
