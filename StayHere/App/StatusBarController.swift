@@ -9,6 +9,7 @@ final class StatusBarController: NSObject, NSMenuDelegate, SpaceMenuRowViewCoord
     private let appearanceManager: AppearanceManager
 
     private var onOpenSettings: (() -> Void)?
+    private var onOpenAbout: (() -> Void)?
     private var onCopyState: (() -> Void)?
     private var onOpenLogs: (() -> Void)?
     private var onQuit: (() -> Void)?
@@ -36,6 +37,7 @@ final class StatusBarController: NSObject, NSMenuDelegate, SpaceMenuRowViewCoord
 
     func configure(
         onOpenSettings: @escaping () -> Void,
+        onOpenAbout: @escaping () -> Void,
         onCopyState: @escaping () -> Void,
         onOpenLogs: @escaping () -> Void,
         onQuit: @escaping () -> Void,
@@ -43,6 +45,7 @@ final class StatusBarController: NSObject, NSMenuDelegate, SpaceMenuRowViewCoord
         onRenameSpace: @escaping (Int, String) -> Void
     ) {
         self.onOpenSettings = onOpenSettings
+        self.onOpenAbout = onOpenAbout
         self.onCopyState = onCopyState
         self.onOpenLogs = onOpenLogs
         self.onQuit = onQuit
@@ -88,6 +91,7 @@ final class StatusBarController: NSObject, NSMenuDelegate, SpaceMenuRowViewCoord
             menu.addItem(NSMenuItem.separator())
         }
         menu.addItem(NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ",").withTarget(self))
+        menu.addItem(NSMenuItem(title: "About StayHere", action: #selector(openAbout), keyEquivalent: "").withTarget(self))
 
         if settings.diagnosticsEnabled {
             let debug = NSMenuItem(title: "Debug", action: nil, keyEquivalent: "")
@@ -152,6 +156,11 @@ final class StatusBarController: NSObject, NSMenuDelegate, SpaceMenuRowViewCoord
     @objc private func openSettings() {
         guard !isEditingSpaceName else { return }
         onOpenSettings?()
+    }
+
+    @objc private func openAbout() {
+        guard !isEditingSpaceName else { return }
+        onOpenAbout?()
     }
 
     @objc private func copyState() {

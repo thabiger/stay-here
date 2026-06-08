@@ -156,3 +156,18 @@ These settings are not strictly required, but they make StayHere behave more pre
 - Mission Control itself still shows Apple’s default `Desktop N` labels. StayHere keeps your names inside the app UI.
 - The app is designed as a menu bar utility, not a Dock app.
 - Some fullscreen windows and system apps have macOS restrictions that limit space-moving behavior.
+
+## Ownership, Copyright, and License
+
+This project, including all original source code, documentation, and related materials, is copyrighted by Tomasz Habiger.
+
+This software is licensed under the PolyForm Noncommercial License. See the LICENSE file for details.
+
+## Attribution
+
+Please retain all copyright notices, license notices, and attribution to the original author in any redistribution or derivative work.
+
+## Contributing
+
+Contributions are welcome and appreciated.
+By contributing to this project, you agree to the terms described in CONTRIBUTING.md.
