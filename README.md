@@ -1,167 +1,70 @@
 # StayHere
 
-StayHere is a macOS menu bar app that helps you name your Spaces, switch between them more easily, and keep Dock clicks from sending you to the wrong desktop.
+**StayHere protects your focus by keeping different contexts in separate Spaces.**
 
-## What it does
+StayHere is a menu bar app for people who want to treat macOS Spaces as real workspaces, mental rooms for cognitive isolation of the different kinds of work we deal with every day in increasingly context-switching-heavy environments.
 
-- Lets you give each Space a custom name.
-- Shows the current Space name in the menu bar.
-- Shows a small HUD when you switch Spaces.
-- Provides a configurable Space switcher picker.
-- Provides a configurable Window switcher picker for windows on the current Space.
-- Can intercept Dock clicks so app launches and window activation stay on the Space you are using.
+Being able to separate programming, reporting, communication, research, and all the other things we do into different Spaces is crucial if you want to stay focused and sane. Unfortunately, macOS does a lot to undermine that: unnamed desktops, a Dock that mixes apps from every Space, window switchers that ignore context, and magical teleportation abilities that move you to a different desktop without warning.
 
-## Setup checklist
+StayHere adds the layer Apple skipped: visible Space names, predictable Dock behavior that keeps work in the current Space, and switchers scoped to the desktop you are already in.
 
-For the best experience, set up StayHere in this order:
+But don't get me wrong. I'm not here to compete with the many window switchers already available. There are plenty of apps doing a magnificent job when it comes to fancy switching, window previews, and visual navigation.
 
-1. Grant the required macOS permissions.
-2. Enable the Mission Control keyboard shortcuts.
-3. Set your preferred Space and Window switcher shortcuts, or disable either switcher if you do not want it active.
-4. Optionally add single-window apps.
-5. Turn off a couple of macOS Space behaviors that fight with the app.
+**My goal is different: I want to reduce chaos.**
 
-## Permissions And Security
+I want to get rid of the chaos that makes us think navigating through a flood of window thumbnails is a productive way to work. I want each Space to contain only the tools relevant to the task at hand, so I don't even have to look for them among dozens of unrelated windows.
 
-StayHere needs these permissions in System Settings:
+Click [here](https://www.youtube.com/watch?v=4eVp7_AZi8k) to watch the full presentation:
 
-- **Accessibility** - used to focus apps, react to Dock interactions, and control space-related behavior.
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=4eVp7_AZi8k">
+    <img
+      src="https://img.youtube.com/vi/4eVp7_AZi8k/maxresdefault.jpg"
+      alt="StayHere Demo"
+      width="800"
+    />
+  </a>
+</p>
 
-StayHere also uses a global mouse event tap when Dock click interception is enabled. That is what lets it notice Dock clicks and decide whether to handle them itself or let macOS proceed normally.
+For the full story behind the app, see [Your macOS Spaces Don't Respect Your Focus](https://medium.tnkrd.com/your-mac-keeps-moving-you-to-the-wrong-room-11e36483191a).
 
-Some future app-specific actions may request **Automation** permission if StayHere needs to send Apple Events to another app, for example to trigger a target app's built-in `New Window` command. The current release does not rely on Automation for the core menu bar, Space, or window switching features.
+## With StayHere, you can:
 
-If you change the app bundle identifier, signing identity, or reinstall the app under a different name, macOS may treat it as a different app and ask for permissions again.
+- give your Spaces meaningful names such as Work, Writing, Calls, or Programming,
+- see the current Space name in the menu bar,
+- get a small popup whenever the active Space changes, so you always know where you are,
+- make Dock clicks more predictable by preventing them from teleporting you to another Space where the selected app is already running,
+- open a new application window in the current Space whenever possible,
+- use window switchers scoped to the current Space, making navigation simpler and less distracting.
+
+## Permissions and Security
+
+StayHere needs these permissions and settings:
+
+- **Accessibility** — required to focus apps, react to Dock interactions, and control space-related behavior.
+- **Mission Control desktop shortcuts** — enable **Switch to Desktop 1** through **Switch to Desktop 9** in `System Settings > Keyboard > Keyboard Shortcuts > Mission Control`. StayHere uses these shortcuts internally for space switching, so they need to stay enabled.
+- **Screen Recording** — (optional) for the richer window switcher experience. If you want window titles beside app names (`App Name: Window Title`), grant **Screen Recording** in `System Settings > Privacy & Security > Screen & System Audio Recording`. macOS hides other apps' window names until that permission is granted.
+
+## Other Recommended macOS settings
+
+The goal here is to deliver a focus-first experience to your workflow. Therefore I encourage you to run it with additional settings:
+
+- Settings -> Desktop & Dock -> Automatically rearrange Spaces based on most recent use -> Off
+- Settings -> Desktop & Dock -> When switching to an application, switch to a Space with open windows for the application -> Off (prevents teleporting to other spaces through Spotlight)
+- Settings -> Desktop & Dock -> Group windows by application -> On
+- Settings -> Desktop & Dock -> Displays have separate Spaces -> Off (it messes with Space locations across displays when a display disconnects)
+- Settings -> Desktop & Dock -> Show suggested and recent apps in Dock -> Off (you should only see what you need to get work done in your Space)
 
 ## Distribution Model
 
-StayHere is distributed outside the Mac App Store on purpose.
+The release model is direct download from GitHub Releases.
 
-- The app depends on Accessibility for its core behavior.
-- Dock click interception uses a global input event tap.
-- StayHere reads and moves window/space state through private CGS APIs.
-
-Those APIs are useful for this workflow, but they are private and can change across macOS releases. That means the app can need maintenance after system updates, and the exact behavior may vary between macOS versions.
-
-The release model is direct download from GitHub Releases, with signed and notarized builds planned for public distribution.
-Pull requests should also pass CI, dependency review, and CodeQL before changes are merged.
-
-## Install From GitHub Releases
-
-When you want to try a published build:
-
-1. Open the latest release on GitHub.
-2. Download the `StayHere.dmg` file if you want the usual drag-and-drop install, or `StayHere.zip` if you prefer a plain archive.
-3. Open the downloaded file and copy `StayHere.app` into your `Applications` folder.
-4. Launch the app from `Applications`.
-
-Because test builds may be ad hoc signed or unsigned, macOS can show a warning the first time you open the app. If that happens, do one of these:
-
-- Control-click the app and choose **Open**.
-- Or open `System Settings > Privacy & Security` and allow the blocked app there.
-
-If macOS asks for Accessibility permission, grant it so the app can manage Spaces and Dock interactions.
-
-## Mission Control shortcuts
-
-The app checks that Mission Control desktop shortcuts `Control+1` through `Control+9` are enabled.
-
-You can enable them in:
-
-`System Settings > Keyboard > Keyboard Shortcuts > Mission Control`
-
-StayHere tries to pre-enable these shortcuts for Desktop 1 through Desktop 9 on first launch so future desktops keep working. If macOS does not pick up the change immediately, reopen StayHere and recheck the checklist.
-
-StayHere uses these shortcuts internally for space switching, so they need to stay enabled.
-
-## Space switcher shortcut
-
-The space picker opens when you press the configured shortcut.
-
-- You can turn the Space Switcher on or off in Settings
-- Default: `command+tab`
-- You can change it in the app Settings
-
-Shortcut syntax is plain text:
-
-- Modifiers: `option` or `alt`, `shift`, `control` or `ctrl`, `command` or `cmd`
-- Keys:
-  - `tab`
-  - `space`
-  - `return` or `enter`
-  - `escape` or `esc`
-  - `delete` or `backspace`
-  - arrow keys: `left`, `right`, `up`, `down`
-  - letters: `a` through `z`
-  - digits: `0` through `9`
-  - `` ` `` or `backtick` or `grave` or `tilde`
-
-Examples:
-
-- `control+space`
-- `command+backtick`
-- `option+shift+tab`
-
-At least one modifier is required.
-
-## Window switcher shortcut
-
-The window picker opens when you press the configured shortcut.
-
-- You can turn the Window Switcher on or off in Settings
-- Default: `command+tab`
-- It only shows windows on the current Space
-- Each row includes the app icon to make the list easier to scan
-
-Shortcut syntax is the same as the Space switcher.
-
-In Settings, the Window Switcher section also lets you show minimized windows, hidden windows, and choose whether rows show just the app name or `App Name: Window Title` when a title is available.
-
-If you choose `App Name: Window Title`, grant StayHere **Screen Recording** permission in `System Settings > Privacy & Security > Screen & System Audio Recording`. macOS hides other apps’ window names from `CGWindowListCopyWindowInfo` until that permission is granted.
-
-## Single-window apps
-
-In Settings, you can add bundle identifiers for apps that should behave like single-window apps.
-
-Format:
-
-- One bundle identifier per line
-- Example: `com.apple.Notes`
-
-These apps get special handling so a normal Dock click can move the existing window to the current Space instead of sending you to another desktop.
-
-## Dock click interception
-
-The Dock click interception toggle controls whether StayHere handles Dock clicks.
-
-- **Enabled**: StayHere intercepts Dock clicks for multi-window apps and applies its Space-aware rules.
-- **Disabled**: macOS handles Dock clicks normally.
-
-## Recommended macOS settings
-
-These settings are not strictly required, but they make StayHere behave more predictably:
-
-- Turn off **Automatically rearrange Spaces based on most recent use**.
-- Turn off **When switching to an application, switch to a Space with open windows for the application**.
-
-## How it feels to use
-
-- Rename your Spaces to things like `Work`, `Personal`, or `Calls`.
-- Use the switcher shortcut to move between Spaces quickly.
-- Click apps in the Dock without being surprised by a jump to another desktop.
-- Keep Mission Control as the system Space manager while StayHere adds names and smarter behavior on top.
-
-## Notes
-
-- Mission Control itself still shows Apple’s default `Desktop N` labels. StayHere keeps your names inside the app UI.
-- The app is designed as a menu bar utility, not a Dock app.
-- Some fullscreen windows and system apps have macOS restrictions that limit space-moving behavior.
+> [!WARNING]
+> Current releases are <strong>not notarized</strong>, so macOS may warn that StayHere is from an unidentified developer or could be dangerous when you first open it. The app is released for free, which means it does not bring in any funds to cover Apple Developer Program costs for signing and notarization. If the app helps you, I would appreciate any <a href="https://buymeacoffee.com/tomaszhabiq">support</a> toward those costs.
 
 ## Ownership, Copyright, and License
 
-This project, including all original source code, documentation, and related materials, is copyrighted by Tomasz Habiger.
-
-This software is licensed under the PolyForm Noncommercial License. See the LICENSE file for details.
+This project, including all original source code, documentation, and related materials, is copyrighted by Tomasz Habiger. This software is licensed under the PolyForm Noncommercial License. See the LICENSE file for details.
 
 ## Attribution
 
@@ -169,5 +72,4 @@ Please retain all copyright notices, license notices, and attribution to the ori
 
 ## Contributing
 
-Contributions are welcome and appreciated.
-By contributing to this project, you agree to the terms described in CONTRIBUTING.md.
+Contributions are welcome and appreciated. By contributing to this project, you agree to the terms described in CONTRIBUTING.md.
