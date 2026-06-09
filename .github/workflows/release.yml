@@ -30,8 +30,7 @@ jobs:
       - name: Install icon generation dependencies
         run: |
           set -euo pipefail
-          brew install librsvg
-          pip3 install Pillow
+          brew install librsvg pillow
 
       - name: Run tests
         run: swift test
