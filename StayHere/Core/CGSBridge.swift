@@ -16,7 +16,10 @@ public struct CGSBridge: CGSBridgeProtocol {
 
     public static let live = CGSBridge()
 
-    private static let handle = dlopen("/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics", RTLD_NOW)
+    private static let handle: UnsafeMutableRawPointer? = {
+        if RuntimeEnvironment.isAutomationSession { return nil }
+        return dlopen("/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics", RTLD_NOW)
+    }()
 
     public init() {}
 

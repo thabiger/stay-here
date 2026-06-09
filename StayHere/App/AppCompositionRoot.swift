@@ -29,6 +29,7 @@ final class AppCompositionRoot: NSObject {
     let cgsBridge: any CGSBridgeProtocol
     let appearanceManager: AppearanceManager
     let lifecycleCoordinator: AppLifecycleCoordinator
+    let updateService: any UpdateService
     private let runtimeCallbackSink = AppRuntimeCallbackSink()
 
     lazy var registry = SpaceRegistry(cgsBridge: cgsBridge)
@@ -62,6 +63,21 @@ final class AppCompositionRoot: NSObject {
     )
     lazy var aboutWindowManager = AboutWindowManager(
         appearanceManager: appearanceManager
+    )
+    lazy var updateWindowManager = UpdateWindowManager(
+        appearanceManager: appearanceManager
+    )
+    lazy var updateController = UpdateController(
+        settings: settings,
+        updateService: updateService,
+        updateWindowManager: updateWindowManager,
+        appearanceManager: appearanceManager,
+        setAvailableUpdate: { [weak self] updateInfo in
+            guard let self else { return }
+            self.statusController.setAvailableUpdate(updateInfo)
+            self.spaceSwitcherController.setAvailableUpdate(updateInfo)
+            self.windowSwitcherController.setAvailableUpdate(updateInfo)
+        }
     )
     lazy var activationController = ActivationController(
         settings: settings,
@@ -98,6 +114,7 @@ final class AppCompositionRoot: NSObject {
         lifecycleCoordinator: lifecycleCoordinator,
         registry: registry,
         statusController: statusController,
+        updateController: updateController,
         hudController: hudController,
         settingsWindowManager: settingsWindowManager,
         aboutWindowManager: aboutWindowManager,
@@ -110,15 +127,27 @@ final class AppCompositionRoot: NSObject {
 
     init(
         settings: SettingsRepository = UserDefaultsSettingsRepository(),
-        cgsBridge: any CGSBridgeProtocol = CGSBridge.live
+        cgsBridge: any CGSBridgeProtocol = CGSBridge.live,
+        updateService: (any UpdateService)? = nil
     ) {
         self.settings = settings
         self.cgsBridge = cgsBridge
+        self.updateService = updateService ?? GitHubReleaseUpdateService()
         self.appearanceManager = AppearanceManager(settings: settings)
         self.lifecycleCoordinator = AppLifecycleCoordinator(
             appearanceManager: self.appearanceManager
         )
         super.init()
         runtimeCallbackSink.coordinator = runtimeCoordinator
+        configureSwitcherUpdateHandling()
+    }
+
+    private func configureSwitcherUpdateHandling() {
+        spaceSwitcherController.setOnOpenUpdate { [weak self] in
+            self?.updateController.presentAvailableUpdate()
+        }
+        windowSwitcherController.setOnOpenUpdate { [weak self] in
+            self?.updateController.presentAvailableUpdate()
+        }
     }
 }

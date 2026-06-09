@@ -40,6 +40,7 @@ public final class DockClickInterceptor {
 
     public func start() {
         guard eventTap == nil else { return }
+        guard !RuntimeEnvironment.isAutomationSession else { return }
 
         let mask = (1 << CGEventType.leftMouseDown.rawValue) | (1 << CGEventType.leftMouseUp.rawValue)
         let callback: CGEventTapCallBack = { proxy, type, event, refcon in

@@ -4,6 +4,7 @@ public protocol SettingsRepository: AnyObject {
     var appearanceMode: AppearanceMode { get set }
 
     var diagnosticsEnabled: Bool { get set }
+    var automaticUpdateChecksEnabled: Bool { get set }
 
     var spaceSwitcherEnabled: Bool { get set }
     var spaceSwitcherShortcutText: String { get set }

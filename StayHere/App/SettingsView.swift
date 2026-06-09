@@ -8,6 +8,7 @@ final class SettingsCoordinator: ObservableObject {
 
     @Published var appearanceMode: AppearanceMode = .system
     @Published var diagnosticsEnabled: Bool = false
+    @Published var automaticUpdateChecksEnabled: Bool = true
     @Published var dockClickInterceptionEnabled: Bool = true
     @Published var singleWindowAppBundleIDsText: String = ""
     @Published var spaceSwitcherEnabled: Bool = true
@@ -31,6 +32,7 @@ final class SettingsCoordinator: ObservableObject {
     func load() {
         appearanceMode = settings.appearanceMode
         diagnosticsEnabled = settings.diagnosticsEnabled
+        automaticUpdateChecksEnabled = settings.automaticUpdateChecksEnabled
         dockClickInterceptionEnabled = settings.activationDockClickInterceptionEnabled
         singleWindowAppBundleIDsText = SingleWindowAppBundleIDList.serialize(settings.activationSingleWindowAppBundleIDs)
         spaceSwitcherEnabled = settings.spaceSwitcherEnabled
@@ -47,6 +49,7 @@ final class SettingsCoordinator: ObservableObject {
     func commitAll() {
         settings.appearanceMode = appearanceMode
         settings.diagnosticsEnabled = diagnosticsEnabled
+        settings.automaticUpdateChecksEnabled = automaticUpdateChecksEnabled
         settings.activationDockClickInterceptionEnabled = dockClickInterceptionEnabled
         settings.activationSingleWindowAppBundleIDs = SingleWindowAppBundleIDList.parse(singleWindowAppBundleIDsText)
         settings.spaceSwitcherEnabled = spaceSwitcherEnabled
@@ -81,6 +84,15 @@ struct SettingsView: View {
                     }
                     .pickerStyle(.segmented)
                     Text("Choose one mode for the switchers, HUD, and other app popups.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Updates")
+                        .font(.headline)
+                    Toggle("Automatically check for updates", isOn: $coordinator.automaticUpdateChecksEnabled)
+                    Text("StayHere will check GitHub Releases in the background about once per day and let you know when a newer version is available.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }

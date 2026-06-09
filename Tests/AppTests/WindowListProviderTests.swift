@@ -35,6 +35,7 @@ private struct FakeWindowListApplication: WindowListApplication {
 private final class FakeWindowListSettings: SettingsRepository {
     var appearanceMode: AppearanceMode = .system
     var diagnosticsEnabled: Bool = false
+    var automaticUpdateChecksEnabled: Bool = true
     var spaceSwitcherEnabled: Bool = true
     var spaceSwitcherShortcutText: String = "command+tab"
     var windowSwitcherEnabled: Bool = true

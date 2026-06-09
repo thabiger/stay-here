@@ -1,12 +1,18 @@
 import AppKit
+import Core
 import SwiftUI
 
 final class WindowSwitcherPanelManager {
     var panelPair: (window: NSPanel, hosting: NSHostingController<WindowSwitcherView>)?
 
-    func present(snapshot: WindowSwitcherSnapshot, onSelect: @escaping (WindowEntry) -> Void) {
-        ensurePanel(for: snapshot, onSelect: onSelect)
-        updatePanel(with: snapshot, onSelect: onSelect)
+    func present(
+        snapshot: WindowSwitcherSnapshot,
+        onSelect: @escaping (WindowEntry) -> Void,
+        updateInfo: UpdateInfo? = nil,
+        onOpenUpdate: (() -> Void)? = nil
+    ) {
+        ensurePanel(for: snapshot, onSelect: onSelect, updateInfo: updateInfo, onOpenUpdate: onOpenUpdate)
+        updatePanel(with: snapshot, onSelect: onSelect, updateInfo: updateInfo, onOpenUpdate: onOpenUpdate)
         panelPair?.window.orderFrontRegardless()
         panelPair?.window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -21,7 +27,12 @@ final class WindowSwitcherPanelManager {
         panelPair = nil
     }
 
-    private func ensurePanel(for snapshot: WindowSwitcherSnapshot, onSelect: @escaping (WindowEntry) -> Void) {
+    private func ensurePanel(
+        for snapshot: WindowSwitcherSnapshot,
+        onSelect: @escaping (WindowEntry) -> Void,
+        updateInfo: UpdateInfo?,
+        onOpenUpdate: (() -> Void)?
+    ) {
         guard panelPair == nil else { return }
 
         let window = NSPanel(
@@ -38,7 +49,12 @@ final class WindowSwitcherPanelManager {
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
 
         let hosting = NSHostingController(
-            rootView: WindowSwitcherView(snapshot: snapshot, onSelect: onSelect)
+            rootView: WindowSwitcherView(
+                snapshot: snapshot,
+                onSelect: onSelect,
+                updateInfo: updateInfo,
+                onOpenUpdate: onOpenUpdate
+            )
         )
         window.contentViewController = hosting
         window.ignoresMouseEvents = false
@@ -47,9 +63,19 @@ final class WindowSwitcherPanelManager {
         resizePanel(for: snapshot)
     }
 
-    private func updatePanel(with snapshot: WindowSwitcherSnapshot, onSelect: @escaping (WindowEntry) -> Void) {
+    private func updatePanel(
+        with snapshot: WindowSwitcherSnapshot,
+        onSelect: @escaping (WindowEntry) -> Void,
+        updateInfo: UpdateInfo?,
+        onOpenUpdate: (() -> Void)?
+    ) {
         guard let panelPair else { return }
-        panelPair.hosting.rootView = WindowSwitcherView(snapshot: snapshot, onSelect: onSelect)
+        panelPair.hosting.rootView = WindowSwitcherView(
+            snapshot: snapshot,
+            onSelect: onSelect,
+            updateInfo: updateInfo,
+            onOpenUpdate: onOpenUpdate
+        )
         resizePanel(for: snapshot)
     }
 

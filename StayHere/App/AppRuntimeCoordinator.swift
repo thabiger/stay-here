@@ -10,6 +10,7 @@ final class AppRuntimeCoordinator: AppCoordinating {
     private let lifecycleCoordinator: AppLifecycleCoordinator
     private let registry: SpaceRegistry
     private let statusController: StatusBarController
+    private let updateController: any UpdateControlling
     private let hudController: HUDController
     private let settingsWindowManager: SettingsWindowManager
     private let aboutWindowManager: AboutWindowManager
@@ -30,6 +31,7 @@ final class AppRuntimeCoordinator: AppCoordinating {
         lifecycleCoordinator: AppLifecycleCoordinator,
         registry: SpaceRegistry,
         statusController: StatusBarController,
+        updateController: any UpdateControlling,
         hudController: HUDController,
         settingsWindowManager: SettingsWindowManager,
         aboutWindowManager: AboutWindowManager,
@@ -44,6 +46,7 @@ final class AppRuntimeCoordinator: AppCoordinating {
         self.lifecycleCoordinator = lifecycleCoordinator
         self.registry = registry
         self.statusController = statusController
+        self.updateController = updateController
         self.hudController = hudController
         self.settingsWindowManager = settingsWindowManager
         self.aboutWindowManager = aboutWindowManager
@@ -58,6 +61,7 @@ final class AppRuntimeCoordinator: AppCoordinating {
 
     func applicationDidFinishLaunching() {
         configureStatusController()
+        updateController.restoreCachedState()
         bindRegistry()
         observeActiveSpaceChanges()
 
@@ -74,6 +78,7 @@ final class AppRuntimeCoordinator: AppCoordinating {
                 self?.setupRequirementsPresenter.presentSetupRequirementsWarning()
             }
         )
+        updateController.scheduleAutomaticCheck()
     }
 
     func applicationWillTerminate() {
@@ -111,6 +116,8 @@ final class AppRuntimeCoordinator: AppCoordinating {
         statusController.configure(
             onOpenSettings: { [weak self] in self?.showSettings() },
             onOpenAbout: { [weak self] in self?.showAbout() },
+            onCheckForUpdates: { [weak self] in self?.updateController.performManualCheck() },
+            onOpenAvailableUpdate: { [weak self] in self?.updateController.presentAvailableUpdate() },
             onCopyState: { [weak self] in self?.copySpaceState() },
             onOpenLogs: {
                 Logger.shared.openLogsInFinder()

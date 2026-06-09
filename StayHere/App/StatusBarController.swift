@@ -3,13 +3,16 @@ import Core
 import Foundation
 
 final class StatusBarController: NSObject, NSMenuDelegate, SpaceMenuRowViewCoordinating {
-    private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+    private let item: NSStatusItem?
     private let menu = NSMenu()
     private let settings: SettingsRepository
     private let appearanceManager: AppearanceManager
+    private var updateInfo: UpdateInfo?
 
     private var onOpenSettings: (() -> Void)?
     private var onOpenAbout: (() -> Void)?
+    private var onCheckForUpdates: (() -> Void)?
+    private var onOpenAvailableUpdate: (() -> Void)?
     private var onCopyState: (() -> Void)?
     private var onOpenLogs: (() -> Void)?
     private var onQuit: (() -> Void)?
@@ -24,6 +27,11 @@ final class StatusBarController: NSObject, NSMenuDelegate, SpaceMenuRowViewCoord
     init(settings: SettingsRepository, appearanceManager: AppearanceManager) {
         self.settings = settings
         self.appearanceManager = appearanceManager
+        if !RuntimeEnvironment.isAutomationSession {
+            self.item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        } else {
+            self.item = nil
+        }
         super.init()
     }
 
@@ -38,6 +46,8 @@ final class StatusBarController: NSObject, NSMenuDelegate, SpaceMenuRowViewCoord
     func configure(
         onOpenSettings: @escaping () -> Void,
         onOpenAbout: @escaping () -> Void,
+        onCheckForUpdates: @escaping () -> Void,
+        onOpenAvailableUpdate: @escaping () -> Void,
         onCopyState: @escaping () -> Void,
         onOpenLogs: @escaping () -> Void,
         onQuit: @escaping () -> Void,
@@ -46,6 +56,8 @@ final class StatusBarController: NSObject, NSMenuDelegate, SpaceMenuRowViewCoord
     ) {
         self.onOpenSettings = onOpenSettings
         self.onOpenAbout = onOpenAbout
+        self.onCheckForUpdates = onCheckForUpdates
+        self.onOpenAvailableUpdate = onOpenAvailableUpdate
         self.onCopyState = onCopyState
         self.onOpenLogs = onOpenLogs
         self.onQuit = onQuit
@@ -54,10 +66,10 @@ final class StatusBarController: NSObject, NSMenuDelegate, SpaceMenuRowViewCoord
 
         setTitle(title)
         menu.delegate = self
-        item.menu = menu
+        item?.menu = menu
         applyAppearance()
 
-        rebuildBaseMenu()
+        rebuildMenu()
     }
 
     func setTitle(_ text: String) {
@@ -72,44 +84,12 @@ final class StatusBarController: NSObject, NSMenuDelegate, SpaceMenuRowViewCoord
     func rebuildSpaceItems(registry: SpaceRegistry) {
         guard !isEditingSpaceName else { return }
         self.registry = registry
-        menu.removeAllItems()
-        let spaceIDs = registry.switchableOrderedSpaceIDs()
-        for id in spaceIDs {
-            let row = NSMenuItem(title: "", action: nil, keyEquivalent: "")
-            row.representedObject = NSNumber(value: id)
-            row.isEnabled = registry.isSwitchableSpace(id)
-            row.view = SpaceMenuRowView(
-                spaceID: id,
-                namespaceLabel: registry.namespaceLabel(for: id),
-                name: registry.displayName(for: id),
-                controller: self
-            )
-            menu.addItem(row)
-        }
-
-        if !spaceIDs.isEmpty {
-            menu.addItem(NSMenuItem.separator())
-        }
-        menu.addItem(NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ",").withTarget(self))
-        menu.addItem(NSMenuItem(title: "About StayHere", action: #selector(openAbout), keyEquivalent: "").withTarget(self))
-
-        if settings.diagnosticsEnabled {
-            let debug = NSMenuItem(title: "Debug", action: nil, keyEquivalent: "")
-            let debugMenu = NSMenu()
-            debugMenu.addItem(NSMenuItem(title: "Copy space state", action: #selector(copyState), keyEquivalent: "").withTarget(self))
-            debugMenu.addItem(NSMenuItem(title: "Open logs", action: #selector(openLogs), keyEquivalent: "").withTarget(self))
-            debug.submenu = debugMenu
-            menu.addItem(debug)
-        }
-
-        menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: "Quit StayHere", action: #selector(quit), keyEquivalent: "q").withTarget(self))
-        applyAppearance()
+        rebuildMenu()
     }
 
-    private func rebuildBaseMenu() {
-        menu.removeAllItems()
-        applyAppearance()
+    func setAvailableUpdate(_ updateInfo: UpdateInfo?) {
+        self.updateInfo = updateInfo
+        rebuildMenu()
     }
 
     func selectSpace(_ spaceID: Int) {
@@ -163,6 +143,20 @@ final class StatusBarController: NSObject, NSMenuDelegate, SpaceMenuRowViewCoord
         onOpenAbout?()
     }
 
+    @objc private func checkForUpdates() {
+        guard !isEditingSpaceName else { return }
+        performAfterMenuCloses { [weak self] in
+            self?.onCheckForUpdates?()
+        }
+    }
+
+    @objc private func openAvailableUpdate() {
+        guard !isEditingSpaceName else { return }
+        performAfterMenuCloses { [weak self] in
+            self?.onOpenAvailableUpdate?()
+        }
+    }
+
     @objc private func copyState() {
         guard !isEditingSpaceName else { return }
         onCopyState?()
@@ -213,12 +207,12 @@ final class StatusBarController: NSObject, NSMenuDelegate, SpaceMenuRowViewCoord
             (item.view as? SpaceMenuRowView)?.applyAppearance(appearance)
             item.submenu?.appearance = appearance
         }
-        item.button?.appearance = appearance
+        item?.button?.appearance = appearance
         updateStatusItemTitle()
     }
 
     private func updateStatusItemTitle() {
-        guard let button = item.button else { return }
+        guard let button = item?.button else { return }
         if settings.appearanceMode == .light {
             button.attributedTitle = NSAttributedString(
                 string: title,
@@ -231,6 +225,62 @@ final class StatusBarController: NSObject, NSMenuDelegate, SpaceMenuRowViewCoord
             button.title = title
         }
     }
+
+    private func performAfterMenuCloses(_ action: @escaping () -> Void) {
+        menu.cancelTracking()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: action)
+    }
+
+    private func rebuildMenu() {
+        guard !isEditingSpaceName else { return }
+        menu.removeAllItems()
+
+        if let registry {
+            let spaceIDs = registry.switchableOrderedSpaceIDs()
+            for id in spaceIDs {
+                let row = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+                row.representedObject = NSNumber(value: id)
+                row.isEnabled = registry.isSwitchableSpace(id)
+                row.view = SpaceMenuRowView(
+                    spaceID: id,
+                    namespaceLabel: registry.namespaceLabel(for: id),
+                    name: registry.displayName(for: id),
+                    controller: self
+                )
+                menu.addItem(row)
+            }
+
+            if !spaceIDs.isEmpty {
+                menu.addItem(.separator())
+            }
+        }
+
+        if updateInfo != nil {
+            menu.addItem(NSMenuItem(title: "Update Available…", action: #selector(openAvailableUpdate), keyEquivalent: "").withTarget(self))
+        }
+        menu.addItem(NSMenuItem(title: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "").withTarget(self))
+        menu.addItem(NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ",").withTarget(self))
+        menu.addItem(NSMenuItem(title: "About StayHere", action: #selector(openAbout), keyEquivalent: "").withTarget(self))
+
+        if settings.diagnosticsEnabled {
+            let debug = NSMenuItem(title: "Debug", action: nil, keyEquivalent: "")
+            let debugMenu = NSMenu()
+            debugMenu.addItem(NSMenuItem(title: "Copy space state", action: #selector(copyState), keyEquivalent: "").withTarget(self))
+            debugMenu.addItem(NSMenuItem(title: "Open logs", action: #selector(openLogs), keyEquivalent: "").withTarget(self))
+            debug.submenu = debugMenu
+            menu.addItem(debug)
+        }
+
+        menu.addItem(.separator())
+        menu.addItem(NSMenuItem(title: "Quit StayHere", action: #selector(quit), keyEquivalent: "q").withTarget(self))
+        applyAppearance()
+    }
+
+    #if DEBUG
+    var debugMenuItemTitles: [String] {
+        menu.items.map(\.title)
+    }
+    #endif
 }
 
 private extension NSMenuItem {
