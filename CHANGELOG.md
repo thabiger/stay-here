@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.2.3
+- fix: include pre-built icon for CI and add build deps.
+
+## v0.2.2
+- fix: include pre-built icon for CI and add build deps.
+
 ## v0.2.1
 - Fixed release pipeline.
 
