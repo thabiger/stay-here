@@ -7,25 +7,22 @@ CHANGELOG_SOURCE_DIR=".changelog"
 OUTPUT_CHANGELOG="CHANGELOG.md"
 RELEASE_NOTES_FILE="$DIST_DIR/release-notes.md"
 
-if [[ -z "$TAG_NAME" ]]; then
-    echo "Error: No tag name provided." >&2
-    exit 1
-fi
+if [[ -n "$TAG_NAME" ]]; then
+    mkdir -p "$DIST_DIR"
 
-mkdir -p "$DIST_DIR"
+    # 1. Extract Release Notes for the current tag
+    RELEASE_NOTES_SOURCE="$CHANGELOG_SOURCE_DIR/$TAG_NAME.md"
+    if [[ ! -f "$RELEASE_NOTES_SOURCE" ]]; then
+        RELEASE_NOTES_SOURCE="$CHANGELOG_SOURCE_DIR/unreleased.md"
+    fi
 
-# 1. Extract Release Notes for the current tag
-RELEASE_NOTES_SOURCE="$CHANGELOG_SOURCE_DIR/$TAG_NAME.md"
-if [[ ! -f "$RELEASE_NOTES_SOURCE" ]]; then
-    RELEASE_NOTES_SOURCE="$CHANGELOG_SOURCE_DIR/unreleased.md"
-fi
-
-if [[ -f "$RELEASE_NOTES_SOURCE" ]]; then
-    echo "Extracting release notes from $RELEASE_NOTES_SOURCE"
-    cp "$RELEASE_NOTES_SOURCE" "$RELEASE_NOTES_FILE"
-else
-    echo "Warning: No release notes source found for $TAG_NAME or unreleased.md" >&2
-    echo "# Release $TAG_NAME" > "$RELEASE_NOTES_FILE"
+    if [[ -f "$RELEASE_NOTES_SOURCE" ]]; then
+        echo "Extracting release notes from $RELEASE_NOTES_SOURCE"
+        cp "$RELEASE_NOTES_SOURCE" "$RELEASE_NOTES_FILE"
+    else
+        echo "Warning: No release notes source found for $TAG_NAME or unreleased.md" >&2
+        echo "# Release $TAG_NAME" > "$RELEASE_NOTES_FILE"
+    fi
 fi
 
 # 2. Reconstruct CHANGELOG.md

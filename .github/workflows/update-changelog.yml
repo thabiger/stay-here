@@ -1,0 +1,32 @@
+name: Update CHANGELOG.md
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".changelog/**"
+
+permissions:
+  contents: write
+
+jobs:
+  update-changelog:
+    name: Regenerate CHANGELOG.md from fragments
+    runs-on: macos-14
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Rebuild CHANGELOG.md
+        run: Scripts/build-changelogs.sh
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          if ! git diff --cached --quiet; then
+            git commit -m "Update CHANGELOG.md from .changelog fragments"
+            git push
+          fi

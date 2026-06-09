@@ -181,6 +181,11 @@ if [[ -f "$APP_ICON_SOURCE" ]]; then
     generate_app_icon "$APP_ICON_SOURCE" "$icon_file"
 fi
 
+if [[ ! -f "$icon_file" && -f "Assets/$APP_NAME.icns" ]]; then
+    echo "Using pre-built icon from Assets/$APP_NAME.icns"
+    cp "Assets/$APP_NAME.icns" "$icon_file"
+fi
+
 if [[ -f "$icon_file" ]]; then
     icon_plist_entry="  <key>CFBundleIconFile</key>
   <string>$APP_NAME</string>"

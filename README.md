@@ -62,6 +62,8 @@ The release model is direct download from GitHub Releases.
 > [!WARNING]
 > Current releases are <strong>not notarized</strong>, so macOS may warn that StayHere is from an unidentified developer or could be dangerous when you first open it. The app is released for free, which means it does not bring in any funds to cover Apple Developer Program costs for signing and notarization. If the app helps you, I would appreciate any <a href="https://buymeacoffee.com/tomaszhabiq">support</a> toward those costs.
 
+If macOS prevents you from running the app and displays a warning that it may be malware, this is due to the lack of notarization described above. To bypass this restriction, please follow [these instructions](https://wiki.hacks.guide/wiki/Open_unsigned_applications_on_macOS_Sequoia_and_newer).
+
 ## Ownership, Copyright, and License
 
 This project, including all original source code, documentation, and related materials, is copyrighted by Tomasz Habiger. This software is licensed under the PolyForm Noncommercial License. See the LICENSE file for details.

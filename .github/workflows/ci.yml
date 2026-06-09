@@ -30,6 +30,12 @@ jobs:
           swift --version
           xcodebuild -version
 
+      - name: Install icon generation dependencies
+        run: |
+          set -euo pipefail
+          brew install librsvg
+          pip3 install Pillow
+
       - name: Lint shell scripts
         run: |
           set -euo pipefail
