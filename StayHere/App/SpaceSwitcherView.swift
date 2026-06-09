@@ -1,4 +1,5 @@
 import AppKit
+import Core
 import SwiftUI
 
 struct SpaceSwitcherItem: Identifiable, Equatable {
@@ -17,6 +18,20 @@ struct SpaceSwitcherSnapshot: Equatable {
 struct SpaceSwitcherView: View {
     let snapshot: SpaceSwitcherSnapshot
     let onSelect: (Int) -> Void
+    let updateInfo: UpdateInfo?
+    let onOpenUpdate: (() -> Void)?
+
+    init(
+        snapshot: SpaceSwitcherSnapshot,
+        onSelect: @escaping (Int) -> Void,
+        updateInfo: UpdateInfo? = nil,
+        onOpenUpdate: (() -> Void)? = nil
+    ) {
+        self.snapshot = snapshot
+        self.onSelect = onSelect
+        self.updateInfo = updateInfo
+        self.onOpenUpdate = onOpenUpdate
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -46,6 +61,30 @@ struct SpaceSwitcherView: View {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .stroke(Color(nsColor: .separatorColor).opacity(0.55), lineWidth: 1)
         )
+        .overlay(alignment: .bottomTrailing) {
+            if let updateInfo {
+                Button {
+                    onOpenUpdate?()
+                } label: {
+                    Text("v\(updateInfo.version) available")
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(
+                            Capsule()
+                                .fill(Color(nsColor: .windowBackgroundColor).opacity(0.85))
+                        )
+                        .overlay(
+                            Capsule()
+                                .stroke(Color(nsColor: .separatorColor).opacity(0.35), lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
+                .padding(.trailing, 14)
+                .padding(.bottom, 10)
+            }
+        }
     }
 
     @ViewBuilder

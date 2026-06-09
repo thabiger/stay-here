@@ -73,7 +73,10 @@ final class AppCompositionRoot: NSObject {
         updateWindowManager: updateWindowManager,
         appearanceManager: appearanceManager,
         setAvailableUpdate: { [weak self] updateInfo in
-            self?.statusController.setAvailableUpdate(updateInfo)
+            guard let self else { return }
+            self.statusController.setAvailableUpdate(updateInfo)
+            self.spaceSwitcherController.setAvailableUpdate(updateInfo)
+            self.windowSwitcherController.setAvailableUpdate(updateInfo)
         }
     )
     lazy var activationController = ActivationController(
@@ -136,5 +139,15 @@ final class AppCompositionRoot: NSObject {
         )
         super.init()
         runtimeCallbackSink.coordinator = runtimeCoordinator
+        configureSwitcherUpdateHandling()
+    }
+
+    private func configureSwitcherUpdateHandling() {
+        spaceSwitcherController.setOnOpenUpdate { [weak self] in
+            self?.updateController.presentAvailableUpdate()
+        }
+        windowSwitcherController.setOnOpenUpdate { [weak self] in
+            self?.updateController.presentAvailableUpdate()
+        }
     }
 }

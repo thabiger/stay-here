@@ -12,7 +12,7 @@ struct AboutView: View {
             HStack {
                 Image(nsImage: NSApp.applicationIconImage)
                     .resizable()
-                    .frame(width: 90, height: 64)
+                    .frame(width: 64, height: 64)
                 VStack(alignment: .leading) {
                     Text("StayHere")
                         .font(.largeTitle.bold())

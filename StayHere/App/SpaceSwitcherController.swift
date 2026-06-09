@@ -24,6 +24,8 @@ final class SpaceSwitcherController: SwitcherEventSessionHandling {
     )
 
     private var session: Session?
+    private var currentUpdateInfo: UpdateInfo?
+    private var onOpenUpdate: (() -> Void)?
 
     var panelPair: (window: NSPanel, hosting: NSHostingController<SpaceSwitcherView>)? {
         get { panelManager.panelPair }
@@ -45,6 +47,14 @@ final class SpaceSwitcherController: SwitcherEventSessionHandling {
                 ?? SpaceSwitcherShortcut.parse("command+tab")
                 ?? SpaceSwitcherShortcut(keyCode: 48, modifiers: [.maskCommand])
         }
+    }
+
+    func setAvailableUpdate(_ updateInfo: UpdateInfo?) {
+        currentUpdateInfo = updateInfo
+    }
+
+    func setOnOpenUpdate(_ callback: @escaping () -> Void) {
+        onOpenUpdate = callback
     }
 
     deinit {
@@ -111,11 +121,18 @@ final class SpaceSwitcherController: SwitcherEventSessionHandling {
 
     private func showPanel() {
         let snapshot = buildSnapshot()
+        let updateInfo = currentUpdateInfo
+        let onOpenUpdate = self.onOpenUpdate
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
-            self.panelManager.present(snapshot: snapshot) { [weak self] spaceID in
-                self?.commitSelection(spaceID)
-            }
+            self.panelManager.present(
+                snapshot: snapshot,
+                onSelect: { [weak self] spaceID in
+                    self?.commitSelection(spaceID)
+                },
+                updateInfo: updateInfo,
+                onOpenUpdate: onOpenUpdate
+            )
         }
     }
 

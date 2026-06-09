@@ -27,6 +27,8 @@ final class WindowSwitcherController: SwitcherEventSessionHandling {
     )
 
     private var session: Session?
+    private var currentUpdateInfo: UpdateInfo?
+    private var onOpenUpdate: (() -> Void)?
 
     var panelPair: (window: NSPanel, hosting: NSHostingController<WindowSwitcherView>)? {
         get { panelManager.panelPair }
@@ -101,6 +103,14 @@ final class WindowSwitcherController: SwitcherEventSessionHandling {
         }
     }
 
+    func setAvailableUpdate(_ updateInfo: UpdateInfo?) {
+        currentUpdateInfo = updateInfo
+    }
+
+    func setOnOpenUpdate(_ callback: @escaping () -> Void) {
+        onOpenUpdate = callback
+    }
+
     private func ensureSession(using shortcut: SpaceSwitcherShortcut) {
         if session == nil {
             guard let context = listProvider.currentContext() else { return }
@@ -155,11 +165,18 @@ final class WindowSwitcherController: SwitcherEventSessionHandling {
 
     private func showPanel() {
         let snapshot = buildSnapshot()
+        let updateInfo = currentUpdateInfo
+        let onOpenUpdate = self.onOpenUpdate
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
-            self.panelManager.present(snapshot: snapshot) { [weak self] entry in
-                self?.commitSelection(entry)
-            }
+            self.panelManager.present(
+                snapshot: snapshot,
+                onSelect: { [weak self] entry in
+                    self?.commitSelection(entry)
+                },
+                updateInfo: updateInfo,
+                onOpenUpdate: onOpenUpdate
+            )
         }
     }
 
