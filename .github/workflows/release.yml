@@ -35,10 +35,10 @@ jobs:
           set -euo pipefail
           Scripts/package-release.sh --output-dir dist
 
-       - name: Build Changelog
-         run: |
-           set -euo pipefail
-           Scripts/build-changelogs.sh ${{ github.ref_name }}
+      - name: Build Changelog
+        run: |
+          set -euo pipefail
+          Scripts/build-changelogs.sh ${{ github.ref_name }}
 
       - name: Verify release artifacts
         run: |
