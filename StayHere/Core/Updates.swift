@@ -51,6 +51,32 @@ public struct AppVersionProvider: AppVersionProviding, Sendable {
     }
 }
 
+public final class UpdateDefaultsStore: @unchecked Sendable {
+    public static let standard = UpdateDefaultsStore(defaults: .standard)
+
+    private let defaults: UserDefaults
+
+    public init(defaults: UserDefaults) {
+        self.defaults = defaults
+    }
+
+    func object(forKey defaultName: String) -> Any? {
+        defaults.object(forKey: defaultName)
+    }
+
+    func string(forKey defaultName: String) -> String? {
+        defaults.string(forKey: defaultName)
+    }
+
+    func set(_ value: Any?, forKey defaultName: String) {
+        defaults.set(value, forKey: defaultName)
+    }
+
+    func removeObject(forKey defaultName: String) {
+        defaults.removeObject(forKey: defaultName)
+    }
+}
+
 public protocol UpdateService: AnyObject {
     func cachedUpdateInfo() async -> UpdateInfo?
     func checkForUpdates(force: Bool) async throws -> UpdateCheckResult
@@ -155,7 +181,7 @@ public actor GitHubReleaseUpdateService: UpdateService {
 
     private let owner: String
     private let repository: String
-    private let defaults: UserDefaults
+    private let defaults: UpdateDefaultsStore
     private let versionProvider: any AppVersionProviding
     private let fetchData: @Sendable (URLRequest) async throws -> (Data, URLResponse)
     private let currentDate: @Sendable () -> Date
@@ -165,7 +191,7 @@ public actor GitHubReleaseUpdateService: UpdateService {
     public init(
         owner: String = "thabiger",
         repository: String = "stay-here",
-        defaults: UserDefaults = .standard,
+        defaults: UpdateDefaultsStore = .standard,
         versionProvider: any AppVersionProviding = AppVersionProvider(),
         fetchData: @escaping @Sendable (URLRequest) async throws -> (Data, URLResponse) = { request in
             try await URLSession.shared.data(for: request)

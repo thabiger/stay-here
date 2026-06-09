@@ -3,7 +3,7 @@ import Core
 import Foundation
 
 final class StatusBarController: NSObject, NSMenuDelegate, SpaceMenuRowViewCoordinating {
-    private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+    private let item: NSStatusItem?
     private let menu = NSMenu()
     private let settings: SettingsRepository
     private let appearanceManager: AppearanceManager
@@ -27,6 +27,11 @@ final class StatusBarController: NSObject, NSMenuDelegate, SpaceMenuRowViewCoord
     init(settings: SettingsRepository, appearanceManager: AppearanceManager) {
         self.settings = settings
         self.appearanceManager = appearanceManager
+        if !RuntimeEnvironment.isAutomationSession {
+            self.item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        } else {
+            self.item = nil
+        }
         super.init()
     }
 
@@ -61,7 +66,7 @@ final class StatusBarController: NSObject, NSMenuDelegate, SpaceMenuRowViewCoord
 
         setTitle(title)
         menu.delegate = self
-        item.menu = menu
+        item?.menu = menu
         applyAppearance()
 
         rebuildMenu()
@@ -202,12 +207,12 @@ final class StatusBarController: NSObject, NSMenuDelegate, SpaceMenuRowViewCoord
             (item.view as? SpaceMenuRowView)?.applyAppearance(appearance)
             item.submenu?.appearance = appearance
         }
-        item.button?.appearance = appearance
+        item?.button?.appearance = appearance
         updateStatusItemTitle()
     }
 
     private func updateStatusItemTitle() {
-        guard let button = item.button else { return }
+        guard let button = item?.button else { return }
         if settings.appearanceMode == .light {
             button.attributedTitle = NSAttributedString(
                 string: title,

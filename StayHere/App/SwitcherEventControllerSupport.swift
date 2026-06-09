@@ -162,6 +162,7 @@ final class SwitcherEventControllerSupport {
         callback: @escaping CGEventTapCallBack,
         userInfo: UnsafeMutableRawPointer?
     ) -> CFMachPort? {
+        guard !RuntimeEnvironment.isAutomationSession else { return nil }
         let mask = CGEventMask((1 << CGEventType.keyDown.rawValue) | (1 << CGEventType.flagsChanged.rawValue))
         return CGEvent.tapCreate(
             tap: .cgSessionEventTap,

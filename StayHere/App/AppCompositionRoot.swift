@@ -125,11 +125,11 @@ final class AppCompositionRoot: NSObject {
     init(
         settings: SettingsRepository = UserDefaultsSettingsRepository(),
         cgsBridge: any CGSBridgeProtocol = CGSBridge.live,
-        updateService: any UpdateService = GitHubReleaseUpdateService()
+        updateService: (any UpdateService)? = nil
     ) {
         self.settings = settings
         self.cgsBridge = cgsBridge
-        self.updateService = updateService
+        self.updateService = updateService ?? GitHubReleaseUpdateService()
         self.appearanceManager = AppearanceManager(settings: settings)
         self.lifecycleCoordinator = AppLifecycleCoordinator(
             appearanceManager: self.appearanceManager

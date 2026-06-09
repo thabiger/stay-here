@@ -181,11 +181,11 @@ final class UpdateServiceTests: XCTestCase {
         XCTAssertEqual(fetchCount, 2)
     }
 
-    private func makeDefaults() -> UserDefaults {
+    private func makeDefaults() -> UpdateDefaultsStore {
         let suiteName = "UpdateServiceTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
-        return defaults
+        return UpdateDefaultsStore(defaults: defaults)
     }
 
     private static func releaseJSON(
