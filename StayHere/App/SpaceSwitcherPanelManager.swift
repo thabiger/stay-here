@@ -9,6 +9,10 @@ final class SpaceSwitcherPanelManager {
         snapshot: SpaceSwitcherSnapshot,
         onSelect: @escaping (Int) -> Void,
         onFocusLost: (() -> Void)? = nil,
+        onCommit: (() -> Void)? = nil,
+        onCancel: (() -> Void)? = nil,
+        onMoveUp: (() -> Void)? = nil,
+        onMoveDown: (() -> Void)? = nil,
         updateInfo: UpdateInfo? = nil,
         onOpenUpdate: (() -> Void)? = nil
     ) {
@@ -16,6 +20,10 @@ final class SpaceSwitcherPanelManager {
             for: snapshot,
             onSelect: onSelect,
             onFocusLost: onFocusLost,
+            onCommit: onCommit,
+            onCancel: onCancel,
+            onMoveUp: onMoveUp,
+            onMoveDown: onMoveDown,
             updateInfo: updateInfo,
             onOpenUpdate: onOpenUpdate
         )
@@ -23,6 +31,10 @@ final class SpaceSwitcherPanelManager {
             with: snapshot,
             onSelect: onSelect,
             onFocusLost: onFocusLost,
+            onCommit: onCommit,
+            onCancel: onCancel,
+            onMoveUp: onMoveUp,
+            onMoveDown: onMoveDown,
             updateInfo: updateInfo,
             onOpenUpdate: onOpenUpdate
         )
@@ -44,6 +56,10 @@ final class SpaceSwitcherPanelManager {
         for snapshot: SpaceSwitcherSnapshot,
         onSelect: @escaping (Int) -> Void,
         onFocusLost: (() -> Void)?,
+        onCommit: (() -> Void)?,
+        onCancel: (() -> Void)?,
+        onMoveUp: (() -> Void)?,
+        onMoveDown: (() -> Void)?,
         updateInfo: UpdateInfo?,
         onOpenUpdate: (() -> Void)?
     ) {
@@ -62,6 +78,10 @@ final class SpaceSwitcherPanelManager {
         window.ignoresMouseEvents = true
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
         window.onFocusLost = onFocusLost
+        window.onCommit = onCommit
+        window.onCancel = onCancel
+        window.onMoveUp = onMoveUp
+        window.onMoveDown = onMoveDown
 
         let hosting = NSHostingController(
             rootView: SpaceSwitcherView(
@@ -82,11 +102,19 @@ final class SpaceSwitcherPanelManager {
         with snapshot: SpaceSwitcherSnapshot,
         onSelect: @escaping (Int) -> Void,
         onFocusLost: (() -> Void)?,
+        onCommit: (() -> Void)?,
+        onCancel: (() -> Void)?,
+        onMoveUp: (() -> Void)?,
+        onMoveDown: (() -> Void)?,
         updateInfo: UpdateInfo?,
         onOpenUpdate: (() -> Void)?
     ) {
         guard let panelPair else { return }
         (panelPair.window as? SwitcherPanel)?.onFocusLost = onFocusLost
+        (panelPair.window as? SwitcherPanel)?.onCommit = onCommit
+        (panelPair.window as? SwitcherPanel)?.onCancel = onCancel
+        (panelPair.window as? SwitcherPanel)?.onMoveUp = onMoveUp
+        (panelPair.window as? SwitcherPanel)?.onMoveDown = onMoveDown
         panelPair.hosting.rootView = SpaceSwitcherView(
             snapshot: snapshot,
             onSelect: onSelect,

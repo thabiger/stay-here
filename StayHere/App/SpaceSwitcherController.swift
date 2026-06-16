@@ -134,6 +134,7 @@ final class SpaceSwitcherController: SwitcherEventSessionHandling {
         let snapshot = buildSnapshot()
         let updateInfo = currentUpdateInfo
         let onOpenUpdate = self.onOpenUpdate
+        let enablePanelKeyboardHandling = session?.trigger == .explicit
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             self.panelManager.present(
@@ -144,6 +145,18 @@ final class SpaceSwitcherController: SwitcherEventSessionHandling {
                 onFocusLost: { [weak self] in
                     self?.switcherCancelActiveSession()
                 },
+                onCommit: enablePanelKeyboardHandling ? { [weak self] in
+                    self?.commitSwitcherSelection()
+                } : nil,
+                onCancel: enablePanelKeyboardHandling ? { [weak self] in
+                    self?.closeSwitcher()
+                } : nil,
+                onMoveUp: enablePanelKeyboardHandling ? { [weak self] in
+                    self?.moveSelectionBackward()
+                } : nil,
+                onMoveDown: enablePanelKeyboardHandling ? { [weak self] in
+                    self?.moveSelectionForward()
+                } : nil,
                 updateInfo: updateInfo,
                 onOpenUpdate: onOpenUpdate
             )
@@ -228,7 +241,9 @@ final class SpaceSwitcherController: SwitcherEventSessionHandling {
 
     func switcherCommitOrDismissActiveSession() {
         guard let activeSession = session else { return }
-        if activeSession.didChangeSelection, let selectedID = activeSession.selectedSpaceID {
+        if activeSession.trigger == .explicit, let selectedID = activeSession.selectedSpaceID {
+            commitSelection(selectedID)
+        } else if activeSession.didChangeSelection, let selectedID = activeSession.selectedSpaceID {
             commitSelection(selectedID)
         } else {
             panelManager.dismiss()

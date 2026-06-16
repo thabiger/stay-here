@@ -246,4 +246,50 @@ final class SpaceSwitcherControllerSessionRaceTests: XCTestCase {
         XCTAssertEqual(switchedSpaceIDs, [102], "Explicit commit should switch to the currently selected space")
         XCTAssertFalse(controller.hasActiveSession)
     }
+
+    func testExplicitSessionSupportsPanelKeyboardShortcuts() throws {
+        var switchedSpaceIDs: [Int] = []
+        let spaces = [100, 101, 102]
+        let snapshot = CGSBridge.ManagedSnapshot(
+            spaces: spaces.map { SpaceIdentity(id: $0, display: "display-a", kind: .desktop) },
+            activeByDisplay: ["display-a": 100],
+            orderedIDsByDisplay: ["display-a": spaces]
+        )
+        let bridge = LocalMockCGSBridge(activeSpaceIDValue: 100, managedSnapshotValue: snapshot)
+        let fileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("SpaceSwitcherControllerSessionRaceTests")
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathComponent("spaces.json")
+        let store = SpaceStore(fileURL: fileURL)
+        let registry = SpaceRegistry(store: store, cgsBridge: bridge)
+        let controller = SpaceSwitcherController(
+            settings: UserDefaultsSettingsRepository(),
+            registry: registry,
+            switchToSpace: { switchedSpaceIDs.append($0) }
+        )
+
+        controller.openSwitcher()
+        waitForMainQueue()
+
+        let panel = try XCTUnwrap(controller.panelPair?.window as? SwitcherPanel)
+        XCTAssertEqual(controller.testSessionSelectedSpaceID, 100)
+
+        XCTAssertTrue(panel.handleKeyPress(keyCode: 125))
+        XCTAssertEqual(controller.testSessionSelectedSpaceID, 101)
+
+        XCTAssertTrue(panel.handleKeyPress(keyCode: 126))
+        XCTAssertEqual(controller.testSessionSelectedSpaceID, 100)
+
+        XCTAssertTrue(panel.handleKeyPress(keyCode: 36))
+        waitForMainQueue()
+        waitForMainQueue()
+        XCTAssertEqual(switchedSpaceIDs, [100])
+        XCTAssertFalse(controller.hasActiveSession)
+
+        controller.openSwitcher()
+        waitForMainQueue()
+        let reopenedPanel = try XCTUnwrap(controller.panelPair?.window as? SwitcherPanel)
+        XCTAssertTrue(reopenedPanel.handleKeyPress(keyCode: 53))
+        XCTAssertFalse(controller.hasActiveSession)
+    }
 }

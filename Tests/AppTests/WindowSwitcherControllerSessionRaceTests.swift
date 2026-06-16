@@ -1,6 +1,7 @@
 import XCTest
 import CoreGraphics
 import AppKit
+import Activation
 import Core
 @testable import StayHereApp
 
@@ -35,6 +36,36 @@ private final class LocalMockCGSBridge: CGSBridgeProtocol {
     func managedSpaces() -> [SpaceIdentity] { managedSnapshotValue.spaces }
     func switchByDesktopShortcut(index: Int) -> Bool { true }
     func spacesForWindow(windowID: Int) -> [Int] { [] }
+}
+
+private final class LocalFakeRunningApplication: RunningApplicationControlling {
+    let processIdentifier: pid_t
+    var isActive: Bool
+    var localizedName: String? = "Notes"
+    var activateResults: [Bool]
+
+    init(
+        processIdentifier: pid_t = 55,
+        isActive: Bool,
+        activateResults: [Bool]
+    ) {
+        self.processIdentifier = processIdentifier
+        self.isActive = isActive
+        self.activateResults = activateResults
+    }
+
+    @discardableResult
+    func unhide() -> Bool {
+        true
+    }
+
+    func activate(options: NSApplication.ActivationOptions) -> Bool {
+        let result = activateResults.isEmpty ? false : activateResults.removeFirst()
+        if result {
+            isActive = true
+        }
+        return result
+    }
 }
 
 final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
@@ -308,6 +339,72 @@ final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
         controller.panelPair?.window.resignKey()
 
         XCTAssertFalse(controller.hasActiveSession, "Losing focus should dismiss the switcher session")
+    }
+
+    func testExplicitSessionSupportsPanelKeyboardShortcuts() throws {
+        let app = LocalFakeRunningApplication(isActive: true, activateResults: [true])
+        var raisedWindowTitles: [String?] = []
+        let focusService = WindowFocusService(
+            runningApplicationProvider: { _ in app },
+            accessibilityWindowsProvider: { _ in
+                [
+                    WindowFocusTarget(
+                        title: "Current",
+                        unminimize: {},
+                        raise: { raisedWindowTitles.append("Current") },
+                        makeMain: {}
+                    ),
+                    WindowFocusTarget(
+                        title: "Previous",
+                        unminimize: {},
+                        raise: { raisedWindowTitles.append("Previous") },
+                        makeMain: {}
+                    ),
+                    WindowFocusTarget(
+                        title: "Older",
+                        unminimize: {},
+                        raise: { raisedWindowTitles.append("Older") },
+                        makeMain: {}
+                    )
+                ]
+            },
+            retryScheduler: { _ in },
+            applicationActivator: {}
+        )
+        let (controller, _) = makeController(
+            windowInfo: {
+                [
+                    self.makeWindow(pid: 42, windowID: 1, title: "Current"),
+                    self.makeWindow(pid: 43, windowID: 2, title: "Previous"),
+                    self.makeWindow(pid: 44, windowID: 3, title: "Older")
+                ]
+            },
+            focusService: focusService
+        )
+
+        controller.openSwitcher()
+        waitForMainQueue()
+
+        let panel = try XCTUnwrap(controller.panelPair?.window as? SwitcherPanel)
+        XCTAssertEqual(controller.testSessionSelectedWindowID, 2)
+
+        XCTAssertTrue(panel.handleKeyPress(keyCode: 125))
+        XCTAssertEqual(controller.testSessionSelectedWindowID, 1)
+
+        XCTAssertTrue(panel.handleKeyPress(keyCode: 126))
+        XCTAssertEqual(controller.testSessionSelectedWindowID, 2)
+
+        XCTAssertTrue(panel.handleKeyPress(keyCode: 36))
+        waitForMainQueue()
+        waitForMainQueue()
+        XCTAssertEqual(raisedWindowTitles, ["Previous"])
+        XCTAssertFalse(controller.hasActiveSession)
+
+        controller.openSwitcher()
+        waitForMainQueue()
+        let reopenedPanel = try XCTUnwrap(controller.panelPair?.window as? SwitcherPanel)
+        XCTAssertTrue(reopenedPanel.handleKeyPress(keyCode: 53))
+        XCTAssertFalse(controller.hasActiveSession)
     }
 
     // MARK: - Caching (P2/Q5)

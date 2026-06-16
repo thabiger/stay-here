@@ -240,6 +240,7 @@ final class WindowSwitcherController: SwitcherEventSessionHandling {
         let snapshot = buildSnapshot()
         let updateInfo = currentUpdateInfo
         let onOpenUpdate = self.onOpenUpdate
+        let enablePanelKeyboardHandling = session?.trigger == .explicit
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             self.panelManager.present(
@@ -250,6 +251,18 @@ final class WindowSwitcherController: SwitcherEventSessionHandling {
                 onFocusLost: { [weak self] in
                     self?.switcherCancelActiveSession()
                 },
+                onCommit: enablePanelKeyboardHandling ? { [weak self] in
+                    self?.commitSwitcherSelection()
+                } : nil,
+                onCancel: enablePanelKeyboardHandling ? { [weak self] in
+                    self?.closeSwitcher()
+                } : nil,
+                onMoveUp: enablePanelKeyboardHandling ? { [weak self] in
+                    self?.moveSelectionBackward()
+                } : nil,
+                onMoveDown: enablePanelKeyboardHandling ? { [weak self] in
+                    self?.moveSelectionForward()
+                } : nil,
                 updateInfo: updateInfo,
                 onOpenUpdate: onOpenUpdate
             )
