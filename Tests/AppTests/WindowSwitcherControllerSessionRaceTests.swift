@@ -40,6 +40,7 @@ private final class LocalMockCGSBridge: CGSBridgeProtocol {
 final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
     private func makeController(
         windowInfo: @escaping () -> [[String: Any]]? = { [] },
+        focusedWindowID: @escaping () -> Int? = { nil },
         focusService: WindowFocusService = WindowFocusService()
     ) -> (WindowSwitcherController, LocalMockCGSBridge) {
         let snapshot = CGSBridge.ManagedSnapshot(
@@ -66,6 +67,7 @@ final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
             windowInfoProvider: windowInfo,
             runningApplicationProvider: { _ in nil },
             accessibilityWindowTitlesProvider: { _ in [:] },
+            focusedWindowIDProvider: focusedWindowID,
             iconProvider: { _ in NSImage(size: NSSize(width: 18, height: 18)) }
         )
         let controller = WindowSwitcherController(
@@ -99,6 +101,23 @@ final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
         let exp = expectation(description: "main-queue-drain")
         DispatchQueue.main.async { exp.fulfill() }
         wait(for: [exp], timeout: timeout)
+    }
+
+    private func makeWindow(
+        pid: pid_t,
+        windowID: Int,
+        ownerName: String = "Notes",
+        title: String = "Doc"
+    ) -> [String: Any] {
+        [
+            kCGWindowOwnerPID as String: NSNumber(value: pid),
+            kCGWindowNumber as String: NSNumber(value: windowID),
+            kCGWindowLayer as String: NSNumber(value: 0),
+            kCGWindowIsOnscreen as String: NSNumber(value: true),
+            kCGWindowOwnerName as String: ownerName,
+            "kCGWindowWorkspace": NSNumber(value: 1),
+            kCGWindowName as String: title
+        ]
     }
 
     /// Regression test for C2/C3/C10/C11: pressing the configured shortcut should
@@ -187,6 +206,91 @@ final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
         }
         waitForMainQueue()
         XCTAssertTrue(controller.hasActiveSession, "A session should exist after a clean key-down on main thread")
+    }
+
+    func testOpeningSessionOrdersPreviousWindowFirstAndSelectsIt() {
+        let (controller, _) = makeController {
+            [
+                self.makeWindow(pid: 42, windowID: 1, title: "Current"),
+                self.makeWindow(pid: 43, windowID: 2, title: "Previous"),
+                self.makeWindow(pid: 44, windowID: 3, title: "Older")
+            ]
+        }
+
+        let keyDown = makeKeyEvent(keyCode: 50, flags: .maskCommand)
+        _ = controller.handle(event: keyDown)
+        waitForMainQueue()
+
+        XCTAssertEqual(controller.testSessionEntries?.map(\.windowID), [2, 1, 3])
+        XCTAssertEqual(controller.testSessionSelectedWindowID, 2)
+    }
+
+    func testOpeningSessionUsesFocusedWindowAsCurrentWhenSystemListIsStable() {
+        let (controller, _) = makeController(
+            windowInfo: {
+                [
+                    self.makeWindow(pid: 42, windowID: 1, title: "Stable First"),
+                    self.makeWindow(pid: 43, windowID: 2, title: "Stable Second"),
+                    self.makeWindow(pid: 44, windowID: 3, title: "Focused")
+                ]
+            },
+            focusedWindowID: { 3 }
+        )
+
+        let keyDown = makeKeyEvent(keyCode: 50, flags: .maskCommand)
+        _ = controller.handle(event: keyDown)
+        waitForMainQueue()
+
+        XCTAssertEqual(controller.testRecentWindowIDs, [3, 1, 2])
+        XCTAssertEqual(controller.testSessionEntries?.map(\.windowID), [1, 3, 2])
+        XCTAssertEqual(controller.testSessionSelectedWindowID, 1)
+    }
+
+    func testCommittedSelectionReordersNextSessionEvenWhenSystemListDoesNotChange() {
+        let stableWindowInfo: () -> [[String: Any]]? = {
+            [
+                self.makeWindow(pid: 42, windowID: 1, title: "Current"),
+                self.makeWindow(pid: 43, windowID: 2, title: "Previous"),
+                self.makeWindow(pid: 44, windowID: 3, title: "Older")
+            ]
+        }
+        let (controller, _) = makeController(windowInfo: stableWindowInfo)
+        let keyDown = makeKeyEvent(keyCode: 50, flags: .maskCommand)
+
+        _ = controller.handle(event: keyDown)
+        waitForMainQueue()
+        XCTAssertEqual(controller.testSessionEntries?.map(\.windowID), [2, 1, 3])
+        XCTAssertEqual(controller.testSessionSelectedWindowID, 2)
+
+        controller.switcherCommitOrDismissActiveSession()
+        waitForMainQueue()
+        waitForMainQueue()
+        XCTAssertEqual(controller.testRecentWindowIDs, [2, 1, 3])
+
+        _ = controller.handle(event: keyDown)
+        waitForMainQueue()
+
+        XCTAssertEqual(controller.testSessionEntries?.map(\.windowID), [1, 2, 3])
+        XCTAssertEqual(controller.testSessionSelectedWindowID, 1)
+    }
+
+    func testRepeatedShortcutMovesForwardFromPreviousToCurrentWindow() {
+        let (controller, _) = makeController {
+            [
+                self.makeWindow(pid: 42, windowID: 1, title: "Current"),
+                self.makeWindow(pid: 43, windowID: 2, title: "Previous"),
+                self.makeWindow(pid: 44, windowID: 3, title: "Older")
+            ]
+        }
+
+        let keyDown = makeKeyEvent(keyCode: 50, flags: .maskCommand)
+        _ = controller.handle(event: keyDown)
+        waitForMainQueue()
+        _ = controller.handle(event: keyDown)
+        waitForMainQueue()
+
+        XCTAssertEqual(controller.testSessionEntries?.map(\.windowID), [2, 1, 3])
+        XCTAssertEqual(controller.testSessionSelectedWindowID, 1)
     }
 
     // MARK: - Caching (P2/Q5)

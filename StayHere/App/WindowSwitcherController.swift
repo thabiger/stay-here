@@ -27,6 +27,7 @@ final class WindowSwitcherController: SwitcherEventSessionHandling {
     )
 
     private var session: Session?
+    private var recentWindowIDs: [Int] = []
     private var currentUpdateInfo: UpdateInfo?
     private var onOpenUpdate: (() -> Void)?
 
@@ -47,6 +48,10 @@ final class WindowSwitcherController: SwitcherEventSessionHandling {
 
     internal var testSessionSelectedWindowID: Int? {
         session?.selectedWindowID
+    }
+
+    internal var testRecentWindowIDs: [Int] {
+        recentWindowIDs
     }
 
     init(
@@ -111,18 +116,77 @@ final class WindowSwitcherController: SwitcherEventSessionHandling {
         onOpenUpdate = callback
     }
 
-    private func ensureSession(using shortcut: SpaceSwitcherShortcut) {
-        if session == nil {
-            guard let context = listProvider.currentContext() else { return }
-            let entries = listProvider.entries(in: context)
-            session = Session(
-                startingWindowID: entries.first?.windowID,
-                selectedWindowID: entries.first?.windowID,
-                shortcut: shortcut,
-                entries: entries,
-                spaceContext: context
-            )
+    @discardableResult
+    private func ensureSession(using shortcut: SpaceSwitcherShortcut) -> Bool {
+        guard session == nil else { return false }
+        guard let context = listProvider.currentContext() else { return false }
+
+        let recentEntries = recentEntries(in: context)
+        let orderedEntries = Self.sessionOrder(fromRecentEntries: recentEntries)
+        session = Session(
+            startingWindowID: recentEntries.first?.windowID,
+            selectedWindowID: orderedEntries.first?.windowID,
+            shortcut: shortcut,
+            entries: orderedEntries,
+            spaceContext: context
+        )
+        return true
+    }
+
+    private static func sessionOrder(fromRecentEntries entries: [WindowEntry]) -> [WindowEntry] {
+        guard entries.count > 1 else { return entries }
+        return [entries[1], entries[0]] + Array(entries.dropFirst(2))
+    }
+
+    private func recentEntries(in context: WindowSpaceContext) -> [WindowEntry] {
+        let entries = listProvider.entries(in: context)
+        guard !entries.isEmpty else {
+            recentWindowIDs = []
+            return []
         }
+
+        let entryIDs = Set(entries.map(\.windowID))
+        var orderedIDs = recentWindowIDs.filter { entryIDs.contains($0) }
+        if let focusedWindowID = listProvider.focusedWindowID(),
+           entryIDs.contains(focusedWindowID) {
+            orderedIDs.removeAll { $0 == focusedWindowID }
+            orderedIDs.insert(focusedWindowID, at: 0)
+        }
+
+        let knownIDs = Set(orderedIDs)
+        let unknownEntries = entries.filter { !knownIDs.contains($0.windowID) }
+        let entriesByID = Dictionary(uniqueKeysWithValues: entries.map { ($0.windowID, $0) })
+        let orderedEntries = orderedIDs.compactMap { entriesByID[$0] } + unknownEntries
+        recentWindowIDs = orderedEntries.map(\.windowID)
+        return orderedEntries
+    }
+
+    private static func recentOrder(fromSessionEntries entries: [WindowEntry], startingWindowID: Int?) -> [Int] {
+        let ids = entries.map(\.windowID)
+        guard let startingWindowID, ids.contains(startingWindowID) else { return ids }
+        return [startingWindowID] + ids.filter { $0 != startingWindowID }
+    }
+
+    private func recordSelection(_ selectedWindowID: Int, in activeSession: Session?) {
+        guard let activeSession else {
+            recentWindowIDs.removeAll { $0 == selectedWindowID }
+            recentWindowIDs.insert(selectedWindowID, at: 0)
+            return
+        }
+
+        let previousRecentIDs = Self.recentOrder(
+            fromSessionEntries: activeSession.entries,
+            startingWindowID: activeSession.startingWindowID
+        )
+        var orderedIDs = [selectedWindowID]
+        if let startingWindowID = activeSession.startingWindowID,
+           startingWindowID != selectedWindowID {
+            orderedIDs.append(startingWindowID)
+        }
+        orderedIDs += previousRecentIDs.filter { id in
+            id != selectedWindowID && id != activeSession.startingWindowID
+        }
+        recentWindowIDs = orderedIDs
     }
 
     private func moveSelection(offset: Int) {
@@ -155,6 +219,8 @@ final class WindowSwitcherController: SwitcherEventSessionHandling {
     }
 
     private func commitSelection(_ entry: WindowEntry) {
+        let activeSession = session
+        recordSelection(entry.windowID, in: activeSession)
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             self.panelManager.dismiss()
@@ -207,7 +273,7 @@ final class WindowSwitcherController: SwitcherEventSessionHandling {
                     emptyMessage: "No windows on this Space"
                 )
             }
-            entries = listProvider.entries(in: context)
+            entries = Self.sessionOrder(fromRecentEntries: recentEntries(in: context))
             selectedID = entries.first?.windowID
         }
         let items = entries.map { entry in
@@ -248,8 +314,10 @@ final class WindowSwitcherController: SwitcherEventSessionHandling {
 
     func switcherEnsureSessionAndMoveSelection(backward: Bool) {
         let shortcut = switcherConfiguredShortcut()
-        ensureSession(using: shortcut)
-        moveSelection(offset: backward ? -1 : 1)
+        let openedSession = ensureSession(using: shortcut)
+        if !openedSession {
+            moveSelection(offset: backward ? -1 : 1)
+        }
         showPanel()
     }
 

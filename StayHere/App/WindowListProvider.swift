@@ -16,6 +16,7 @@ final class WindowListProvider {
     typealias WindowInfoProvider = () -> [[String: Any]]?
     typealias RunningApplicationProvider = (pid_t) -> (any WindowListApplication)?
     typealias AccessibilityWindowTitlesProvider = (pid_t) -> [Int: String]
+    typealias FocusedWindowIDProvider = () -> Int?
     typealias IconProvider = ((any WindowListApplication)?) -> NSImage
 
     private let registry: SpaceRegistry
@@ -24,6 +25,7 @@ final class WindowListProvider {
     private let windowInfoProvider: WindowInfoProvider
     private let runningApplicationProvider: RunningApplicationProvider
     private let accessibilityWindowTitlesProvider: AccessibilityWindowTitlesProvider
+    private let focusedWindowIDProvider: FocusedWindowIDProvider
     private let iconProvider: IconProvider
 
     init(
@@ -33,6 +35,7 @@ final class WindowListProvider {
         windowInfoProvider: @escaping WindowInfoProvider = WindowListProvider.liveWindowInfoProvider,
         runningApplicationProvider: @escaping RunningApplicationProvider = WindowListProvider.liveRunningApplicationProvider,
         accessibilityWindowTitlesProvider: @escaping AccessibilityWindowTitlesProvider = WindowListProvider.liveAccessibilityWindowTitlesProvider,
+        focusedWindowIDProvider: @escaping FocusedWindowIDProvider = WindowListProvider.liveFocusedWindowIDProvider,
         iconProvider: @escaping IconProvider = WindowListProvider.liveIconProvider
     ) {
         self.registry = registry
@@ -41,6 +44,7 @@ final class WindowListProvider {
         self.windowInfoProvider = windowInfoProvider
         self.runningApplicationProvider = runningApplicationProvider
         self.accessibilityWindowTitlesProvider = accessibilityWindowTitlesProvider
+        self.focusedWindowIDProvider = focusedWindowIDProvider
         self.iconProvider = iconProvider
     }
 
@@ -114,6 +118,10 @@ final class WindowListProvider {
         }
     }
 
+    func focusedWindowID() -> Int? {
+        focusedWindowIDProvider()
+    }
+
     private func title(for item: [String: Any]) -> String? {
         let raw = (item[kCGWindowName as String] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return raw.isEmpty ? nil : raw
@@ -166,6 +174,30 @@ final class WindowListProvider {
             titles[number.intValue] = trimmed
         }
         return titles
+    }
+
+    private static func liveFocusedWindowIDProvider() -> Int? {
+        let systemWideElement = AXUIElementCreateSystemWide()
+        var windowRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(
+            systemWideElement,
+            kAXFocusedWindowAttribute as CFString,
+            &windowRef
+        ) == .success,
+              let window = windowRef else {
+            return nil
+        }
+
+        var numberRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(
+            window as! AXUIElement,
+            "AXWindowNumber" as CFString,
+            &numberRef
+        ) == .success,
+              let number = numberRef as? NSNumber else {
+            return nil
+        }
+        return number.intValue
     }
 
     private static func liveIconProvider(application: (any WindowListApplication)?) -> NSImage {
