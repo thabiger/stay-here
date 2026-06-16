@@ -8,11 +8,24 @@ final class WindowSwitcherPanelManager {
     func present(
         snapshot: WindowSwitcherSnapshot,
         onSelect: @escaping (WindowEntry) -> Void,
+        onFocusLost: (() -> Void)? = nil,
         updateInfo: UpdateInfo? = nil,
         onOpenUpdate: (() -> Void)? = nil
     ) {
-        ensurePanel(for: snapshot, onSelect: onSelect, updateInfo: updateInfo, onOpenUpdate: onOpenUpdate)
-        updatePanel(with: snapshot, onSelect: onSelect, updateInfo: updateInfo, onOpenUpdate: onOpenUpdate)
+        ensurePanel(
+            for: snapshot,
+            onSelect: onSelect,
+            onFocusLost: onFocusLost,
+            updateInfo: updateInfo,
+            onOpenUpdate: onOpenUpdate
+        )
+        updatePanel(
+            with: snapshot,
+            onSelect: onSelect,
+            onFocusLost: onFocusLost,
+            updateInfo: updateInfo,
+            onOpenUpdate: onOpenUpdate
+        )
         panelPair?.window.orderFrontRegardless()
         panelPair?.window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -30,12 +43,13 @@ final class WindowSwitcherPanelManager {
     private func ensurePanel(
         for snapshot: WindowSwitcherSnapshot,
         onSelect: @escaping (WindowEntry) -> Void,
+        onFocusLost: (() -> Void)?,
         updateInfo: UpdateInfo?,
         onOpenUpdate: (() -> Void)?
     ) {
         guard panelPair == nil else { return }
 
-        let window = NSPanel(
+        let window = SwitcherPanel(
             contentRect: .zero,
             styleMask: [.borderless],
             backing: .buffered,
@@ -47,6 +61,7 @@ final class WindowSwitcherPanelManager {
         window.hasShadow = true
         window.ignoresMouseEvents = true
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
+        window.onFocusLost = onFocusLost
 
         let hosting = NSHostingController(
             rootView: WindowSwitcherView(
@@ -66,10 +81,12 @@ final class WindowSwitcherPanelManager {
     private func updatePanel(
         with snapshot: WindowSwitcherSnapshot,
         onSelect: @escaping (WindowEntry) -> Void,
+        onFocusLost: (() -> Void)?,
         updateInfo: UpdateInfo?,
         onOpenUpdate: (() -> Void)?
     ) {
         guard let panelPair else { return }
+        (panelPair.window as? SwitcherPanel)?.onFocusLost = onFocusLost
         panelPair.hosting.rootView = WindowSwitcherView(
             snapshot: snapshot,
             onSelect: onSelect,

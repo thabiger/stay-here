@@ -4,10 +4,16 @@ import Core
 import SwiftUI
 
 final class SpaceSwitcherController: SwitcherEventSessionHandling {
+    private enum SessionTrigger {
+        case keyboard
+        case explicit
+    }
+
     private struct Session {
         let startingSpaceID: Int?
         var selectedSpaceID: Int?
         let shortcut: SpaceSwitcherShortcut
+        let trigger: SessionTrigger
 
         var didChangeSelection: Bool {
             selectedSpaceID != nil && selectedSpaceID != startingSpaceID
@@ -33,6 +39,10 @@ final class SpaceSwitcherController: SwitcherEventSessionHandling {
     }
 
     internal var hasActiveSession: Bool { session != nil }
+
+    internal var testSessionSelectedSpaceID: Int? {
+        session?.selectedSpaceID
+    }
 
     init(
         settings: SettingsRepository,
@@ -89,12 +99,13 @@ final class SpaceSwitcherController: SwitcherEventSessionHandling {
         }
     }
 
-    private func ensureSession(using shortcut: SpaceSwitcherShortcut) {
+    private func ensureSession(using shortcut: SpaceSwitcherShortcut, trigger: SessionTrigger) {
         if session == nil {
             session = Session(
                 startingSpaceID: registry.activeSpaceID,
                 selectedSpaceID: registry.activeSpaceID,
-                shortcut: shortcut
+                shortcut: shortcut,
+                trigger: trigger
             )
         }
     }
@@ -130,10 +141,47 @@ final class SpaceSwitcherController: SwitcherEventSessionHandling {
                 onSelect: { [weak self] spaceID in
                     self?.commitSelection(spaceID)
                 },
+                onFocusLost: { [weak self] in
+                    self?.switcherCancelActiveSession()
+                },
                 updateInfo: updateInfo,
                 onOpenUpdate: onOpenUpdate
             )
         }
+    }
+
+    func openSwitcher() {
+        let shortcut = switcherConfiguredShortcut()
+        ensureSession(using: shortcut, trigger: .explicit)
+        showPanel()
+    }
+
+    func moveSelectionForward() {
+        let shortcut = switcherConfiguredShortcut()
+        ensureSession(using: shortcut, trigger: .explicit)
+        moveSelection(offset: 1)
+        showPanel()
+    }
+
+    func moveSelectionBackward() {
+        let shortcut = switcherConfiguredShortcut()
+        ensureSession(using: shortcut, trigger: .explicit)
+        moveSelection(offset: -1)
+        showPanel()
+    }
+
+    func commitSwitcherSelection() {
+        switcherCommitOrDismissActiveSession()
+    }
+
+    func commitSelection(at position: Int) {
+        let orderedIDs = registry.switchableOrderedSpaceIDs()
+        guard position > 0, position <= orderedIDs.count else { return }
+        commitSelection(orderedIDs[position - 1])
+    }
+
+    func closeSwitcher() {
+        switcherCancelActiveSession()
     }
 
     private func buildSnapshot() -> SpaceSwitcherSnapshot {
@@ -161,13 +209,20 @@ final class SpaceSwitcherController: SwitcherEventSessionHandling {
     }
 
     func switcherSessionModifiers() -> CGEventFlags? {
-        session?.shortcut.modifiers
+        guard session?.trigger == .keyboard else { return nil }
+        return session?.shortcut.modifiers
     }
 
     func switcherEnsureSessionAndMoveSelection(backward: Bool) {
-        let shortcut = switcherConfiguredShortcut()
-        ensureSession(using: shortcut)
-        moveSelection(offset: backward ? -1 : 1)
+        if session == nil {
+            let shortcut = switcherConfiguredShortcut()
+            ensureSession(using: shortcut, trigger: .keyboard)
+        }
+        if backward {
+            moveSelection(offset: -1)
+        } else {
+            moveSelection(offset: 1)
+        }
         showPanel()
     }
 

@@ -293,6 +293,23 @@ final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
         XCTAssertEqual(controller.testSessionSelectedWindowID, 1)
     }
 
+    func testSwitcherClosesWhenPanelLosesFocus() {
+        let (controller, _) = makeController {
+            [
+                self.makeWindow(pid: 42, windowID: 1, title: "Current"),
+                self.makeWindow(pid: 43, windowID: 2, title: "Previous")
+            ]
+        }
+
+        controller.openSwitcher()
+        waitForMainQueue()
+        XCTAssertTrue(controller.hasActiveSession)
+
+        controller.panelPair?.window.resignKey()
+
+        XCTAssertFalse(controller.hasActiveSession, "Losing focus should dismiss the switcher session")
+    }
+
     // MARK: - Caching (P2/Q5)
 
     /// P2/Q5: a session's entries should be populated when the session opens.
@@ -441,5 +458,80 @@ final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
 
         XCTAssertEqual(focusCallCount, 1, "Releasing modifiers should still commit the selected entry even if it matches the starting window")
         XCTAssertFalse(controller.hasActiveSession)
+    }
+
+    func testOpenSwitcherStartsSessionWithoutMovingSelection() {
+        let (controller, _) = makeController {
+            [
+                self.makeWindow(pid: 42, windowID: 1, title: "Current"),
+                self.makeWindow(pid: 43, windowID: 2, title: "Previous"),
+                self.makeWindow(pid: 44, windowID: 3, title: "Older")
+            ]
+        }
+
+        controller.openSwitcher()
+        waitForMainQueue()
+
+        XCTAssertTrue(controller.hasActiveSession, "Explicit open should create a visible session without requiring held modifiers")
+        XCTAssertEqual(controller.testSessionEntries?.map(\.windowID), [2, 1, 3])
+        XCTAssertEqual(controller.testSessionSelectedWindowID, 2)
+    }
+
+    func testCloseSwitcherDismissesActiveSession() {
+        let (controller, _) = makeController()
+        controller.openSwitcher()
+        waitForMainQueue()
+        XCTAssertTrue(controller.hasActiveSession)
+
+        controller.closeSwitcher()
+
+        XCTAssertFalse(controller.hasActiveSession, "Explicit close should dismiss the session immediately")
+    }
+
+    func testExplicitSessionIgnoresNonMatchingKeyAndSupportsRepeatedMoves() {
+        let windows: [[String: Any]] = [
+            [
+                kCGWindowOwnerPID as String: NSNumber(value: 42),
+                kCGWindowNumber as String: NSNumber(value: 1),
+                kCGWindowLayer as String: NSNumber(value: 0),
+                kCGWindowIsOnscreen as String: NSNumber(value: true),
+                kCGWindowOwnerName as String: "Notes",
+                "kCGWindowWorkspace": NSNumber(value: 1),
+                kCGWindowName as String: "Doc 1"
+            ],
+            [
+                kCGWindowOwnerPID as String: NSNumber(value: 42),
+                kCGWindowNumber as String: NSNumber(value: 2),
+                kCGWindowLayer as String: NSNumber(value: 0),
+                kCGWindowIsOnscreen as String: NSNumber(value: true),
+                kCGWindowOwnerName as String: "Notes",
+                "kCGWindowWorkspace": NSNumber(value: 1),
+                kCGWindowName as String: "Doc 2"
+            ],
+            [
+                kCGWindowOwnerPID as String: NSNumber(value: 42),
+                kCGWindowNumber as String: NSNumber(value: 3),
+                kCGWindowLayer as String: NSNumber(value: 0),
+                kCGWindowIsOnscreen as String: NSNumber(value: true),
+                kCGWindowOwnerName as String: "Notes",
+                "kCGWindowWorkspace": NSNumber(value: 1),
+                kCGWindowName as String: "Doc 3"
+            ]
+        ]
+        let (controller, _) = makeController(windowInfo: { windows })
+
+        controller.openSwitcher()
+        waitForMainQueue()
+        XCTAssertEqual(controller.testSessionSelectedWindowID, 2)
+
+        _ = controller.handleKeyDown(event: makeKeyEvent(keyCode: 12, flags: .maskCommand))
+        waitForMainQueue()
+        XCTAssertTrue(controller.hasActiveSession, "Explicitly opened session should stay alive across unrelated key presses")
+
+        controller.moveSelectionForward()
+        XCTAssertEqual(controller.testSessionSelectedWindowID, 1)
+
+        controller.moveSelectionForward()
+        XCTAssertEqual(controller.testSessionSelectedWindowID, 3)
     }
 }

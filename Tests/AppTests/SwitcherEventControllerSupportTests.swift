@@ -53,6 +53,7 @@ final class SwitcherEventControllerSupportTests: XCTestCase {
     func testNonMatchingKeyCancelsActiveSession() {
         let handler = FakeSwitcherHandler()
         handler.hasActiveSessionValue = true
+        handler.sessionModifiersValue = [.maskCommand]
         let support = SwitcherEventControllerSupport(handler: handler, eventTapUnavailableLog: "test")
 
         let result = support.handleKeyDown(event: makeKeyEvent(keyCode: 12, flags: .maskCommand))

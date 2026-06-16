@@ -102,7 +102,7 @@ final class SwitcherEventControllerSupport {
         let configuredShortcut = handler.switcherConfiguredShortcut()
 
         guard keycode == configuredShortcut.keyCode else {
-            if handler.switcherHasActiveSession() {
+            if handler.switcherHasActiveSession(), handler.switcherSessionModifiers() != nil {
                 DispatchQueue.main.async { [weak handler] in
                     handler?.switcherCancelActiveSession()
                 }
