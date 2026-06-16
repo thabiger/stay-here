@@ -164,4 +164,74 @@ final class SpaceSwitcherControllerSessionRaceTests: XCTestCase {
         // cleanly; either is fine, but it must not be in an inconsistent state.
         XCTAssertTrue(controller.hasActiveSession, "A session should exist after a clean key-down on main thread")
     }
+
+    func testOpenSwitcherStartsSessionWithoutMovingSelection() {
+        let (controller, _) = makeController(activeSpaceID: 100, additionalSpaces: [101, 102])
+
+        controller.openSwitcher()
+        waitForMainQueue()
+
+        XCTAssertTrue(controller.hasActiveSession, "Explicit open should create a visible session without requiring held modifiers")
+    }
+
+    func testCloseSwitcherDismissesActiveSession() {
+        let (controller, _) = makeController()
+        controller.openSwitcher()
+        waitForMainQueue()
+        XCTAssertTrue(controller.hasActiveSession)
+
+        controller.closeSwitcher()
+
+        XCTAssertFalse(controller.hasActiveSession, "Explicit close should dismiss the session immediately")
+    }
+
+    func testExplicitSessionIgnoresNonMatchingKeyAndSupportsRepeatedMoves() {
+        let (controller, _) = makeController(activeSpaceID: 100, additionalSpaces: [101, 102])
+
+        controller.openSwitcher()
+        waitForMainQueue()
+        XCTAssertEqual(controller.testSessionSelectedSpaceID, 100)
+
+        _ = controller.handleKeyDown(event: makeKeyEvent(keyCode: 12, flags: .maskCommand))
+        waitForMainQueue()
+        XCTAssertTrue(controller.hasActiveSession, "Explicitly opened session should stay alive across unrelated key presses")
+
+        controller.moveSelectionForward()
+        XCTAssertEqual(controller.testSessionSelectedSpaceID, 101)
+
+        controller.moveSelectionForward()
+        XCTAssertEqual(controller.testSessionSelectedSpaceID, 102)
+    }
+
+    func testExplicitSessionCommitUsesCurrentSelection() {
+        var switchedSpaceIDs: [Int] = []
+        let spaces = [100, 101, 102]
+        let snapshot = CGSBridge.ManagedSnapshot(
+            spaces: spaces.map { SpaceIdentity(id: $0, display: "display-a", kind: .desktop) },
+            activeByDisplay: ["display-a": 100],
+            orderedIDsByDisplay: ["display-a": spaces]
+        )
+        let bridge = LocalMockCGSBridge(activeSpaceIDValue: 100, managedSnapshotValue: snapshot)
+        let fileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("SpaceSwitcherControllerSessionRaceTests")
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathComponent("spaces.json")
+        let store = SpaceStore(fileURL: fileURL)
+        let registry = SpaceRegistry(store: store, cgsBridge: bridge)
+        let controller = SpaceSwitcherController(
+            settings: UserDefaultsSettingsRepository(),
+            registry: registry,
+            switchToSpace: { switchedSpaceIDs.append($0) }
+        )
+
+        controller.openSwitcher()
+        waitForMainQueue()
+        controller.moveSelectionForward()
+        controller.moveSelectionForward()
+        controller.commitSwitcherSelection()
+        waitForMainQueue()
+
+        XCTAssertEqual(switchedSpaceIDs, [102], "Explicit commit should switch to the currently selected space")
+        XCTAssertFalse(controller.hasActiveSession)
+    }
 }

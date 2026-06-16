@@ -4,12 +4,18 @@ import Core
 import SwiftUI
 
 final class WindowSwitcherController: SwitcherEventSessionHandling {
+    private enum SessionTrigger {
+        case keyboard
+        case explicit
+    }
+
     private struct Session {
         let startingWindowID: Int?
         var selectedWindowID: Int?
         let shortcut: SpaceSwitcherShortcut
         let entries: [WindowEntry]
         let spaceContext: WindowSpaceContext
+        let trigger: SessionTrigger
 
         var didChangeSelection: Bool {
             selectedWindowID != nil && selectedWindowID != startingWindowID
@@ -111,7 +117,7 @@ final class WindowSwitcherController: SwitcherEventSessionHandling {
         onOpenUpdate = callback
     }
 
-    private func ensureSession(using shortcut: SpaceSwitcherShortcut) {
+    private func ensureSession(using shortcut: SpaceSwitcherShortcut, trigger: SessionTrigger) {
         if session == nil {
             guard let context = listProvider.currentContext() else { return }
             let entries = listProvider.entries(in: context)
@@ -120,7 +126,8 @@ final class WindowSwitcherController: SwitcherEventSessionHandling {
                 selectedWindowID: entries.first?.windowID,
                 shortcut: shortcut,
                 entries: entries,
-                spaceContext: context
+                spaceContext: context,
+                trigger: trigger
             )
         }
     }
@@ -178,6 +185,40 @@ final class WindowSwitcherController: SwitcherEventSessionHandling {
                 onOpenUpdate: onOpenUpdate
             )
         }
+    }
+
+    func openSwitcher() {
+        let shortcut = switcherConfiguredShortcut()
+        ensureSession(using: shortcut, trigger: .explicit)
+        showPanel()
+    }
+
+    func moveSelectionForward() {
+        let shortcut = switcherConfiguredShortcut()
+        ensureSession(using: shortcut, trigger: .explicit)
+        moveSelection(offset: 1)
+        showPanel()
+    }
+
+    func moveSelectionBackward() {
+        let shortcut = switcherConfiguredShortcut()
+        ensureSession(using: shortcut, trigger: .explicit)
+        moveSelection(offset: -1)
+        showPanel()
+    }
+
+    func commitSwitcherSelection() {
+        switcherCommitOrDismissActiveSession()
+    }
+
+    func commitSelection(at position: Int) {
+        guard let session else { return }
+        guard position > 0, position <= session.entries.count else { return }
+        commitSelection(session.entries[position - 1])
+    }
+
+    func closeSwitcher() {
+        switcherCancelActiveSession()
     }
 
     internal static func panelHeight(itemCount: Int, screenHeight: CGFloat) -> CGFloat {
@@ -243,13 +284,20 @@ final class WindowSwitcherController: SwitcherEventSessionHandling {
     }
 
     func switcherSessionModifiers() -> CGEventFlags? {
-        session?.shortcut.modifiers
+        guard session?.trigger == .keyboard else { return nil }
+        return session?.shortcut.modifiers
     }
 
     func switcherEnsureSessionAndMoveSelection(backward: Bool) {
-        let shortcut = switcherConfiguredShortcut()
-        ensureSession(using: shortcut)
-        moveSelection(offset: backward ? -1 : 1)
+        if session == nil {
+            let shortcut = switcherConfiguredShortcut()
+            ensureSession(using: shortcut, trigger: .keyboard)
+        }
+        if backward {
+            moveSelection(offset: -1)
+        } else {
+            moveSelection(offset: 1)
+        }
         showPanel()
     }
 

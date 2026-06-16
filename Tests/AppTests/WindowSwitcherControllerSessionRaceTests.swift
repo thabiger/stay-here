@@ -338,4 +338,71 @@ final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
         XCTAssertEqual(focusCallCount, 1, "Releasing modifiers should still commit the selected entry even if it matches the starting window")
         XCTAssertFalse(controller.hasActiveSession)
     }
+
+    func testOpenSwitcherStartsSessionWithoutMovingSelection() {
+        let (controller, _) = makeController()
+
+        controller.openSwitcher()
+        waitForMainQueue()
+
+        XCTAssertTrue(controller.hasActiveSession, "Explicit open should create a visible session without requiring held modifiers")
+    }
+
+    func testCloseSwitcherDismissesActiveSession() {
+        let (controller, _) = makeController()
+        controller.openSwitcher()
+        waitForMainQueue()
+        XCTAssertTrue(controller.hasActiveSession)
+
+        controller.closeSwitcher()
+
+        XCTAssertFalse(controller.hasActiveSession, "Explicit close should dismiss the session immediately")
+    }
+
+    func testExplicitSessionIgnoresNonMatchingKeyAndSupportsRepeatedMoves() {
+        let windows: [[String: Any]] = [
+            [
+                kCGWindowOwnerPID as String: NSNumber(value: 42),
+                kCGWindowNumber as String: NSNumber(value: 1),
+                kCGWindowLayer as String: NSNumber(value: 0),
+                kCGWindowIsOnscreen as String: NSNumber(value: true),
+                kCGWindowOwnerName as String: "Notes",
+                "kCGWindowWorkspace": NSNumber(value: 1),
+                kCGWindowName as String: "Doc 1"
+            ],
+            [
+                kCGWindowOwnerPID as String: NSNumber(value: 42),
+                kCGWindowNumber as String: NSNumber(value: 2),
+                kCGWindowLayer as String: NSNumber(value: 0),
+                kCGWindowIsOnscreen as String: NSNumber(value: true),
+                kCGWindowOwnerName as String: "Notes",
+                "kCGWindowWorkspace": NSNumber(value: 1),
+                kCGWindowName as String: "Doc 2"
+            ],
+            [
+                kCGWindowOwnerPID as String: NSNumber(value: 42),
+                kCGWindowNumber as String: NSNumber(value: 3),
+                kCGWindowLayer as String: NSNumber(value: 0),
+                kCGWindowIsOnscreen as String: NSNumber(value: true),
+                kCGWindowOwnerName as String: "Notes",
+                "kCGWindowWorkspace": NSNumber(value: 1),
+                kCGWindowName as String: "Doc 3"
+            ]
+        ]
+        let (controller, _) = makeController(windowInfo: { windows })
+
+        controller.openSwitcher()
+        waitForMainQueue()
+        XCTAssertEqual(controller.testSessionSelectedWindowID, 1)
+
+        _ = controller.handleKeyDown(event: makeKeyEvent(keyCode: 12, flags: .maskCommand))
+        waitForMainQueue()
+        XCTAssertTrue(controller.hasActiveSession, "Explicitly opened session should stay alive across unrelated key presses")
+
+        controller.moveSelectionForward()
+        XCTAssertEqual(controller.testSessionSelectedWindowID, 2)
+
+        controller.moveSelectionForward()
+        XCTAssertEqual(controller.testSessionSelectedWindowID, 3)
+    }
 }

@@ -37,6 +37,20 @@ For the full story behind the app, see [Your macOS Spaces Don't Respect Your Foc
 - open a new application window in the current Space whenever possible,
 - use window switchers scoped to the current Space, making navigation simpler and less distracting.
 
+## Automation URLs
+
+StayHere can now control its switchers through a custom `stayhere://` URL scheme, which makes it easier to attach them to voice tools or external launchers.
+
+- `stayhere://window-switcher/open`
+- `stayhere://space-switcher/open`
+- `stayhere://switcher/next`
+- `stayhere://switcher/previous`
+- `stayhere://switcher/commit`
+- `stayhere://switcher/select/3`
+- `stayhere://switcher/close`
+
+You can also use the equivalent nested form, such as `stayhere://switcher/window/open`.
+
 ## Permissions and Security
 
 StayHere needs these permissions and settings:

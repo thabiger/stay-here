@@ -91,6 +91,19 @@ final class AppRuntimeCoordinator: AppCoordinating {
         }
     }
 
+    func handleIncomingURL(_ url: URL) {
+        guard let command = SwitcherCommand(url: url) else { return }
+
+        switch command.kind {
+        case .any:
+            handleAnySwitcherCommand(command)
+        case .space:
+            handle(command.action, with: spaceSwitcherController)
+        case .window:
+            handle(command.action, with: windowSwitcherController)
+        }
+    }
+
     func applyAppearanceImmediately() {
         appearanceManager.applyCurrentMode()
         statusController.applyCurrentAppearance()
@@ -216,6 +229,75 @@ final class AppRuntimeCoordinator: AppCoordinating {
         spaceSwitcherController.stop()
         windowSwitcherController.stop()
         activationController.stop()
+    }
+
+    private func handle(_ action: SwitcherAction, with controller: SpaceSwitcherController) {
+        switch action {
+        case .open:
+            controller.openSwitcher()
+        case .close, .cancel:
+            controller.closeSwitcher()
+        case .next:
+            controller.moveSelectionForward()
+        case .previous:
+            controller.moveSelectionBackward()
+        case .commit:
+            controller.commitSwitcherSelection()
+        case .select:
+            break
+        }
+    }
+
+    private func handle(_ action: SwitcherAction, with controller: WindowSwitcherController) {
+        switch action {
+        case .open:
+            controller.openSwitcher()
+        case .close, .cancel:
+            controller.closeSwitcher()
+        case .next:
+            controller.moveSelectionForward()
+        case .previous:
+            controller.moveSelectionBackward()
+        case .commit:
+            controller.commitSwitcherSelection()
+        case .select:
+            break
+        }
+    }
+
+    private func handleAnySwitcherCommand(_ command: SwitcherCommand) {
+        switch command.action {
+        case .close, .cancel:
+            spaceSwitcherController.closeSwitcher()
+            windowSwitcherController.closeSwitcher()
+        case .next:
+            if windowSwitcherController.hasActiveSession {
+                windowSwitcherController.moveSelectionForward()
+            } else if spaceSwitcherController.hasActiveSession {
+                spaceSwitcherController.moveSelectionForward()
+            }
+        case .previous:
+            if windowSwitcherController.hasActiveSession {
+                windowSwitcherController.moveSelectionBackward()
+            } else if spaceSwitcherController.hasActiveSession {
+                spaceSwitcherController.moveSelectionBackward()
+            }
+        case .commit:
+            if windowSwitcherController.hasActiveSession {
+                windowSwitcherController.commitSwitcherSelection()
+            } else if spaceSwitcherController.hasActiveSession {
+                spaceSwitcherController.commitSwitcherSelection()
+            }
+        case .select:
+            guard let index = command.index else { return }
+            if windowSwitcherController.hasActiveSession {
+                windowSwitcherController.commitSelection(at: index)
+            } else if spaceSwitcherController.hasActiveSession {
+                spaceSwitcherController.commitSelection(at: index)
+            }
+        case .open:
+            break
+        }
     }
 
     private func syncEventDrivenControllers() {

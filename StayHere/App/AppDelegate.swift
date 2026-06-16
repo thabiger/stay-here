@@ -1,10 +1,12 @@
 import AppKit
+import Carbon
 import Core
 
 @MainActor
 protocol AppCoordinating: AnyObject {
     func applicationDidFinishLaunching()
     func applicationWillTerminate()
+    func handleIncomingURL(_ url: URL)
 }
 
 @MainActor
@@ -31,11 +33,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         super.init()
     }
 
+    deinit {
+        NSAppleEventManager.shared().removeEventHandler(
+            forEventClass: AEEventClass(kInternetEventClass),
+            andEventID: AEEventID(kAEGetURL)
+        )
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
+        NSAppleEventManager.shared().setEventHandler(
+            self,
+            andSelector: #selector(handleGetURLEvent(_:withReplyEvent:)),
+            forEventClass: AEEventClass(kInternetEventClass),
+            andEventID: AEEventID(kAEGetURL)
+        )
         appCoordinator.applicationDidFinishLaunching()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         appCoordinator.applicationWillTerminate()
+    }
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls {
+            appCoordinator.handleIncomingURL(url)
+        }
+    }
+
+    @objc private func handleGetURLEvent(_ event: NSAppleEventDescriptor, withReplyEvent _: NSAppleEventDescriptor) {
+        guard let urlString = event.paramDescriptor(forKeyword: AEKeyword(keyDirectObject))?.stringValue,
+              let url = URL(string: urlString) else {
+            return
+        }
+        appCoordinator.handleIncomingURL(url)
     }
 }
