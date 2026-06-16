@@ -35,7 +35,8 @@ For the full story behind the app, see [Your macOS Spaces Don't Respect Your Foc
 - get a small popup whenever the active Space changes, so you always know where you are,
 - make Dock clicks more predictable by preventing them from teleporting you to another Space where the selected app is already running,
 - open a new application window in the current Space whenever possible,
-- use window switchers scoped to the current Space, making navigation simpler and less distracting.
+- use window switchers scoped to the current Space, making navigation simpler and less distracting,
+- control switching apps and spaces using built-in macOS Voice Control feature: [read more](docs/voice-control.md).
 
 ## Automation URLs
 
@@ -46,10 +47,8 @@ StayHere can now control its switchers through a custom `stayhere://` URL scheme
 - `stayhere://switcher/next`
 - `stayhere://switcher/previous`
 - `stayhere://switcher/commit`
-- `stayhere://switcher/select/3`
+- `stayhere://switcher/select/N`
 - `stayhere://switcher/close`
-
-You can also use the equivalent nested form, such as `stayhere://switcher/window/open`.
 
 ## Permissions and Security
 

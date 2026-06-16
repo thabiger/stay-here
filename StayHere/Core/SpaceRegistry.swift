@@ -46,7 +46,6 @@ public final class SpaceRegistry: ObservableObject {
         bindStateStore()
         syncPersistenceState()
         refreshSpaces()
-        reconcilePersistedSpaces()
     }
 
     public func refreshSpaces() {
@@ -184,7 +183,9 @@ public final class SpaceRegistry: ObservableObject {
         )
         let spacesChanged = derivedState.spaces != stateStore.spaces
         stateStore.applyDerivedState(derivedState)
-        if spacesChanged {
+        // CGS can transiently report no spaces during relaunch/update startup.
+        // Treat that as "state unavailable" rather than deleting persisted labels.
+        if spacesChanged, snapshot.spaces.isEmpty == false {
             reconcilePersistedSpaces()
         }
     }

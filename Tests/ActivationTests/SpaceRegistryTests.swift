@@ -115,6 +115,60 @@ final class SpaceRegistryTests: XCTestCase {
         XCTAssertEqual(reader.orderedSpaceIDs(), [103, 101, 102])
     }
 
+    func testInitDoesNotDropPersistedLabelsWhenSnapshotIsTransientlyEmpty() {
+        let store = makeStore()
+        try? store.save(
+            PersistedSpaces(
+                labels: [101: SpaceLabel(name: "Inbox")],
+                displayOrder: [101],
+                usesCustomDisplayOrder: false
+            )
+        )
+
+        let registry = SpaceRegistry(
+            store: store,
+            cgsBridge: MockCGSBridge(
+                activeSpaceIDValue: nil,
+                managedSnapshotValue: .init(spaces: [], activeByDisplay: [:], orderedIDsByDisplay: [:])
+            )
+        )
+
+        XCTAssertEqual(registry.name(for: 101), "Inbox")
+        XCTAssertNil(registry.labels[1], "Fallback space state must not be persisted as a real label")
+
+        let reloaded = store.load()
+        XCTAssertEqual(reloaded.labels[101]?.name, "Inbox")
+        XCTAssertNil(reloaded.labels[1])
+    }
+
+    func testRefreshAfterTransientEmptySnapshotKeepsLabelsForRecoveredSpaces() {
+        let store = makeStore()
+        let bridge = MockCGSBridge(
+            activeSpaceIDValue: nil,
+            managedSnapshotValue: .init(spaces: [], activeByDisplay: [:], orderedIDsByDisplay: [:])
+        )
+        try? store.save(
+            PersistedSpaces(
+                labels: [101: SpaceLabel(name: "Inbox")],
+                displayOrder: [101],
+                usesCustomDisplayOrder: false
+            )
+        )
+
+        let registry = SpaceRegistry(store: store, cgsBridge: bridge)
+
+        bridge.activeSpaceIDValue = 101
+        bridge.managedSnapshotValue = .init(
+            spaces: [SpaceIdentity(id: 101, display: "display-a", kind: .desktop)],
+            activeByDisplay: ["display-a": 101],
+            orderedIDsByDisplay: ["display-a": [101]]
+        )
+        registry.refreshSpaces()
+
+        XCTAssertEqual(registry.name(for: 101), "Inbox")
+        XCTAssertEqual(registry.spaces.map(\.id), [101])
+    }
+
     private func makeStore() -> SpaceStore {
         let fileURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("SpaceRegistryTests")
