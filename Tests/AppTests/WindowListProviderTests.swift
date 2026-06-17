@@ -43,6 +43,10 @@ private final class FakeWindowListSettings: SettingsRepository {
     var windowSwitcherTitleFormat: WindowSwitcherTitleFormat = .appNameOnly
     var windowSwitcherShowMinimizedWindows: Bool = false
     var windowSwitcherShowHiddenWindows: Bool = false
+    var hotCornerTopLeftAction: HotCornerAction = .none
+    var hotCornerTopRightAction: HotCornerAction = .none
+    var hotCornerBottomLeftAction: HotCornerAction = .none
+    var hotCornerBottomRightAction: HotCornerAction = .none
     var hudDisplayDuration: TimeInterval = 1.8
     var activationDockClickInterceptionEnabled: Bool = true
     var activationSingleWindowAppBundleIDs: [String] = []

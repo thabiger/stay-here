@@ -15,6 +15,10 @@ public final class UserDefaultsSettingsRepository: SettingsRepository {
         static let windowSwitcherTitleFormat = "windowSwitcher.titleFormat"
         static let windowSwitcherShowMinimizedWindows = "windowSwitcher.showMinimizedWindows"
         static let windowSwitcherShowHiddenWindows = "windowSwitcher.showHiddenWindows"
+        static let hotCornerTopLeftAction = "hotCorner.topLeft.action"
+        static let hotCornerTopRightAction = "hotCorner.topRight.action"
+        static let hotCornerBottomLeftAction = "hotCorner.bottomLeft.action"
+        static let hotCornerBottomRightAction = "hotCorner.bottomRight.action"
 
         static let hudDisplayDuration = "hud.display.seconds"
 
@@ -33,6 +37,7 @@ public final class UserDefaultsSettingsRepository: SettingsRepository {
         static let windowSwitcherTitleFormat: WindowSwitcherTitleFormat = .appNameOnly
         static let windowSwitcherShowMinimizedWindows: Bool = false
         static let windowSwitcherShowHiddenWindows: Bool = false
+        static let hotCornerAction: HotCornerAction = .none
         static let hudDisplayDuration: TimeInterval = 1.8
         static let activationDockClickInterceptionEnabled: Bool = true
 
@@ -172,6 +177,26 @@ public final class UserDefaultsSettingsRepository: SettingsRepository {
         }
     }
 
+    public var hotCornerTopLeftAction: HotCornerAction {
+        get { hotCornerAction(forKey: Key.hotCornerTopLeftAction) }
+        set { defaults.set(newValue.rawValue, forKey: Key.hotCornerTopLeftAction) }
+    }
+
+    public var hotCornerTopRightAction: HotCornerAction {
+        get { hotCornerAction(forKey: Key.hotCornerTopRightAction) }
+        set { defaults.set(newValue.rawValue, forKey: Key.hotCornerTopRightAction) }
+    }
+
+    public var hotCornerBottomLeftAction: HotCornerAction {
+        get { hotCornerAction(forKey: Key.hotCornerBottomLeftAction) }
+        set { defaults.set(newValue.rawValue, forKey: Key.hotCornerBottomLeftAction) }
+    }
+
+    public var hotCornerBottomRightAction: HotCornerAction {
+        get { hotCornerAction(forKey: Key.hotCornerBottomRightAction) }
+        set { defaults.set(newValue.rawValue, forKey: Key.hotCornerBottomRightAction) }
+    }
+
     public var hudDisplayDuration: TimeInterval {
         get {
             let stored = defaults.double(forKey: Key.hudDisplayDuration)
@@ -215,5 +240,13 @@ public final class UserDefaultsSettingsRepository: SettingsRepository {
 
     private func clamp(_ value: TimeInterval) -> TimeInterval {
         min(max(value, Defaults.hudMinimumDuration), Defaults.hudMaximumDuration)
+    }
+
+    private func hotCornerAction(forKey key: String) -> HotCornerAction {
+        if let stored = defaults.string(forKey: key),
+           let action = HotCornerAction(rawValue: stored) {
+            return action
+        }
+        return Defaults.hotCornerAction
     }
 }

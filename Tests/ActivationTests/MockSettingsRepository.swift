@@ -62,6 +62,30 @@ final class MockSettingsRepository: SettingsRepository {
         set { windowSwitcherShowHiddenWindowsStorage = newValue }
     }
 
+    var hotCornerTopLeftActionStorage: HotCornerAction = .none
+    var hotCornerTopLeftAction: HotCornerAction {
+        get { hotCornerTopLeftActionStorage }
+        set { hotCornerTopLeftActionStorage = newValue }
+    }
+
+    var hotCornerTopRightActionStorage: HotCornerAction = .none
+    var hotCornerTopRightAction: HotCornerAction {
+        get { hotCornerTopRightActionStorage }
+        set { hotCornerTopRightActionStorage = newValue }
+    }
+
+    var hotCornerBottomLeftActionStorage: HotCornerAction = .none
+    var hotCornerBottomLeftAction: HotCornerAction {
+        get { hotCornerBottomLeftActionStorage }
+        set { hotCornerBottomLeftActionStorage = newValue }
+    }
+
+    var hotCornerBottomRightActionStorage: HotCornerAction = .none
+    var hotCornerBottomRightAction: HotCornerAction {
+        get { hotCornerBottomRightActionStorage }
+        set { hotCornerBottomRightActionStorage = newValue }
+    }
+
     var hudDisplayDurationStorage: TimeInterval = 1.8
     var hudDisplayDuration: TimeInterval {
         get { hudDisplayDurationStorage }

@@ -17,6 +17,7 @@ final class AppRuntimeCoordinator: AppCoordinating {
     private let activationController: ActivationController
     private let spaceSwitcherController: SpaceSwitcherController
     private let windowSwitcherController: WindowSwitcherController
+    private let hotCornerController: HotCornerController
     private let switchPresentationHelper: SpaceSwitchPresentationHelper
     private let setupRequirementsPresenter: SetupRequirementsPresenter
 
@@ -38,6 +39,7 @@ final class AppRuntimeCoordinator: AppCoordinating {
         activationController: ActivationController,
         spaceSwitcherController: SpaceSwitcherController,
         windowSwitcherController: WindowSwitcherController,
+        hotCornerController: HotCornerController,
         switchPresentationHelper: SpaceSwitchPresentationHelper,
         setupRequirementsPresenter: SetupRequirementsPresenter
     ) {
@@ -53,6 +55,7 @@ final class AppRuntimeCoordinator: AppCoordinating {
         self.activationController = activationController
         self.spaceSwitcherController = spaceSwitcherController
         self.windowSwitcherController = windowSwitcherController
+        self.hotCornerController = hotCornerController
         self.switchPresentationHelper = switchPresentationHelper
         self.setupRequirementsPresenter = setupRequirementsPresenter
     }
@@ -226,6 +229,7 @@ final class AppRuntimeCoordinator: AppCoordinating {
     }
 
     private func stopEventDrivenControllers() {
+        hotCornerController.stop()
         spaceSwitcherController.stop()
         windowSwitcherController.stop()
         activationController.stop()
@@ -311,6 +315,12 @@ final class AppRuntimeCoordinator: AppCoordinating {
             windowSwitcherController.start()
         } else {
             windowSwitcherController.stop()
+        }
+
+        if hotCornerController.hasAssignedCorners() {
+            hotCornerController.start()
+        } else {
+            hotCornerController.stop()
         }
     }
 

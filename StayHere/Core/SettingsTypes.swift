@@ -47,6 +47,43 @@ public enum WindowSwitcherTitleFormat: String, CaseIterable, Hashable {
     }
 }
 
+public enum HotCorner: String, CaseIterable, Hashable {
+    case topLeft
+    case topRight
+    case bottomLeft
+    case bottomRight
+
+    public var displayName: String {
+        switch self {
+        case .topLeft:
+            return "Top Left"
+        case .topRight:
+            return "Top Right"
+        case .bottomLeft:
+            return "Bottom Left"
+        case .bottomRight:
+            return "Bottom Right"
+        }
+    }
+}
+
+public enum HotCornerAction: String, CaseIterable, Hashable {
+    case none
+    case spaceSwitcher
+    case windowSwitcher
+
+    public var displayName: String {
+        switch self {
+        case .none:
+            return "Off"
+        case .spaceSwitcher:
+            return "Space Switcher"
+        case .windowSwitcher:
+            return "Window Switcher"
+        }
+    }
+}
+
 public struct SpaceSwitcherShortcut: Equatable {
     public let keyCode: CGKeyCode
     public let modifiers: CGEventFlags

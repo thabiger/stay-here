@@ -108,6 +108,19 @@ final class AppCompositionRoot: NSObject {
         registry: registry,
         cgsBridge: cgsBridge
     )
+    lazy var hotCornerController = HotCornerController(
+        settings: settings,
+        actionHandler: { [weak self] action in
+            switch action {
+            case .none:
+                break
+            case .spaceSwitcher:
+                self?.spaceSwitcherController.openSwitcher()
+            case .windowSwitcher:
+                self?.windowSwitcherController.openSwitcher()
+            }
+        }
+    )
     lazy var runtimeCoordinator = AppRuntimeCoordinator(
         settings: settings,
         appearanceManager: appearanceManager,
@@ -121,6 +134,7 @@ final class AppCompositionRoot: NSObject {
         activationController: activationController,
         spaceSwitcherController: spaceSwitcherController,
         windowSwitcherController: windowSwitcherController,
+        hotCornerController: hotCornerController,
         switchPresentationHelper: switchPresentationHelper,
         setupRequirementsPresenter: setupRequirementsPresenter
     )

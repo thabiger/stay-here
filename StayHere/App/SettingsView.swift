@@ -19,6 +19,10 @@ final class SettingsCoordinator: ObservableObject {
     @Published var screenRecordingGranted: Bool = ScreenRecordingPermissionCheck.isGranted
     @Published var windowSwitcherShowMinimizedWindows: Bool = false
     @Published var windowSwitcherShowHiddenWindows: Bool = false
+    @Published var hotCornerTopLeftAction: HotCornerAction = .none
+    @Published var hotCornerTopRightAction: HotCornerAction = .none
+    @Published var hotCornerBottomLeftAction: HotCornerAction = .none
+    @Published var hotCornerBottomRightAction: HotCornerAction = .none
     @Published var hudDisplayDuration: Double = 1.8
 
     init(
@@ -43,6 +47,10 @@ final class SettingsCoordinator: ObservableObject {
         screenRecordingGranted = ScreenRecordingPermissionCheck.isGranted
         windowSwitcherShowMinimizedWindows = settings.windowSwitcherShowMinimizedWindows
         windowSwitcherShowHiddenWindows = settings.windowSwitcherShowHiddenWindows
+        hotCornerTopLeftAction = settings.hotCornerTopLeftAction
+        hotCornerTopRightAction = settings.hotCornerTopRightAction
+        hotCornerBottomLeftAction = settings.hotCornerBottomLeftAction
+        hotCornerBottomRightAction = settings.hotCornerBottomRightAction
         hudDisplayDuration = settings.hudDisplayDuration
     }
 
@@ -59,6 +67,10 @@ final class SettingsCoordinator: ObservableObject {
         settings.windowSwitcherTitleFormat = windowSwitcherTitleFormat
         settings.windowSwitcherShowMinimizedWindows = windowSwitcherShowMinimizedWindows
         settings.windowSwitcherShowHiddenWindows = windowSwitcherShowHiddenWindows
+        settings.hotCornerTopLeftAction = hotCornerTopLeftAction
+        settings.hotCornerTopRightAction = hotCornerTopRightAction
+        settings.hotCornerBottomLeftAction = hotCornerBottomLeftAction
+        settings.hotCornerBottomRightAction = hotCornerBottomRightAction
         settings.hudDisplayDuration = hudDisplayDuration
     }
 
@@ -190,6 +202,18 @@ struct SettingsView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
+                    Text("Hot Corners")
+                        .font(.headline)
+                    hotCornerPicker("Top Left", selection: $coordinator.hotCornerTopLeftAction)
+                    hotCornerPicker("Top Right", selection: $coordinator.hotCornerTopRightAction)
+                    hotCornerPicker("Bottom Left", selection: $coordinator.hotCornerBottomLeftAction)
+                    hotCornerPicker("Bottom Right", selection: $coordinator.hotCornerBottomRightAction)
+                    Text("Choose what happens when the pointer reaches a screen corner. Each corner can open the Space Switcher, open the Window Switcher, or stay off.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
                     Text("Space Change HUD")
                         .font(.headline)
                     HStack {
@@ -213,5 +237,21 @@ struct SettingsView: View {
         .onChange(of: coordinator.appearanceMode) { _ in
             coordinator.applyAppearanceMode()
         }
+    }
+}
+
+private func hotCornerPicker(
+    _ title: String,
+    selection: Binding<HotCornerAction>
+) -> some View {
+    HStack {
+        Text(title)
+            .frame(width: 100, alignment: .leading)
+        Picker(title, selection: selection) {
+            ForEach(HotCornerAction.allCases, id: \.self) { action in
+                Text(action.displayName).tag(action)
+            }
+        }
+        .labelsHidden()
     }
 }

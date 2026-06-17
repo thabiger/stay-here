@@ -103,6 +103,29 @@ final class UserDefaultsSettingsRepositoryTests: XCTestCase {
         XCTAssertTrue(reader.windowSwitcherShowHiddenWindows)
     }
 
+    func testHotCornersDefaultToOff() {
+        let defaults = makeDefaults()
+        let settings = UserDefaultsSettingsRepository(defaults: defaults)
+
+        XCTAssertEqual(settings.hotCornerTopLeftAction, .none)
+        XCTAssertEqual(settings.hotCornerTopRightAction, .none)
+        XCTAssertEqual(settings.hotCornerBottomLeftAction, .none)
+        XCTAssertEqual(settings.hotCornerBottomRightAction, .none)
+    }
+
+    func testHotCornersPersist() {
+        let defaults = makeDefaults()
+        let writer = UserDefaultsSettingsRepository(defaults: defaults)
+        writer.hotCornerTopLeftAction = .spaceSwitcher
+        writer.hotCornerBottomRightAction = .windowSwitcher
+
+        let reader = UserDefaultsSettingsRepository(defaults: defaults)
+        XCTAssertEqual(reader.hotCornerTopLeftAction, .spaceSwitcher)
+        XCTAssertEqual(reader.hotCornerBottomRightAction, .windowSwitcher)
+        XCTAssertEqual(reader.hotCornerTopRightAction, .none)
+        XCTAssertEqual(reader.hotCornerBottomLeftAction, .none)
+    }
+
     func testHUDDisplayDurationDefaultsTo180() {
         let defaults = makeDefaults()
         let settings = UserDefaultsSettingsRepository(defaults: defaults)
