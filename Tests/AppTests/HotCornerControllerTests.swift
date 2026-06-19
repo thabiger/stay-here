@@ -24,6 +24,8 @@ final class HotCornerControllerTests: XCTestCase {
             actionHandler: { triggeredActions.append($0) }
         )
 
+        controller.start()
+
         mouseLocation = CGPoint(x: 0, y: 100)
         controller.poll()
         controller.poll()
@@ -31,6 +33,8 @@ final class HotCornerControllerTests: XCTestCase {
         controller.poll()
         mouseLocation = CGPoint(x: 0, y: 100)
         controller.poll()
+
+        controller.stop()
 
         XCTAssertEqual(triggeredActions, [.spaceSwitcher, .spaceSwitcher])
     }
