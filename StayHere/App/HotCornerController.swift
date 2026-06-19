@@ -17,6 +17,7 @@ final class HotCornerController {
     private let screenFramesProvider: ScreenFramesProvider
     private let actionHandler: ActionHandler
 
+    private var isRunning = false
     private var pollTimer: Timer?
     private var lastHoveredCorner: HotCorner?
 
@@ -33,7 +34,8 @@ final class HotCornerController {
     }
 
     func start() {
-        guard pollTimer == nil else { return }
+        guard !isRunning else { return }
+        isRunning = true
         pollTimer = Timer.scheduledTimer(withTimeInterval: Constants.pollInterval, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
                 self?.poll()
@@ -42,6 +44,7 @@ final class HotCornerController {
     }
 
     func stop() {
+        isRunning = false
         pollTimer?.invalidate()
         pollTimer = nil
         lastHoveredCorner = nil
@@ -52,6 +55,7 @@ final class HotCornerController {
     }
 
     func poll() {
+        guard isRunning else { return }
         let currentCorner = Self.detectCorner(
             at: mouseLocationProvider(),
             in: screenFramesProvider(),
