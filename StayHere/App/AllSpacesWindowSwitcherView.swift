@@ -1,29 +1,36 @@
+import SwiftUI
 import AppKit
 import Core
-import SwiftUI
 
-struct SpaceSwitcherItem: Identifiable, Equatable {
+struct AllSpacesWindowSwitcherItem: Identifiable {
     let id: Int
+    let icon: NSImage
     let title: String
+    let entry: WindowEntry
     let isSelected: Bool
-    let isCurrent: Bool
-    let isEnabled: Bool
 }
 
-struct SpaceSwitcherSnapshot: Equatable {
-    let items: [SpaceSwitcherItem]
+struct AllSpacesWindowSwitcherSpaceGroup: Identifiable {
+    let id: Int
+    let spaceLabel: String
+    let items: [AllSpacesWindowSwitcherItem]
+}
+
+struct AllSpacesWindowSwitcherSnapshot {
+    let spaceGroups: [AllSpacesWindowSwitcherSpaceGroup]
     let title: String
+    let emptyMessage: String
 }
 
-struct SpaceSwitcherView: View {
-    let snapshot: SpaceSwitcherSnapshot
-    let onSelect: (Int) -> Void
+struct AllSpacesWindowSwitcherView: View {
+    let snapshot: AllSpacesWindowSwitcherSnapshot
+    let onSelect: (WindowEntry) -> Void
     let updateInfo: UpdateInfo?
     let onOpenUpdate: (() -> Void)?
 
     init(
-        snapshot: SpaceSwitcherSnapshot,
-        onSelect: @escaping (Int) -> Void,
+        snapshot: AllSpacesWindowSwitcherSnapshot,
+        onSelect: @escaping (WindowEntry) -> Void,
         updateInfo: UpdateInfo? = nil,
         onOpenUpdate: (() -> Void)? = nil
     ) {
@@ -40,14 +47,15 @@ struct SpaceSwitcherView: View {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .fill(Color.accentColor.opacity(0.12))
                         .frame(width: 28, height: 28)
-                    Image(systemName: "square.grid.2x2")
+                    Image(systemName: "rectangle.3.group")
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(Color.accentColor)
                 }
                 VStack(alignment: .leading, spacing: 1) {
                     Text(snapshot.title)
                         .font(.system(size: 15, weight: .semibold))
-                    Text("\(snapshot.items.count) spaces")
+                    let totalWindows = snapshot.spaceGroups.reduce(0) { $0 + $1.items.count }
+                    Text("\(totalWindows) windows across \(snapshot.spaceGroups.count) spaces")
                         .font(.system(size: 11, weight: .regular))
                         .foregroundStyle(.tertiary)
                 }
@@ -57,14 +65,22 @@ struct SpaceSwitcherView: View {
             .padding(.vertical, 12)
             Divider().padding(.leading, 72)
 
-            ScrollView(showsIndicators: false) {
-                LazyVStack(alignment: .leading, spacing: 6) {
-                    ForEach(snapshot.items) { item in
-                        row(for: item)
+            if snapshot.spaceGroups.isEmpty {
+                Text(snapshot.emptyMessage)
+                    .font(.system(size: 14.5, weight: .regular))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 18)
+            } else {
+                ScrollView(showsIndicators: false) {
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        ForEach(snapshot.spaceGroups) { group in
+                            spaceSection(group: group)
+                        }
                     }
+                    .padding(.horizontal, 10)
+                    .padding(.bottom, 12)
                 }
-                .padding(.horizontal, 10)
-                .padding(.bottom, 12)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -81,7 +97,7 @@ struct SpaceSwitcherView: View {
                 Button {
                     onOpenUpdate?()
                 } label: {
-                    Text("v\(updateInfo.version) available")
+                    Text("New version v\(updateInfo.version) available")
                         .font(.caption2.weight(.medium))
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 8)
@@ -103,29 +119,61 @@ struct SpaceSwitcherView: View {
     }
 
     @ViewBuilder
-    private func row(for item: SpaceSwitcherItem) -> some View {
+    private func spaceSection(group: AllSpacesWindowSwitcherSpaceGroup) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(.tertiary)
+                    .frame(width: 5, height: 5)
+                Text(group.spaceLabel.uppercased())
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.secondary)
+                    .kerning(0.5)
+                Spacer()
+                Text("\(group.items.count)")
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(.tertiary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(
+                        Capsule()
+                            .fill(Color(nsColor: .separatorColor).opacity(0.3))
+                    )
+            }
+            .padding(.horizontal, 12)
+            .padding(.top, 10)
+            .padding(.bottom, 2)
+
+            ForEach(group.items) { item in
+                row(for: item)
+            }
+        }
+        .padding(.bottom, 6)
+    }
+
+    @ViewBuilder
+    private func row(for item: AllSpacesWindowSwitcherItem) -> some View {
         Button {
-            onSelect(item.id)
+            onSelect(item.entry)
         } label: {
             rowContent(for: item)
         }
         .buttonStyle(.plain)
-        .disabled(item.isEnabled == false)
-        .opacity(item.isEnabled ? 1 : 0.58)
     }
 
-    private func rowContent(for item: SpaceSwitcherItem) -> some View {
+    private func rowContent(for item: AllSpacesWindowSwitcherItem) -> some View {
         HStack(spacing: 10) {
+            Image(nsImage: item.icon)
+                .resizable()
+                .frame(width: 18, height: 18)
+                .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+
             Text(item.title)
                 .font(.system(size: 14.5, weight: item.isSelected ? .semibold : .regular, design: .default))
                 .foregroundStyle(item.isSelected ? .white : .primary)
                 .lineLimit(1)
                 .truncationMode(.tail)
-            if item.isEnabled == false {
-                Text("Unavailable")
-                    .font(.system(size: 11.5, weight: .medium))
-                    .foregroundStyle(item.isSelected ? .white.opacity(0.9) : .secondary)
-            }
+
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 12)
@@ -136,13 +184,10 @@ struct SpaceSwitcherView: View {
         .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
-    private func selectionBackground(for item: SpaceSwitcherItem) -> some ShapeStyle {
+    private func selectionBackground(for item: AllSpacesWindowSwitcherItem) -> some ShapeStyle {
         if item.isSelected {
             return AnyShapeStyle(Color.accentColor.opacity(0.92))
         }
-        if item.isCurrent {
-            return AnyShapeStyle(Color.primary.opacity(0.06))
-        }
-        return AnyShapeStyle(.clear)
+        return AnyShapeStyle(Color.primary.opacity(0.06))
     }
 }

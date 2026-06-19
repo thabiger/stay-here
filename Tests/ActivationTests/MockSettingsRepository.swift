@@ -62,6 +62,18 @@ final class MockSettingsRepository: SettingsRepository {
         set { windowSwitcherShowHiddenWindowsStorage = newValue }
     }
 
+    var allSpacesWindowSwitcherEnabledStorage: Bool = true
+    var allSpacesWindowSwitcherEnabled: Bool {
+        get { allSpacesWindowSwitcherEnabledStorage }
+        set { allSpacesWindowSwitcherEnabledStorage = newValue }
+    }
+
+    var allSpacesWindowSwitcherShortcutTextStorage: String = "command+shift+`"
+    var allSpacesWindowSwitcherShortcutText: String {
+        get { allSpacesWindowSwitcherShortcutTextStorage }
+        set { allSpacesWindowSwitcherShortcutTextStorage = newValue }
+    }
+
     var hotCornerTopLeftActionStorage: HotCornerAction = .none
     var hotCornerTopLeftAction: HotCornerAction {
         get { hotCornerTopLeftActionStorage }

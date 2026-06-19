@@ -2,14 +2,14 @@ import AppKit
 import Core
 import SwiftUI
 
-final class WindowSwitcherPanelManager: BaseWindowPanelManager<WindowSwitcherSnapshot, WindowSwitcherView> {
+final class AllSpacesWindowSwitcherPanelManager: BaseWindowPanelManager<AllSpacesWindowSwitcherSnapshot, AllSpacesWindowSwitcherView> {
     override func makeRootView(
-        snapshot: WindowSwitcherSnapshot,
+        snapshot: AllSpacesWindowSwitcherSnapshot,
         onSelect: @escaping (WindowEntry) -> Void,
         updateInfo: UpdateInfo?,
         onOpenUpdate: (() -> Void)?
-    ) -> WindowSwitcherView {
-        WindowSwitcherView(
+    ) -> AllSpacesWindowSwitcherView {
+        AllSpacesWindowSwitcherView(
             snapshot: snapshot,
             onSelect: onSelect,
             updateInfo: updateInfo,
@@ -17,12 +17,15 @@ final class WindowSwitcherPanelManager: BaseWindowPanelManager<WindowSwitcherSna
         )
     }
 
-    override func resizePanel(for snapshot: WindowSwitcherSnapshot) {
+    override func resizePanel(for snapshot: AllSpacesWindowSwitcherSnapshot) {
         guard let panelPair else { return }
         let width: CGFloat = 560
         let screenFrame = NSScreen.main?.visibleFrame ?? NSScreen.screens.first?.visibleFrame ?? .zero
-        let height = WindowSwitcherController.panelHeight(
-            itemCount: snapshot.items.count,
+        let totalItemCount = snapshot.spaceGroups.reduce(0) { $0 + $1.items.count }
+        let groupCount = snapshot.spaceGroups.count
+        let height = AllSpacesWindowSwitcherController.panelHeight(
+            spaceGroupCount: groupCount,
+            totalWindowCount: totalItemCount,
             screenHeight: screenFrame.height
         )
         let frame = NSRect(

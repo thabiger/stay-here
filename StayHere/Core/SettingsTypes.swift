@@ -71,6 +71,7 @@ public enum HotCornerAction: String, CaseIterable, Hashable {
     case none
     case spaceSwitcher
     case windowSwitcher
+    case allSpacesWindowSwitcher
 
     public var displayName: String {
         switch self {
@@ -80,6 +81,8 @@ public enum HotCornerAction: String, CaseIterable, Hashable {
             return "Space Switcher"
         case .windowSwitcher:
             return "Window Switcher"
+        case .allSpacesWindowSwitcher:
+            return "All Spaces Window Switcher"
         }
     }
 }

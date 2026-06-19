@@ -43,6 +43,8 @@ private final class FakeWindowListSettings: SettingsRepository {
     var windowSwitcherTitleFormat: WindowSwitcherTitleFormat = .appNameOnly
     var windowSwitcherShowMinimizedWindows: Bool = false
     var windowSwitcherShowHiddenWindows: Bool = false
+    var allSpacesWindowSwitcherEnabled: Bool = true
+    var allSpacesWindowSwitcherShortcutText: String = "command+shift+`"
     var hotCornerTopLeftAction: HotCornerAction = .none
     var hotCornerTopRightAction: HotCornerAction = .none
     var hotCornerBottomLeftAction: HotCornerAction = .none

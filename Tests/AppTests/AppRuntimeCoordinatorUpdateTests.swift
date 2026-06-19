@@ -64,6 +64,11 @@ final class AppRuntimeCoordinatorUpdateTests: XCTestCase {
                 registry: registry,
                 cgsBridge: cgsBridge
             ),
+            allSpacesWindowSwitcherController: AllSpacesWindowSwitcherController(
+                settings: settings,
+                registry: registry,
+                cgsBridge: cgsBridge
+            ),
             hotCornerController: HotCornerController(
                 settings: settings,
                 actionHandler: { _ in }

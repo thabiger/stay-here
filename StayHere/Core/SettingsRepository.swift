@@ -14,6 +14,10 @@ public protocol SettingsRepository: AnyObject {
     var windowSwitcherTitleFormat: WindowSwitcherTitleFormat { get set }
     var windowSwitcherShowMinimizedWindows: Bool { get set }
     var windowSwitcherShowHiddenWindows: Bool { get set }
+
+    var allSpacesWindowSwitcherEnabled: Bool { get set }
+    var allSpacesWindowSwitcherShortcutText: String { get set }
+
     var hotCornerTopLeftAction: HotCornerAction { get set }
     var hotCornerTopRightAction: HotCornerAction { get set }
     var hotCornerBottomLeftAction: HotCornerAction { get set }

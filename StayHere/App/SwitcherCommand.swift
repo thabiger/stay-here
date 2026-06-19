@@ -4,6 +4,7 @@ enum SwitcherKind: Equatable {
     case any
     case space
     case window
+    case allSpacesWindow
 
     init?(token: String) {
         switch token
@@ -16,6 +17,8 @@ enum SwitcherKind: Equatable {
             self = .space
         case "window", "windows", "window-switcher", "windows-switcher":
             self = .window
+        case "all-spaces-window", "all-windows", "allspaces", "all-spaces-window-switcher":
+            self = .allSpacesWindow
         default:
             return nil
         }
@@ -146,11 +149,11 @@ struct SwitcherCommand: Equatable {
 
     private static func isSupported(kind: SwitcherKind, action: SwitcherAction, index: Int?) -> Bool {
         switch (kind, action) {
-        case (.space, .close), (.window, .close),
-             (.space, .next), (.window, .next),
-             (.space, .previous), (.window, .previous),
-             (.space, .commit), (.window, .commit),
-             (.space, .select), (.window, .select):
+        case (.space, .close), (.window, .close), (.allSpacesWindow, .close),
+             (.space, .next), (.window, .next), (.allSpacesWindow, .next),
+             (.space, .previous), (.window, .previous), (.allSpacesWindow, .previous),
+             (.space, .commit), (.window, .commit), (.allSpacesWindow, .commit),
+             (.space, .select), (.window, .select), (.allSpacesWindow, .select):
             return false
         case (.any, .select):
             return index != nil
