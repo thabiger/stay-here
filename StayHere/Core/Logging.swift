@@ -1,5 +1,4 @@
 @preconcurrency import Foundation
-import AppKit
 
 /// Process-local logging interface. Implementations are responsible for
 /// their own concurrency isolation.
@@ -7,13 +6,7 @@ public protocol Logging: Sendable {
     func info(_ message: String)
     func error(_ message: String)
     func flush()
-    func openLogsInFinder()
-}
-
-public extension Logging {
-    /// Default no-op so test doubles and simple loggers do not need to
-    /// implement the UI action.
-    func openLogsInFinder() {}
+    var logsDirectory: URL { get }
 }
 
 /// A logger that discards every message. Useful for tests and for
@@ -24,6 +17,7 @@ public struct NoOpLogger: Logging {
     public func info(_ message: String) {}
     public func error(_ message: String) {}
     public func flush() {}
+    public var logsDirectory: URL { FileManager.default.temporaryDirectory }
 }
 
 /// File-backed logger that keeps a single persistent `FileHandle` open for
@@ -117,10 +111,7 @@ public final class FileLogger: Logging, @unchecked Sendable {
         queue.sync {}
     }
 
-    public func openLogsInFinder() {
-        let url = logURL.deletingLastPathComponent()
-        NSWorkspace.shared.open(url)
-    }
+    public var logsDirectory: URL { logURL.deletingLastPathComponent() }
 
     /// Test seam — exposes the persistent file handle so tests can
     /// verify it is opened once in init and reused across writes (P3).

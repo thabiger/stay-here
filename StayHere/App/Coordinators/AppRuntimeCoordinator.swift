@@ -99,7 +99,7 @@ final class AppRuntimeCoordinator: AppCoordinating, RuntimeCoordinating {
             onCheckForUpdates: { [weak self] in self?.updateController.performManualCheck() },
             onOpenAvailableUpdate: { [weak self] in self?.updateController.presentAvailableUpdate() },
             onCopyState: { [weak self] in self?.spaceObservationCoordinator.copySpaceState() },
-            onOpenLogs: { [logger = services.logger] in logger.openLogsInFinder() },
+            onOpenLogs: { [logger = services.logger] in openLogsInFinder(logger: logger) },
             onQuit: { NSApp.terminate(nil) },
             onSelectSpace: { [weak self] id in
                 Task { [weak self] in

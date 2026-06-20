@@ -12,7 +12,7 @@ final class CompositionWindowManagers {
         onAppearanceChange: { [weak self] in
             self?.runtimeCoordinator?.applyAppearanceImmediately()
         },
-        onOpenLogs: { [logger = services.logger] in logger.openLogsInFinder() }
+        onOpenLogs: { [logger = services.logger] in openLogsInFinder(logger: logger) }
     )
 
     lazy var aboutWindowManager = AboutWindowManager(

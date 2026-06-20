@@ -1,6 +1,5 @@
 import Foundation
 import CoreGraphics
-import AppKit
 
 public protocol CGSBridgeProtocol {
     func activeSpaceID() -> Int?
