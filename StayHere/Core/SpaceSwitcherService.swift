@@ -21,6 +21,7 @@ public final class SpaceSwitcherService {
     private let refreshRetryInterval: TimeInterval
     private let refreshRetryLimit: Int
     private let waitForRefresh: (TimeInterval) -> Void
+    private let logger: any Logging
 
     public init(
         cgsBridge: any CGSBridgeProtocol = CGSBridge.live,
@@ -28,12 +29,14 @@ public final class SpaceSwitcherService {
         refreshRetryLimit: Int = 8,
         waitForRefresh: @escaping (TimeInterval) -> Void = { interval in
             RunLoop.current.run(until: Date().addingTimeInterval(interval))
-        }
+        },
+        logger: any Logging
     ) {
         self.cgsBridge = cgsBridge
         self.refreshRetryInterval = refreshRetryInterval
         self.refreshRetryLimit = refreshRetryLimit
         self.waitForRefresh = waitForRefresh
+        self.logger = logger
     }
 
     public func switchToSpace(
@@ -43,12 +46,12 @@ public final class SpaceSwitcherService {
         scheduleRefreshSoon: () -> Void
     ) -> SpaceRegistry.SwitchResult {
         if snapshot.activeSpaceID == spaceID {
-            Logger.shared.info("switch-space skipped=already-active")
+            logger.info("switch-space skipped=already-active")
             return .alreadyActive
         }
 
         guard snapshot.spaces.first(where: { $0.id == spaceID })?.kind == .desktop else {
-            Logger.shared.error("switch-space failed=unsupported-space-kind")
+            logger.error("switch-space failed=unsupported-space-kind")
             return .unsupportedSpaceKind
         }
 
@@ -57,26 +60,26 @@ public final class SpaceSwitcherService {
             ?? liveSnapshot.spaces.first(where: { $0.id == spaceID })?.display,
               let nativeOrder = snapshot.nativeOrderByDisplay[display] ?? liveSnapshot.orderedIDsByDisplay[display],
               let shortcutIndex = nativeOrder.firstIndex(of: spaceID).map({ $0 + 1 }) else {
-            Logger.shared.error("switch-space failed=unknown-space")
+            logger.error("switch-space failed=unknown-space")
             return .unknownSpace
         }
 
         guard shortcutIndex <= 9 else {
-            Logger.shared.error("switch-space failed=desktop-no-shortcut")
+            logger.error("switch-space failed=desktop-no-shortcut")
             return .unsupportedDesktop(index: shortcutIndex)
         }
 
         guard cgsBridge.switchByDesktopShortcut(index: shortcutIndex) else {
-            Logger.shared.error("switch-space failed=event-post")
+            logger.error("switch-space failed=event-post")
             return .eventPostFailed(index: shortcutIndex)
         }
 
-        Logger.shared.info("switch-space posted")
+        logger.info("switch-space posted")
 
         let refreshed = verifySwitchResult(expectedSpaceID: spaceID, refreshSpaces: refreshSpaces)
-        Logger.shared.info("switch-space result matched=\(refreshed.activeSpaceID == spaceID)")
+        logger.info("switch-space result matched=\(refreshed.activeSpaceID == spaceID)")
         guard refreshed.activeSpaceID == spaceID else {
-            Logger.shared.error("switch-space failed=shortcut-posted-but-unmatched")
+            logger.error("switch-space failed=shortcut-posted-but-unmatched")
             scheduleRefreshSoon()
             return .switchUnmatched(
                 index: shortcutIndex,

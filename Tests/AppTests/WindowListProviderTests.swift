@@ -61,7 +61,7 @@ final class WindowListProviderTests: XCTestCase {
             .appendingPathComponent(UUID().uuidString)
             .appendingPathComponent("spaces.json")
         let store = SpaceStore(fileURL: fileURL)
-        return SpaceRegistry(store: store, cgsBridge: bridge)
+        return SpaceRegistry(store: store, cgsBridge: bridge, logger: NoOpLogger())
     }
 
     private func makeSnapshot() -> CGSBridge.ManagedSnapshot {

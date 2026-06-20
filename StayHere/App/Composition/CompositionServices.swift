@@ -10,20 +10,24 @@ final class CompositionServices {
     let lifecycleCoordinator: AppLifecycleCoordinator
     let updateService: any UpdateService
     let registry: SpaceRegistry
+    let logger: any Logging
 
     init(
         settings: SettingsRepository = UserDefaultsSettingsRepository(),
         cgsBridge: any CGSBridgeProtocol = CGSBridge.live,
         updateService: (any UpdateService)? = nil,
-        lifecycleCoordinator: AppLifecycleCoordinator? = nil
+        lifecycleCoordinator: AppLifecycleCoordinator? = nil,
+        logger: any Logging
     ) {
         self.settings = settings
         self.cgsBridge = cgsBridge
         self.updateService = updateService ?? GitHubReleaseUpdateService()
         self.appearanceManager = AppearanceManager(settings: settings)
+        self.logger = logger
         self.lifecycleCoordinator = lifecycleCoordinator ?? AppLifecycleCoordinator(
-            appearanceManager: self.appearanceManager
+            appearanceManager: self.appearanceManager,
+            logger: logger
         )
-        self.registry = SpaceRegistry(cgsBridge: cgsBridge)
+        self.registry = SpaceRegistry(cgsBridge: cgsBridge, logger: logger)
     }
 }

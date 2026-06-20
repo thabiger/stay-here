@@ -13,7 +13,7 @@ final class EventOrchestrationCoordinator {
         hotCornerController: any HotCornerControlling,
         activationController: any ActivationControlling,
         switcherCoordinator: any SwitcherCoordinating,
-        eventTapProxy: any EventTapProxying = AppEventTapProxy()
+        eventTapProxy: any EventTapProxying
     ) {
         self.hotCornerController = hotCornerController
         self.activationController = activationController

@@ -20,7 +20,8 @@ final class AppEventTapProxyTests: XCTestCase {
             runLoopSourceFactory: { _ in nil },
             tapEnableHandler: { _, _ in },
             addRunLoopSource: { _ in },
-            removeRunLoopSource: { _ in }
+            removeRunLoopSource: { _ in },
+            logger: NoOpLogger()
         )
     }
 
@@ -67,7 +68,8 @@ final class AppEventTapProxyTests: XCTestCase {
             runLoopSourceFactory: { tap in CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0) },
             tapEnableHandler: { _, enabled in enableCalls.append(enabled) },
             addRunLoopSource: { _ in },
-            removeRunLoopSource: { _ in removedSources += 1 }
+            removeRunLoopSource: { _ in removedSources += 1 },
+            logger: NoOpLogger()
         )
         let client = FakeClient()
 
@@ -85,7 +87,8 @@ final class AppEventTapProxyTests: XCTestCase {
             runLoopSourceFactory: { _ in nil },
             tapEnableHandler: { _, enabled in enableCalls.append(enabled) },
             addRunLoopSource: { _ in },
-            removeRunLoopSource: { _ in }
+            removeRunLoopSource: { _ in },
+            logger: NoOpLogger()
         )
         let client = FakeClient()
         proxy.register(client)

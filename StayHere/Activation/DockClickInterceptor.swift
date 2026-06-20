@@ -8,6 +8,7 @@ public final class DockClickInterceptor: CGEventTapClient {
     private let isDockClickInterceptionEnabled: () -> Bool
     private let shouldIntercept: (String, Bool) -> Bool
     private let handler: (String, Bool) -> Bool
+    private let logger: any Logging
     private var pendingDockClick: PendingDockClick?
 
     struct PendingDockClick {
@@ -29,11 +30,13 @@ public final class DockClickInterceptor: CGEventTapClient {
     public init(
         settings: SettingsRepository,
         shouldIntercept: @escaping (String, Bool) -> Bool,
-        handler: @escaping (String, Bool) -> Bool
+        handler: @escaping (String, Bool) -> Bool,
+        logger: any Logging
     ) {
         self.isDockClickInterceptionEnabled = { settings.activationDockClickInterceptionEnabled }
         self.shouldIntercept = shouldIntercept
         self.handler = handler
+        self.logger = logger
     }
 
     public func handle(proxy: CGEventTapProxy, event: CGEvent) -> Unmanaged<CGEvent>? {
@@ -53,12 +56,12 @@ public final class DockClickInterceptor: CGEventTapClient {
             }
 
             guard shouldIntercept(bundleID, optionHeld) else {
-                Logger.shared.info("activation dock-down passthrough=true option=\(optionHeld)")
+                logger.info("activation dock-down passthrough=true option=\(optionHeld)")
                 return Unmanaged.passUnretained(event)
             }
 
             pendingDockClick = PendingDockClick(bundleID: bundleID, optionHeld: optionHeld)
-            Logger.shared.info("activation dock-down option=\(optionHeld)")
+            logger.info("activation dock-down option=\(optionHeld)")
             return nil
 
         case .leftMouseUp:
@@ -77,7 +80,7 @@ public final class DockClickInterceptor: CGEventTapClient {
             }
 
             let resolvedOptionHeld = pending?.optionHeld ?? optionHeld
-            Logger.shared.info("activation dock-up option=\(resolvedOptionHeld)")
+            logger.info("activation dock-up option=\(resolvedOptionHeld)")
             if handler(bundleID, resolvedOptionHeld) {
                 return nil
             }

@@ -7,14 +7,17 @@ public final class SpaceLabelStore {
 
     private let store: SpaceStore
     private let persistQueue: DispatchQueue
+    private let logger: any Logging
     private var pendingPersist: DispatchWorkItem?
 
     public init(
         store: SpaceStore = SpaceStore(),
-        persistQueue: DispatchQueue = DispatchQueue(label: "stayhere.persist", qos: .utility)
+        persistQueue: DispatchQueue = DispatchQueue(label: "stayhere.persist", qos: .utility),
+        logger: any Logging
     ) {
         self.store = store
         self.persistQueue = persistQueue
+        self.logger = logger
 
         let persisted = store.load()
         self.labels = persisted.labels
@@ -86,7 +89,7 @@ public final class SpaceLabelStore {
                 )
             )
         } catch {
-            Logger.shared.error("persist-failed")
+            logger.error("persist-failed")
         }
     }
 
@@ -97,11 +100,11 @@ public final class SpaceLabelStore {
             usesCustomDisplayOrder: usesCustomDisplayOrder
         )
         pendingPersist?.cancel()
-        let task = DispatchWorkItem { [store] in
+        let task = DispatchWorkItem { [store, logger] in
             do {
                 try store.save(payload)
             } catch {
-                Logger.shared.error("persist-failed")
+                logger.error("persist-failed")
             }
         }
         pendingPersist = task

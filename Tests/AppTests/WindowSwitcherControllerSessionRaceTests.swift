@@ -90,7 +90,7 @@ final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
             .appendingPathComponent(UUID().uuidString)
             .appendingPathComponent("spaces.json")
         let store = SpaceStore(fileURL: fileURL)
-        let registry = SpaceRegistry(store: store, cgsBridge: bridge)
+        let registry = SpaceRegistry(store: store, cgsBridge: bridge, logger: NoOpLogger())
         let listProvider = WindowListProvider(
             registry: registry,
             cgsBridge: bridge,

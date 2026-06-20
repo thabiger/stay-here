@@ -12,6 +12,7 @@ public final class SpaceSwitchingCoordinator {
     private let scheduleAfter: (TimeInterval, DispatchWorkItem) -> Void
     private let refreshRetryInterval: TimeInterval
     private let refreshRetryLimit: Int
+    private let logger: any Logging
     private var pendingRefresh: DispatchWorkItem?
 
     public init(
@@ -29,7 +30,8 @@ public final class SpaceSwitchingCoordinator {
             DispatchQueue.main.asyncAfter(deadline: .now() + interval, execute: task)
         },
         refreshRetryInterval: TimeInterval = 0.05,
-        refreshRetryLimit: Int = 8
+        refreshRetryLimit: Int = 8,
+        logger: any Logging
     ) {
         self.cgsBridge = cgsBridge
         self.stateStore = stateStore
@@ -44,6 +46,7 @@ public final class SpaceSwitchingCoordinator {
         self.scheduleAfter = scheduleAfter
         self.refreshRetryInterval = refreshRetryInterval
         self.refreshRetryLimit = refreshRetryLimit
+        self.logger = logger
     }
 
     public func refreshSpacesAsync() {
@@ -98,7 +101,7 @@ public final class SpaceSwitchingCoordinator {
             ? SpaceCycling.nextSpaceID(currentSpaceID: stateStore.activeSpaceID, orderedSpaceIDs: ordered)
             : SpaceCycling.previousSpaceID(currentSpaceID: stateStore.activeSpaceID, orderedSpaceIDs: ordered)
         guard let target else {
-            Logger.shared.info("switch-space cycle skipped=empty")
+            logger.info("switch-space cycle skipped=empty")
             return
         }
         _ = switchToSpace(target)

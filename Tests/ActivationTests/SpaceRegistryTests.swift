@@ -19,7 +19,7 @@ final class SpaceRegistryTests: XCTestCase {
             managedSnapshotValue: snapshot
         )
 
-        let registry = SpaceRegistry(store: store, cgsBridge: bridge)
+        let registry = SpaceRegistry(store: store, cgsBridge: bridge, logger: NoOpLogger())
 
         XCTAssertEqual(registry.activeSpaceID, 201)
         XCTAssertEqual(registry.spaces.map(\.id), [201, 202])
@@ -56,7 +56,7 @@ final class SpaceRegistryTests: XCTestCase {
             return true
         }
 
-        let registry = SpaceRegistry(store: store, cgsBridge: bridge)
+        let registry = SpaceRegistry(store: store, cgsBridge: bridge, logger: NoOpLogger())
         let result = registry.switchToSpace(102)
 
         XCTAssertEqual(result, .switched)
@@ -74,14 +74,16 @@ final class SpaceRegistryTests: XCTestCase {
 
         let writer = SpaceRegistry(
             store: store,
-            cgsBridge: MockCGSBridge(activeSpaceIDValue: 101, managedSnapshotValue: snapshot)
+            cgsBridge: MockCGSBridge(activeSpaceIDValue: 101, managedSnapshotValue: snapshot),
+            logger: NoOpLogger()
         )
         writer.rename(spaceID: 101, name: "Inbox")
         writer.persistNow()
 
         let reader = SpaceRegistry(
             store: store,
-            cgsBridge: MockCGSBridge(activeSpaceIDValue: 101, managedSnapshotValue: snapshot)
+            cgsBridge: MockCGSBridge(activeSpaceIDValue: 101, managedSnapshotValue: snapshot),
+            logger: NoOpLogger()
         )
 
         XCTAssertEqual(reader.name(for: 101), "Inbox")
@@ -101,14 +103,16 @@ final class SpaceRegistryTests: XCTestCase {
 
         let writer = SpaceRegistry(
             store: store,
-            cgsBridge: MockCGSBridge(activeSpaceIDValue: 101, managedSnapshotValue: snapshot)
+            cgsBridge: MockCGSBridge(activeSpaceIDValue: 101, managedSnapshotValue: snapshot),
+            logger: NoOpLogger()
         )
         writer.moveDisplayOrder(fromOffsets: IndexSet(integer: 2), toOffset: 0)
         writer.persistNow()
 
         let reader = SpaceRegistry(
             store: store,
-            cgsBridge: MockCGSBridge(activeSpaceIDValue: 101, managedSnapshotValue: snapshot)
+            cgsBridge: MockCGSBridge(activeSpaceIDValue: 101, managedSnapshotValue: snapshot),
+            logger: NoOpLogger()
         )
 
         XCTAssertTrue(reader.usesCustomDisplayOrder)
@@ -130,7 +134,8 @@ final class SpaceRegistryTests: XCTestCase {
             cgsBridge: MockCGSBridge(
                 activeSpaceIDValue: nil,
                 managedSnapshotValue: .init(spaces: [], activeByDisplay: [:], orderedIDsByDisplay: [:])
-            )
+            ),
+            logger: NoOpLogger()
         )
 
         XCTAssertEqual(registry.name(for: 101), "Inbox")
@@ -155,7 +160,7 @@ final class SpaceRegistryTests: XCTestCase {
             )
         )
 
-        let registry = SpaceRegistry(store: store, cgsBridge: bridge)
+        let registry = SpaceRegistry(store: store, cgsBridge: bridge, logger: NoOpLogger())
 
         bridge.activeSpaceIDValue = 101
         bridge.managedSnapshotValue = .init(

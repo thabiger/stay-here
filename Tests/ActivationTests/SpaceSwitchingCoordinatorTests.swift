@@ -39,7 +39,8 @@ final class SpaceSwitchingCoordinatorTests: XCTestCase {
             switcherService: SpaceSwitcherService(
                 cgsBridge: bridge,
                 refreshRetryLimit: 0,
-                waitForRefresh: { _ in }
+                waitForRefresh: { _ in },
+                logger: NoOpLogger()
             ),
             orderedSpaceIDs: {
                 ordering.orderedSpaceIDs(
@@ -57,7 +58,8 @@ final class SpaceSwitchingCoordinatorTests: XCTestCase {
             },
             scheduleAfter: { _, task in
                 scheduledTasks.append(task)
-            }
+            },
+            logger: NoOpLogger()
         )
 
         let result = coordinator.switchToSpace(102)
@@ -117,7 +119,8 @@ final class SpaceSwitchingCoordinatorTests: XCTestCase {
             switcherService: SpaceSwitcherService(
                 cgsBridge: bridge,
                 refreshRetryLimit: 0,
-                waitForRefresh: { _ in }
+                waitForRefresh: { _ in },
+                logger: NoOpLogger()
             ),
             orderedSpaceIDs: {
                 ordering.orderedSpaceIDs(
@@ -133,7 +136,8 @@ final class SpaceSwitchingCoordinatorTests: XCTestCase {
             applySnapshot: { snapshot in
                 Self.applySnapshot(snapshot, bridge: bridge, ordering: ordering, stateStore: stateStore)
             },
-            scheduleAfter: { _, _ in }
+            scheduleAfter: { _, _ in },
+            logger: NoOpLogger()
         )
 
         coordinator.switchToNextSpace()
@@ -165,12 +169,14 @@ final class SpaceSwitchingCoordinatorTests: XCTestCase {
             switcherService: SpaceSwitcherService(
                 cgsBridge: bridge,
                 refreshRetryLimit: 0,
-                waitForRefresh: { _ in }
+                waitForRefresh: { _ in },
+                logger: NoOpLogger()
             ),
             orderedSpaceIDs: { [] },
             refreshNow: {},
             applySnapshot: { _ in },
-            scheduleAfter: { _, _ in }
+            scheduleAfter: { _, _ in },
+            logger: NoOpLogger()
         )
 
         coordinator.switchToNextSpace()
@@ -202,7 +208,8 @@ final class SpaceSwitchingCoordinatorTests: XCTestCase {
             switcherService: SpaceSwitcherService(
                 cgsBridge: bridge,
                 refreshRetryLimit: 1,
-                waitForRefresh: { _ in }
+                waitForRefresh: { _ in },
+                logger: NoOpLogger()
             ),
             orderedSpaceIDs: {
                 ordering.orderedSpaceIDs(
@@ -220,7 +227,8 @@ final class SpaceSwitchingCoordinatorTests: XCTestCase {
             },
             scheduleAfter: { _, task in
                 scheduledTasks.append(task)
-            }
+            },
+            logger: NoOpLogger()
         )
 
         let result = coordinator.switchToSpace(102)
@@ -250,7 +258,8 @@ final class SpaceSwitchingCoordinatorTests: XCTestCase {
             switcherService: SpaceSwitcherService(
                 cgsBridge: bridge,
                 refreshRetryLimit: 0,
-                waitForRefresh: { _ in }
+                waitForRefresh: { _ in },
+                logger: NoOpLogger()
             ),
             orderedSpaceIDs: { [101] },
             refreshNow: {
@@ -263,7 +272,8 @@ final class SpaceSwitchingCoordinatorTests: XCTestCase {
             scheduleAfter: { _, task in
                 scheduledTasks.append(task)
             },
-            refreshRetryLimit: 3
+            refreshRetryLimit: 3,
+            logger: NoOpLogger()
         )
 
         coordinator.refreshSpacesSoon()
@@ -299,7 +309,8 @@ final class SpaceSwitchingCoordinatorTests: XCTestCase {
             switcherService: SpaceSwitcherService(
                 cgsBridge: bridge,
                 refreshRetryLimit: 0,
-                waitForRefresh: { _ in }
+                waitForRefresh: { _ in },
+                logger: NoOpLogger()
             ),
             orderedSpaceIDs: { [] },
             refreshNow: {},
@@ -307,7 +318,8 @@ final class SpaceSwitchingCoordinatorTests: XCTestCase {
                 XCTAssertTrue(Thread.isMainThread)
                 Self.applySnapshot(snapshot, bridge: bridge, ordering: ordering, stateStore: stateStore)
                 appliedOnMainThread.fulfill()
-            }
+            },
+            logger: NoOpLogger()
         )
 
         coordinator.refreshSpacesAsync()

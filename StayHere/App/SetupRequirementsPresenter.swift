@@ -6,13 +6,16 @@ import Core
 final class SetupRequirementsPresenter {
     private let appearanceManager: AppearanceManager
     private let switchPresentationHelper: SpaceSwitchPresentationHelper
+    private let logger: any Logging
 
     init(
         appearanceManager: AppearanceManager,
-        switchPresentationHelper: SpaceSwitchPresentationHelper
+        switchPresentationHelper: SpaceSwitchPresentationHelper,
+        logger: any Logging
     ) {
         self.appearanceManager = appearanceManager
         self.switchPresentationHelper = switchPresentationHelper
+        self.logger = logger
     }
 
     func presentSetupRequirementsWarning() {
@@ -73,19 +76,19 @@ final class SetupRequirementsPresenter {
 
     func reloadApplication() {
         let bundleURL = Bundle.main.bundleURL
-        Logger.shared.info("reload requested")
+        logger.info("reload requested")
         let configuration = NSWorkspace.OpenConfiguration()
-        NSWorkspace.shared.openApplication(at: bundleURL, configuration: configuration) { _, error in
+        NSWorkspace.shared.openApplication(at: bundleURL, configuration: configuration) { [logger] _, error in
             if error != nil {
-                Logger.shared.error("failed to reload app after setup changes")
-                Logger.shared.flush()
+                logger.error("failed to reload app after setup changes")
+                logger.flush()
                 Task { @MainActor in
                     self.showReloadFailureAlert()
                 }
                 return
             }
-            Logger.shared.info("reload launch request succeeded")
-            Logger.shared.flush()
+            logger.info("reload launch request succeeded")
+            logger.flush()
             NSApp.terminate(nil)
         }
     }

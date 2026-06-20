@@ -6,6 +6,7 @@ public final class ActivationController {
     private let policy: ActivationPolicy
     private let executor: ActivationExecutor
     private let settings: SettingsRepository
+    private let logger: any Logging
     private var interceptor: DockClickInterceptor?
     public private(set) var eventTapClient: (any CGEventTapClient)?
     private let currentSpaceID: () -> Int?
@@ -18,11 +19,13 @@ public final class ActivationController {
         currentSpaceID: @escaping () -> Int?,
         activeSpaceIDs: @escaping () -> Set<Int>,
         switchToSpace: @escaping (Int) -> Void = { _ in },
-        onShowSingleWindowHint: @escaping (String) -> Void = { _ in }
+        onShowSingleWindowHint: @escaping (String) -> Void = { _ in },
+        logger: any Logging
     ) {
         self.windowIndex = windowIndex
         self.policy = policy ?? ActivationPolicy(settings: settings)
         self.settings = settings
+        self.logger = logger
         self.currentSpaceID = currentSpaceID
         self.activeSpaceIDs = activeSpaceIDs
         self.executor = ActivationExecutor(
@@ -40,7 +43,8 @@ public final class ActivationController {
             },
             handler: { [weak self] bundleID, optionHeld in
                 self?.handleDockClick(bundleID: bundleID, optionHeld: optionHeld) ?? false
-            }
+            },
+            logger: logger
         )
         self.interceptor = interceptor
         self.eventTapClient = interceptor
@@ -67,7 +71,7 @@ public final class ActivationController {
         let context = makeContext(bundleID: bundleID, optionHeld: optionHeld)
         let decision = policy.decide(context)
         if log {
-            Logger.shared.info(
+            logger.info(
                 "activation decision=\(decision.rawValue) enabled=\(settings.activationDockClickInterceptionEnabled) option=\(optionHeld) target=\(context.targetSpaceID ?? -1) current_space_count=\(context.activeSpaceIDs.count) window_count=\(context.appWindowSummary?.totalWindowCount ?? 0)"
             )
         }

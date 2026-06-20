@@ -18,6 +18,7 @@ final class UpdateController: UpdateControlling {
     private let openURL: (URL) -> Bool
     private let presentUpToDateMessage: () -> Void
     private let presentUpdateErrorMessage: (String) -> Void
+    private let logger: any Logging
 
     private var currentUpdateInfo: UpdateInfo?
     private var announcedVersions: Set<String> = []
@@ -33,7 +34,8 @@ final class UpdateController: UpdateControlling {
         activateApp: (() -> Void)? = nil,
         setActivationPolicy: ((NSApplication.ActivationPolicy) -> Void)? = nil,
         presentUpToDateMessage: (() -> Void)? = nil,
-        presentUpdateErrorMessage: ((String) -> Void)? = nil
+        presentUpdateErrorMessage: ((String) -> Void)? = nil,
+        logger: any Logging
     ) {
         self.settings = settings
         self.updateService = updateService
@@ -68,6 +70,7 @@ final class UpdateController: UpdateControlling {
             appearanceManager.applyCurrentMode(to: [alert.window])
             _ = alert.runModal()
         }
+        self.logger = logger
     }
 
     func restoreCachedState() {
@@ -93,7 +96,7 @@ final class UpdateController: UpdateControlling {
                     self.handle(result: result, source: .automatic)
                 }
             } catch {
-                Logger.shared.info("automatic update check failed: \(error.localizedDescription)")
+                logger.info("automatic update check failed: \(error.localizedDescription)")
             }
         }
     }
@@ -108,7 +111,7 @@ final class UpdateController: UpdateControlling {
                     self.handle(result: result, source: .manual)
                 }
             } catch {
-                Logger.shared.info("manual update check failed: \(error.localizedDescription)")
+                logger.info("manual update check failed: \(error.localizedDescription)")
                 await MainActor.run {
                     self.presentUpdateErrorMessage(error.localizedDescription)
                 }

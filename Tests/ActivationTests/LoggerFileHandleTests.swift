@@ -22,11 +22,9 @@ final class LoggerFileHandleTests: XCTestCase {
     private func makeLogger(
         diagnosticsEnabled: Bool = true,
         logURL: URL? = nil
-    ) -> Logger {
-        let settings = MockSettingsRepository()
-        settings.diagnosticsEnabled = diagnosticsEnabled
-        return Logger(
-            settings: settings,
+    ) -> FileLogger {
+        FileLogger(
+            isInfoEnabled: { diagnosticsEnabled },
             logURL: logURL ?? tempDir.appendingPathComponent("stayhere.log")
         )
     }

@@ -1,6 +1,7 @@
 import XCTest
 import CoreGraphics
 import AppKit
+import Core
 @testable import Activation
 
 final class DockClickInterceptorStaleStateTests: XCTestCase {
@@ -16,7 +17,8 @@ final class DockClickInterceptorStaleStateTests: XCTestCase {
         return DockClickInterceptor(
             settings: settings,
             shouldIntercept: shouldIntercept,
-            handler: handler
+            handler: handler,
+            logger: NoOpLogger()
         )
     }
 

@@ -55,7 +55,7 @@ final class AppRuntimeCoordinator: AppCoordinating, RuntimeCoordinating {
             registry: services.registry,
             settings: services.settings
         )
-        let eventTapProxy = AppEventTapProxy()
+        let eventTapProxy = AppEventTapProxy(logger: services.logger)
         self.switcherCoordinator = SwitcherCoordinator(
             spaceSwitcherController: controllers.spaceSwitcherController,
             windowSwitcherController: controllers.windowSwitcherController,
@@ -98,7 +98,7 @@ final class AppRuntimeCoordinator: AppCoordinating, RuntimeCoordinating {
             onCheckForUpdates: { [weak self] in self?.updateController.performManualCheck() },
             onOpenAvailableUpdate: { [weak self] in self?.updateController.presentAvailableUpdate() },
             onCopyState: { [weak self] in self?.spaceObservationCoordinator.copySpaceState() },
-            onOpenLogs: { Logger.shared.openLogsInFinder() },
+            onOpenLogs: { [logger = services.logger] in logger.openLogsInFinder() },
             onQuit: { NSApp.terminate(nil) },
             onSelectSpace: { [weak self] id in
                 self?.spaceObservationCoordinator.performSpaceSwitch(id)

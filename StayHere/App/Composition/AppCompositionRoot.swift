@@ -16,10 +16,14 @@ final class AppCompositionRoot: NSObject {
         cgsBridge: any CGSBridgeProtocol = CGSBridge.live,
         updateService: (any UpdateService)? = nil
     ) {
+        let logger: any Logging = FileLogger(
+            isInfoEnabled: { [weak settings] in settings?.diagnosticsEnabled ?? false }
+        )
         self.services = CompositionServices(
             settings: settings,
             cgsBridge: cgsBridge,
-            updateService: updateService
+            updateService: updateService,
+            logger: logger
         )
         self.controllers = CompositionControllers(services: services)
         self.windowManagers = CompositionWindowManagers(services: services)
@@ -33,7 +37,8 @@ final class AppCompositionRoot: NSObject {
                 controllers.spaceSwitcherController.setAvailableUpdate(updateInfo)
                 controllers.windowSwitcherController.setAvailableUpdate(updateInfo)
                 controllers.allSpacesWindowSwitcherController.setAvailableUpdate(updateInfo)
-            }
+            },
+            logger: logger
         )
         self.runtimeCoordinator = AppRuntimeCoordinator(
             services: services,

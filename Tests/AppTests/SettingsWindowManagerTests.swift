@@ -13,6 +13,7 @@ final class SettingsWindowManagerTests: XCTestCase {
             settings: defaults,
             appearanceManager: appearanceManager,
             onAppearanceChange: {},
+            onOpenLogs: {},
             setActivationPolicy: { setPolicies.append($0) },
             activateApp: { activated = true },
             hasVisibleOwnedWindow: { false }
@@ -38,6 +39,7 @@ final class SettingsWindowManagerTests: XCTestCase {
             settings: defaults,
             appearanceManager: appearanceManager,
             onAppearanceChange: {},
+            onOpenLogs: {},
             onDidClose: { didClose = true },
             setActivationPolicy: { setPolicies.append($0) },
             activateApp: {},

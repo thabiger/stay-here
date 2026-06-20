@@ -20,7 +20,8 @@ final class UpdateControllerTests: XCTestCase {
             activateApp: {},
             setActivationPolicy: { _ in },
             presentUpToDateMessage: { upToDateMessageCount += 1 },
-            presentUpdateErrorMessage: { _ in }
+            presentUpdateErrorMessage: { _ in },
+            logger: NoOpLogger()
         )
 
         controller.performManualCheck()
@@ -46,7 +47,8 @@ final class UpdateControllerTests: XCTestCase {
             activateApp: {},
             setActivationPolicy: { _ in },
             presentUpToDateMessage: {},
-            presentUpdateErrorMessage: { _ in }
+            presentUpdateErrorMessage: { _ in },
+            logger: NoOpLogger()
         )
 
         controller.performManualCheck()
@@ -72,7 +74,8 @@ final class UpdateControllerTests: XCTestCase {
             activateApp: {},
             setActivationPolicy: { _ in },
             presentUpToDateMessage: {},
-            presentUpdateErrorMessage: { _ in }
+            presentUpdateErrorMessage: { _ in },
+            logger: NoOpLogger()
         )
 
         controller.scheduleAutomaticCheck()
@@ -99,7 +102,8 @@ final class UpdateControllerTests: XCTestCase {
             activateApp: {},
             setActivationPolicy: { _ in },
             presentUpToDateMessage: {},
-            presentUpdateErrorMessage: { shownError = $0 }
+            presentUpdateErrorMessage: { shownError = $0 },
+            logger: NoOpLogger()
         )
 
         controller.performManualCheck()

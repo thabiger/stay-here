@@ -10,19 +10,22 @@ final class AppRuntimeCoordinatorUpdateTests: XCTestCase {
         let cgsBridge = FakeCGSBridge()
         let appearanceManager = AppearanceManager(settings: settings)
 
+        let logger: any Logging = NoOpLogger()
         let lifecycleCoordinator = AppLifecycleCoordinator(
             appearanceManager: appearanceManager,
             applyAppearance: {},
             setupStatusProvider: {
                 AppSetupStatusSnapshot(isSatisfied: true, missingDescriptionsCount: 0)
             },
-            setActivationPolicy: { _ in }
+            setActivationPolicy: { _ in },
+            logger: logger
         )
 
         let services = CompositionServices(
             settings: settings,
             cgsBridge: cgsBridge,
-            lifecycleCoordinator: lifecycleCoordinator
+            lifecycleCoordinator: lifecycleCoordinator,
+            logger: logger
         )
         let controllers = CompositionControllers(services: services)
         let windowManagers = CompositionWindowManagers(services: services)

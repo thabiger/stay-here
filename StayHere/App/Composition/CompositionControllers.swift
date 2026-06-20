@@ -23,7 +23,8 @@ final class CompositionControllers {
 
     lazy var setupRequirementsPresenter = SetupRequirementsPresenter(
         appearanceManager: services.appearanceManager,
-        switchPresentationHelper: switchPresentationHelper
+        switchPresentationHelper: switchPresentationHelper,
+        logger: services.logger
     )
 
     lazy var spaceSwitcherController = SpaceSwitcherController(
@@ -83,7 +84,8 @@ final class CompositionControllers {
         },
         onShowSingleWindowHint: { [weak self] message in
             self?.hudController.show(message: message)
-        }
+        },
+        logger: services.logger
     )
 
     init(services: CompositionServices) {

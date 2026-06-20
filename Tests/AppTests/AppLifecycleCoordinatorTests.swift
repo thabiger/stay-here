@@ -10,7 +10,8 @@ final class AppLifecycleCoordinatorTests: XCTestCase {
             setupStatusProvider: {
                 AppSetupStatusSnapshot(isSatisfied: true, missingDescriptionsCount: 0)
             },
-            setActivationPolicy: { _ in }
+            setActivationPolicy: { _ in },
+            logger: NoOpLogger()
         )
         var startedControllers = false
         var presentedWarning = false
@@ -35,7 +36,8 @@ final class AppLifecycleCoordinatorTests: XCTestCase {
             setupStatusProvider: {
                 AppSetupStatusSnapshot(isSatisfied: false, missingDescriptionsCount: 1)
             },
-            setActivationPolicy: { _ in }
+            setActivationPolicy: { _ in },
+            logger: NoOpLogger()
         )
         var startedControllers = false
         var presentedWarning = false
@@ -57,7 +59,8 @@ final class AppLifecycleCoordinatorTests: XCTestCase {
         let coordinator = AppLifecycleCoordinator(
             appearanceManager: AppearanceManager(settings: UserDefaultsSettingsRepository()),
             applyAppearance: {},
-            setActivationPolicy: { _ in }
+            setActivationPolicy: { _ in },
+            logger: NoOpLogger()
         )
         var refreshCount = 0
 

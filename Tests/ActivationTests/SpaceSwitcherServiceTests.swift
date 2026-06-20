@@ -24,7 +24,8 @@ final class SpaceSwitcherServiceTests: XCTestCase {
         let service = SpaceSwitcherService(
             cgsBridge: bridge,
             refreshRetryLimit: 0,
-            waitForRefresh: { _ in }
+            waitForRefresh: { _ in },
+            logger: NoOpLogger()
         )
         var refreshedState = SpaceSwitchSnapshot(
             activeSpaceID: 101,
@@ -69,7 +70,8 @@ final class SpaceSwitcherServiceTests: XCTestCase {
         let service = SpaceSwitcherService(
             cgsBridge: bridge,
             refreshRetryLimit: 1,
-            waitForRefresh: { _ in }
+            waitForRefresh: { _ in },
+            logger: NoOpLogger()
         )
         let snapshot = SpaceSwitchSnapshot(
             activeSpaceID: 101,

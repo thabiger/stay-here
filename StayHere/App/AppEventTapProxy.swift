@@ -13,6 +13,7 @@ final class AppEventTapProxy: EventTapProxying {
     private let tapEnableHandler: TapEnableHandler
     private let addRunLoopSource: RunLoopSourceHandler
     private let removeRunLoopSource: RunLoopSourceHandler
+    private let logger: any Logging
 
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
@@ -23,13 +24,15 @@ final class AppEventTapProxy: EventTapProxying {
         runLoopSourceFactory: @escaping RunLoopSourceFactory = AppEventTapProxy.liveRunLoopSourceFactory,
         tapEnableHandler: @escaping TapEnableHandler = AppEventTapProxy.liveTapEnableHandler,
         addRunLoopSource: @escaping RunLoopSourceHandler = AppEventTapProxy.liveAddRunLoopSource,
-        removeRunLoopSource: @escaping RunLoopSourceHandler = AppEventTapProxy.liveRemoveRunLoopSource
+        removeRunLoopSource: @escaping RunLoopSourceHandler = AppEventTapProxy.liveRemoveRunLoopSource,
+        logger: any Logging
     ) {
         self.eventTapFactory = eventTapFactory
         self.runLoopSourceFactory = runLoopSourceFactory
         self.tapEnableHandler = tapEnableHandler
         self.addRunLoopSource = addRunLoopSource
         self.removeRunLoopSource = removeRunLoopSource
+        self.logger = logger
     }
 
     deinit {
@@ -58,7 +61,7 @@ final class AppEventTapProxy: EventTapProxying {
         guard eventTap == nil else { return }
 
         guard let tap = eventTapFactory(Self.eventTapCallback, Unmanaged.passUnretained(self).toOpaque()) else {
-            Logger.shared.error("app-wide event tap unavailable")
+            logger.error("app-wide event tap unavailable")
             return
         }
 

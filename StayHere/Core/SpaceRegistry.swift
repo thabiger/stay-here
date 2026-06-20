@@ -28,6 +28,7 @@ public final class SpaceRegistry: ObservableObject {
     private let switcherService: SpaceSwitcherService
     private let stateStore: SpaceStateStore
     private let orderingService: SpaceOrderingService
+    private let logger: any Logging
     private var stateStoreObserver: AnyCancellable?
     private lazy var switchingCoordinator = makeSwitchingCoordinator()
 
@@ -35,11 +36,13 @@ public final class SpaceRegistry: ObservableObject {
         store: SpaceStore = SpaceStore(),
         cgsBridge: any CGSBridgeProtocol = CGSBridge.live,
         labelStore: SpaceLabelStore? = nil,
-        switcherService: SpaceSwitcherService? = nil
+        switcherService: SpaceSwitcherService? = nil,
+        logger: any Logging
     ) {
         self.cgsBridge = cgsBridge
-        self.labelStore = labelStore ?? SpaceLabelStore(store: store)
-        self.switcherService = switcherService ?? SpaceSwitcherService(cgsBridge: cgsBridge)
+        self.logger = logger
+        self.labelStore = labelStore ?? SpaceLabelStore(store: store, logger: logger)
+        self.switcherService = switcherService ?? SpaceSwitcherService(cgsBridge: cgsBridge, logger: logger)
         self.stateStore = SpaceStateStore()
         self.orderingService = SpaceOrderingService()
         self.stateStoreObserver = nil
@@ -64,7 +67,7 @@ public final class SpaceRegistry: ObservableObject {
         let before = activeSpaceID
         refreshSpaces()
         if before != activeSpaceID {
-            Logger.shared.info("space-change")
+            logger.info("space-change")
         }
     }
 
@@ -220,7 +223,8 @@ public final class SpaceRegistry: ObservableObject {
             },
             applySnapshot: { [weak self] snapshot in
                 self?.applyManagedSnapshot(snapshot)
-            }
+            },
+            logger: logger
         )
     }
 }

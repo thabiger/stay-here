@@ -88,6 +88,7 @@ final class SettingsCoordinator: ObservableObject {
 
 struct SettingsView: View {
     @ObservedObject var coordinator: SettingsCoordinator
+    let onOpenLogs: () -> Void
 
     var body: some View {
         ScrollView {
@@ -126,7 +127,7 @@ struct SettingsView: View {
                         .font(.footnote)
                         .foregroundStyle(.orange)
                     Button("Open Logs") {
-                        Logger.shared.openLogsInFinder()
+                        onOpenLogs()
                     }
                 }
 

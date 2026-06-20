@@ -11,6 +11,7 @@ final class AppLifecycleCoordinator {
     private let applyAppearance: () -> Void
     private let setupStatusProvider: () -> AppSetupStatusSnapshot
     private let setActivationPolicy: (NSApplication.ActivationPolicy) -> Void
+    private let logger: any Logging
     private var pollTimer: Timer?
 
     init(
@@ -23,11 +24,13 @@ final class AppLifecycleCoordinator {
                 missingDescriptionsCount: status.missingDescriptions.count
             )
         },
-        setActivationPolicy: @escaping (NSApplication.ActivationPolicy) -> Void = { NSApp.setActivationPolicy($0) }
+        setActivationPolicy: @escaping (NSApplication.ActivationPolicy) -> Void = { NSApp.setActivationPolicy($0) },
+        logger: any Logging
     ) {
         self.applyAppearance = applyAppearance ?? { appearanceManager.applyCurrentMode() }
         self.setupStatusProvider = setupStatusProvider
         self.setActivationPolicy = setActivationPolicy
+        self.logger = logger
     }
 
     func applicationDidFinishLaunching(
@@ -55,8 +58,8 @@ final class AppLifecycleCoordinator {
     }
 
     func applicationWillTerminate(stopControllers: @escaping () -> Void) {
-        Logger.shared.info("application will terminate")
-        Logger.shared.flush()
+        logger.info("application will terminate")
+        logger.flush()
         pollTimer?.invalidate()
         pollTimer = nil
         stopControllers()
@@ -77,7 +80,7 @@ final class AppLifecycleCoordinator {
             return
         }
 
-        Logger.shared.error("setup requirements missing count=\(status.missingDescriptionsCount)")
+        logger.error("setup requirements missing count=\(status.missingDescriptionsCount)")
         presentSetupRequirementsWarning()
     }
 }

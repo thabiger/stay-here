@@ -6,6 +6,7 @@ final class SettingsWindowManager: NSObject, NSWindowDelegate {
     private let settings: SettingsRepository
     private let appearanceManager: AppearanceManager
     private let onAppearanceChange: () -> Void
+    private let onOpenLogs: () -> Void
     var onWillOpen: () -> Void
     var onDidClose: () -> Void
     private let setActivationPolicy: (NSApplication.ActivationPolicy) -> Void
@@ -20,6 +21,7 @@ final class SettingsWindowManager: NSObject, NSWindowDelegate {
         settings: SettingsRepository,
         appearanceManager: AppearanceManager,
         onAppearanceChange: @escaping () -> Void,
+        onOpenLogs: @escaping () -> Void,
         onWillOpen: @escaping () -> Void = {},
         onDidClose: @escaping () -> Void = {},
         setActivationPolicy: @escaping (NSApplication.ActivationPolicy) -> Void = { NSApp.setActivationPolicy($0) },
@@ -29,6 +31,7 @@ final class SettingsWindowManager: NSObject, NSWindowDelegate {
         self.settings = settings
         self.appearanceManager = appearanceManager
         self.onAppearanceChange = onAppearanceChange
+        self.onOpenLogs = onOpenLogs
         self.onWillOpen = onWillOpen
         self.onDidClose = onDidClose
         self.setActivationPolicy = setActivationPolicy
@@ -48,7 +51,7 @@ final class SettingsWindowManager: NSObject, NSWindowDelegate {
                 onAppearanceChange: onAppearanceChange
             )
             settingsCoordinator = coordinator
-            let host = NSHostingController(rootView: SettingsView(coordinator: coordinator))
+            let host = NSHostingController(rootView: SettingsView(coordinator: coordinator, onOpenLogs: onOpenLogs))
             settingsHostingController = host
 
             let window = NSWindow(

@@ -46,7 +46,7 @@ final class SpaceSwitcherControllerSessionRaceTests: XCTestCase {
             .appendingPathComponent(UUID().uuidString)
             .appendingPathComponent("spaces.json")
         let store = SpaceStore(fileURL: fileURL)
-        let registry = SpaceRegistry(store: store, cgsBridge: bridge)
+        let registry = SpaceRegistry(store: store, cgsBridge: bridge, logger: NoOpLogger())
         let controller = SpaceSwitcherController(
             settings: UserDefaultsSettingsRepository(),
             registry: registry,
@@ -229,7 +229,7 @@ final class SpaceSwitcherControllerSessionRaceTests: XCTestCase {
             .appendingPathComponent(UUID().uuidString)
             .appendingPathComponent("spaces.json")
         let store = SpaceStore(fileURL: fileURL)
-        let registry = SpaceRegistry(store: store, cgsBridge: bridge)
+        let registry = SpaceRegistry(store: store, cgsBridge: bridge, logger: NoOpLogger())
         let controller = SpaceSwitcherController(
             settings: UserDefaultsSettingsRepository(),
             registry: registry,
@@ -261,7 +261,7 @@ final class SpaceSwitcherControllerSessionRaceTests: XCTestCase {
             .appendingPathComponent(UUID().uuidString)
             .appendingPathComponent("spaces.json")
         let store = SpaceStore(fileURL: fileURL)
-        let registry = SpaceRegistry(store: store, cgsBridge: bridge)
+        let registry = SpaceRegistry(store: store, cgsBridge: bridge, logger: NoOpLogger())
         let controller = SpaceSwitcherController(
             settings: UserDefaultsSettingsRepository(),
             registry: registry,
