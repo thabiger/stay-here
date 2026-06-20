@@ -5,7 +5,7 @@ import SwiftUI
 
 final class WindowSwitcherController {
     let mode: WindowSwitcherMode
-    let settings: SettingsRepository
+    let settings: WindowSwitcherSettings & AllSpacesWindowSwitcherSettings
     let registry: SpaceRegistry
     let switchSpace: SwitchSpaceUseCase
     let refreshSpaces: RefreshSpacesUseCase
@@ -118,7 +118,7 @@ final class WindowSwitcherController {
     }
 
     init(
-        settings: SettingsRepository,
+        settings: WindowSwitcherSettings & AllSpacesWindowSwitcherSettings,
         registry: SpaceRegistry,
         switchSpace: SwitchSpaceUseCase,
         refreshSpaces: RefreshSpacesUseCase,

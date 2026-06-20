@@ -40,8 +40,7 @@ final class AppRuntimeCoordinator: AppCoordinating, RuntimeCoordinating {
 
         self.statusBarCoordinator = StatusBarCoordinator(
             statusController: controllers.statusController,
-            registry: services.registry,
-            settings: services.settings
+            registry: services.registry
         )
         self.spaceObservationCoordinator = SpaceObservationCoordinator(
             registry: services.registry,
@@ -55,8 +54,7 @@ final class AppRuntimeCoordinator: AppCoordinating, RuntimeCoordinating {
             aboutWindowManager: windowManagers.aboutWindowManager,
             appearanceManager: services.appearanceManager,
             registry: services.registry,
-            refreshSpaces: services.refreshSpaces,
-            settings: services.settings
+            refreshSpaces: services.refreshSpaces
         )
         let eventTapProxy = AppEventTapProxy(logger: services.logger)
         self.switcherCoordinator = SwitcherCoordinator(

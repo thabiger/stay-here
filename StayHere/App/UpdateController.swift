@@ -11,7 +11,7 @@ protocol UpdateControlling: AnyObject {
 
 @MainActor
 final class UpdateController: UpdateControlling {
-    private let settings: SettingsRepository
+    private let settings: UpdateSettings
     private let updateService: any UpdateService
     private let updateWindowManager: any UpdateWindowManaging
     private let setAvailableUpdate: (UpdateInfo?) -> Void
@@ -25,7 +25,7 @@ final class UpdateController: UpdateControlling {
     private var automaticCheckTask: Task<Void, Never>?
 
     init(
-        settings: SettingsRepository,
+        settings: UpdateSettings,
         updateService: any UpdateService,
         updateWindowManager: any UpdateWindowManaging,
         appearanceManager: AppearanceManager,

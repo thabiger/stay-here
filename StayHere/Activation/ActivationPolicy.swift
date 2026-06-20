@@ -42,7 +42,7 @@ public final class ActivationPolicy {
     private let isAppRunning: (String) -> Bool
 
     public convenience init(
-        settings: SettingsRepository,
+        settings: ActivationSettings,
         isAppRunning: @escaping (String) -> Bool = { bundleID in
             !NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).isEmpty
         }

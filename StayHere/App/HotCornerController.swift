@@ -12,7 +12,7 @@ final class HotCornerController {
         static let activationDistance: CGFloat = 3
     }
 
-    private let settings: SettingsRepository
+    private let settings: HotCornerSettings
     private let mouseLocationProvider: MouseLocationProvider
     private let screenFramesProvider: ScreenFramesProvider
     private let actionHandler: ActionHandler
@@ -22,7 +22,7 @@ final class HotCornerController {
     private var lastHoveredCorner: HotCorner?
 
     init(
-        settings: SettingsRepository,
+        settings: HotCornerSettings,
         mouseLocationProvider: @escaping MouseLocationProvider = { NSEvent.mouseLocation },
         screenFramesProvider: @escaping ScreenFramesProvider = { NSScreen.screens.map(\.frame) },
         actionHandler: @escaping ActionHandler

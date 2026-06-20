@@ -84,7 +84,7 @@ final class SpaceSwitcherController {
     }
 
     init(
-        settings: SettingsRepository,
+        settings: SpaceSwitcherSettings,
         registry: SpaceRegistry,
         switchToSpace: @escaping (Int) -> Void,
         shortcutProvider: (() -> SpaceSwitcherShortcut)? = nil

@@ -28,7 +28,7 @@ public final class DockClickInterceptor: CGEventTapClient {
     public var handlesMouseEvents: Bool { isDockClickInterceptionEnabled() }
 
     public init(
-        settings: SettingsRepository,
+        settings: ActivationSettings,
         shouldIntercept: @escaping (String, Bool) -> Bool,
         handler: @escaping (String, Bool) -> Bool,
         logger: any Logging

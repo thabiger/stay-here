@@ -2,7 +2,7 @@ import AppKit
 import Core
 
 final class HUDController {
-    private let settings: SettingsRepository
+    private let settings: HUDSettings
     private let appearanceManager: AppearanceManager
     private let hudWidth: CGFloat = 560
     private let cornerRadius: CGFloat = 18
@@ -12,7 +12,7 @@ final class HUDController {
     private var windowPair: (window: NSWindow, label: NSTextField)?
     private var hideTask: DispatchWorkItem?
 
-    init(settings: SettingsRepository, appearanceManager: AppearanceManager) {
+    init(settings: HUDSettings, appearanceManager: AppearanceManager) {
         self.settings = settings
         self.appearanceManager = appearanceManager
     }

@@ -21,7 +21,7 @@ final class WindowListProvider {
 
     private let registry: SpaceRegistry
     private let cgsBridge: any CGSBridgeProtocol
-    private let settings: SettingsRepository
+    private let settings: WindowSwitcherSettings
     private let windowInfoProvider: WindowInfoProvider
     private let runningApplicationProvider: RunningApplicationProvider
     private let accessibilityWindowTitlesProvider: AccessibilityWindowTitlesProvider
@@ -31,7 +31,7 @@ final class WindowListProvider {
     init(
         registry: SpaceRegistry,
         cgsBridge: any CGSBridgeProtocol,
-        settings: SettingsRepository,
+        settings: WindowSwitcherSettings,
         windowInfoProvider: @escaping WindowInfoProvider = WindowListProvider.liveWindowInfoProvider,
         runningApplicationProvider: @escaping RunningApplicationProvider = WindowListProvider.liveRunningApplicationProvider,
         accessibilityWindowTitlesProvider: @escaping AccessibilityWindowTitlesProvider = WindowListProvider.liveAccessibilityWindowTitlesProvider,

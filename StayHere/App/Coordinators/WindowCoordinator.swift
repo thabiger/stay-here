@@ -8,7 +8,6 @@ final class WindowCoordinator {
     private let appearanceManager: AppearanceManager
     private let registry: SpaceRegistry
     private let refreshSpaces: RefreshSpacesUseCase
-    private let settings: SettingsRepository
 
     var onSettingsWillOpen: (() -> Void)?
     var onSettingsDidClose: (() -> Void)?
@@ -18,15 +17,13 @@ final class WindowCoordinator {
         aboutWindowManager: AboutWindowManager,
         appearanceManager: AppearanceManager,
         registry: SpaceRegistry,
-        refreshSpaces: RefreshSpacesUseCase,
-        settings: SettingsRepository
+        refreshSpaces: RefreshSpacesUseCase
     ) {
         self.settingsWindowManager = settingsWindowManager
         self.aboutWindowManager = aboutWindowManager
         self.appearanceManager = appearanceManager
         self.registry = registry
         self.refreshSpaces = refreshSpaces
-        self.settings = settings
 
         self.settingsWindowManager.onWillOpen = { [weak self] in
             self?.handleSettingsWillOpen()

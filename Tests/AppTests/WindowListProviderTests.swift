@@ -32,26 +32,12 @@ private struct FakeWindowListApplication: WindowListApplication {
     let bundleURL: URL?
 }
 
-private final class FakeWindowListSettings: SettingsRepository {
-    var appearanceMode: AppearanceMode = .system
-    var diagnosticsEnabled: Bool = false
-    var automaticUpdateChecksEnabled: Bool = true
-    var spaceSwitcherEnabled: Bool = true
-    var spaceSwitcherShortcutText: String = "command+tab"
+private final class FakeWindowListSettings: WindowSwitcherSettings {
     var windowSwitcherEnabled: Bool = true
     var windowSwitcherShortcutText: String = "command+`"
     var windowSwitcherTitleFormat: WindowSwitcherTitleFormat = .appNameOnly
     var windowSwitcherShowMinimizedWindows: Bool = false
     var windowSwitcherShowHiddenWindows: Bool = false
-    var allSpacesWindowSwitcherEnabled: Bool = true
-    var allSpacesWindowSwitcherShortcutText: String = "command+shift+`"
-    var hotCornerTopLeftAction: HotCornerAction = .none
-    var hotCornerTopRightAction: HotCornerAction = .none
-    var hotCornerBottomLeftAction: HotCornerAction = .none
-    var hotCornerBottomRightAction: HotCornerAction = .none
-    var hudDisplayDuration: TimeInterval = 1.8
-    var activationDockClickInterceptionEnabled: Bool = true
-    var activationSingleWindowAppBundleIDs: [String] = []
 }
 
 final class WindowListProviderTests: XCTestCase {

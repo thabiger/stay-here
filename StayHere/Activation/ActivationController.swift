@@ -5,7 +5,7 @@ public final class ActivationController {
     private let windowIndex: WindowIndex
     private let policy: ActivationPolicy
     private let executor: ActivationExecutor
-    private let settings: SettingsRepository
+    private let settings: ActivationSettings
     private let logger: any Logging
     private var interceptor: DockClickInterceptor?
     public private(set) var eventTapClient: (any CGEventTapClient)?
@@ -13,7 +13,7 @@ public final class ActivationController {
     private let activeSpaceIDs: () -> Set<Int>
 
     public init(
-        settings: SettingsRepository,
+        settings: ActivationSettings,
         windowIndex: WindowIndex = WindowIndex(),
         policy: ActivationPolicy? = nil,
         currentSpaceID: @escaping () -> Int?,

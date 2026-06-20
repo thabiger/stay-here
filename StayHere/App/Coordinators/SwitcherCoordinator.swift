@@ -5,14 +5,14 @@ final class SwitcherCoordinator {
     private let spaceSwitcherController: any SwitcherControlling
     private let windowSwitcherController: any SwitcherControlling
     private let allSpacesWindowSwitcherController: any SwitcherControlling
-    private let settings: SettingsRepository
+    private let settings: SpaceSwitcherSettings & WindowSwitcherSettings & AllSpacesWindowSwitcherSettings
     private let eventTapProxy: any EventTapProxying
 
     init(
         spaceSwitcherController: any SwitcherControlling,
         windowSwitcherController: any SwitcherControlling,
         allSpacesWindowSwitcherController: any SwitcherControlling,
-        settings: SettingsRepository,
+        settings: SpaceSwitcherSettings & WindowSwitcherSettings & AllSpacesWindowSwitcherSettings,
         eventTapProxy: any EventTapProxying
     ) {
         self.spaceSwitcherController = spaceSwitcherController

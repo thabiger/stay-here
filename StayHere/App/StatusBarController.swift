@@ -5,7 +5,7 @@ import Foundation
 final class StatusBarController: NSObject, NSMenuDelegate, SpaceMenuRowViewCoordinating {
     private let item: NSStatusItem?
     private let menu = NSMenu()
-    private let settings: SettingsRepository
+    private let settings: AppearanceSettings & DiagnosticsSettings
     private let appearanceManager: AppearanceManager
     private var updateInfo: UpdateInfo?
 
@@ -24,7 +24,7 @@ final class StatusBarController: NSObject, NSMenuDelegate, SpaceMenuRowViewCoord
     private var suppressNextEditRebuild = false
     private var title = "Unnamed space"
 
-    init(settings: SettingsRepository, appearanceManager: AppearanceManager) {
+    init(settings: AppearanceSettings & DiagnosticsSettings, appearanceManager: AppearanceManager) {
         self.settings = settings
         self.appearanceManager = appearanceManager
         if !RuntimeEnvironment.isAutomationSession {

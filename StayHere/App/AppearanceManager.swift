@@ -2,9 +2,9 @@ import AppKit
 import Core
 
 final class AppearanceManager {
-    private let settings: SettingsRepository
+    private let settings: AppearanceSettings
 
-    init(settings: SettingsRepository) {
+    init(settings: AppearanceSettings) {
         self.settings = settings
     }
 
