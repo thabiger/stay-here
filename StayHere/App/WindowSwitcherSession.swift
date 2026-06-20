@@ -1,21 +1,19 @@
 import Core
 import Foundation
 
-enum SwitcherSessionTrigger {
-    case keyboard
-    case explicit
-}
-
-protocol WindowSwitcherSessionProtocol {
+protocol WindowSwitcherSessionProtocol: SwitcherSession where Selection == Int {
     var startingWindowID: Int? { get }
     var selectedWindowID: Int? { get set }
-    var shortcut: SpaceSwitcherShortcut { get }
-    var trigger: SwitcherSessionTrigger { get }
     var spaceGroups: [WindowListProvider.SpaceWindowGroup] { get }
     var flatEntries: [WindowEntry] { get }
 }
 
 extension WindowSwitcherSessionProtocol {
+    var selectedItem: Int? {
+        get { selectedWindowID }
+        set { selectedWindowID = newValue }
+    }
+
     var didChangeSelection: Bool {
         selectedWindowID != nil && selectedWindowID != startingWindowID
     }

@@ -3,45 +3,85 @@ import CoreGraphics
 import Core
 import SwiftUI
 
-final class SpaceSwitcherController: SwitcherEventSessionHandling {
-    private enum SessionTrigger {
-        case keyboard
-        case explicit
-    }
-
-    private struct Session {
-        let startingSpaceID: Int?
-        var selectedSpaceID: Int?
-        let shortcut: SpaceSwitcherShortcut
-        let trigger: SessionTrigger
-
-        var didChangeSelection: Bool {
-            selectedSpaceID != nil && selectedSpaceID != startingSpaceID
-        }
-    }
-
+final class SpaceSwitcherController {
     private let registry: SpaceRegistry
     private let switchToSpace: (Int) -> Void
     private let shortcutProvider: () -> SpaceSwitcherShortcut
     private let panelManager = SpaceSwitcherPanelManager()
-    private lazy var eventSupport = SwitcherEventControllerSupport(
-        handler: self,
-        eventTapUnavailableLog: "space-switcher failed=event-tap-unavailable"
+    private lazy var coordinator = SwitcherSessionCoordinator<
+        SpaceSwitcherSession,
+        SpaceSwitcherSnapshot,
+        Int
+    >(
+        shortcutProvider: { [weak self] in
+            self?.shortcutProvider() ?? SpaceSwitcherShortcut(keyCode: 48, modifiers: [.maskCommand])
+        },
+        eventTapUnavailableLog: "space-switcher failed=event-tap-unavailable",
+        movesSelectionOnNewSession: true,
+        buildSession: { [weak self] shortcut, trigger in
+            guard let self else { return nil }
+            return SpaceSwitcherSession(
+                startingSpaceID: self.registry.activeSpaceID,
+                selectedSpaceID: self.registry.activeSpaceID,
+                shortcut: shortcut,
+                trigger: trigger
+            )
+        },
+        moveSelection: { [weak self] session, offset in
+            guard let self else { return }
+            let ordered = self.registry.switchableOrderedSpaceIDs()
+            let currentSelection = session.selectedSpaceID ?? session.startingSpaceID
+            let nextSelection = offset > 0
+                ? SpaceCycling.nextSpaceID(currentSpaceID: currentSelection, orderedSpaceIDs: ordered)
+                : SpaceCycling.previousSpaceID(currentSpaceID: currentSelection, orderedSpaceIDs: ordered)
+            session.selectedSpaceID = nextSelection
+        },
+        buildSnapshot: { [weak self] session in
+            self?.buildSnapshot(for: session) ?? SpaceSwitcherSnapshot(items: [], title: "Space Switcher")
+        },
+        itemAtPosition: { [weak self] _, position in
+            guard let self else { return nil }
+            let orderedIDs = self.registry.switchableOrderedSpaceIDs()
+            guard position > 0, position <= orderedIDs.count else { return nil }
+            return orderedIDs[position - 1]
+        },
+        shouldCommit: { session in
+            session.trigger == .explicit || session.didChangeSelection
+        },
+        commitSelection: { [weak self] _, spaceID in
+            self?.commitSpace(spaceID)
+            return true
+        },
+        presentSnapshot: { [weak self] snapshot, onSelect, onFocusLost, onCommit, onCancel, onMoveUp, onMoveDown, updateInfo, onOpenUpdate in
+            self?.panelManager.present(
+                snapshot: snapshot,
+                onSelect: onSelect,
+                onFocusLost: onFocusLost,
+                onCommit: onCommit,
+                onCancel: onCancel,
+                onMoveUp: onMoveUp,
+                onMoveDown: onMoveDown,
+                updateInfo: updateInfo,
+                onOpenUpdate: onOpenUpdate
+            )
+        },
+        dismissPanel: { [weak self] in
+            self?.panelManager.dismiss()
+        },
+        releasePanel: { [weak self] in
+            self?.panelManager.release()
+        }
     )
-
-    private var session: Session?
-    private var currentUpdateInfo: UpdateInfo?
-    private var onOpenUpdate: (() -> Void)?
 
     var panelPair: (window: NSPanel, hosting: NSHostingController<SpaceSwitcherView>)? {
         get { panelManager.panelPair }
         set { panelManager.panelPair = newValue }
     }
 
-    internal var hasActiveSession: Bool { session != nil }
+    internal var hasActiveSession: Bool { coordinator.hasActiveSession }
 
     internal var testSessionSelectedSpaceID: Int? {
-        session?.selectedSpaceID
+        coordinator.testSession?.selectedSpaceID
     }
 
     init(
@@ -60,11 +100,11 @@ final class SpaceSwitcherController: SwitcherEventSessionHandling {
     }
 
     func setAvailableUpdate(_ updateInfo: UpdateInfo?) {
-        currentUpdateInfo = updateInfo
+        coordinator.setAvailableUpdate(updateInfo)
     }
 
     func setOnOpenUpdate(_ callback: @escaping () -> Void) {
-        onOpenUpdate = callback
+        coordinator.setOnOpenUpdate(callback)
     }
 
     deinit {
@@ -72,132 +112,54 @@ final class SpaceSwitcherController: SwitcherEventSessionHandling {
     }
 
     func start() {
-        eventSupport.start()
+        coordinator.start()
     }
 
     func stop() {
-        panelManager.release()
-        session = nil
-        eventSupport.stop()
+        coordinator.stop()
     }
 
     internal func handle(event: CGEvent) -> Unmanaged<CGEvent>? {
-        eventSupport.handle(event: event)
+        coordinator.handle(event: event)
     }
 
     internal func handleKeyDown(event: CGEvent) -> Unmanaged<CGEvent>? {
-        eventSupport.handleKeyDown(event: event)
+        coordinator.handleKeyDown(event: event)
     }
 
     internal func handleFlagsChanged(event: CGEvent) -> Unmanaged<CGEvent>? {
-        eventSupport.handleFlagsChanged(event: event)
+        coordinator.handleFlagsChanged(event: event)
     }
 
     internal func cancelSession() {
-        DispatchQueue.main.async { [weak self] in
-            self?.switcherCancelActiveSession()
-        }
-    }
-
-    private func ensureSession(using shortcut: SpaceSwitcherShortcut, trigger: SessionTrigger) {
-        if session == nil {
-            session = Session(
-                startingSpaceID: registry.activeSpaceID,
-                selectedSpaceID: registry.activeSpaceID,
-                shortcut: shortcut,
-                trigger: trigger
-            )
-        }
-    }
-
-    private func moveSelection(offset: Int) {
-        guard var session else { return }
-        let ordered = registry.switchableOrderedSpaceIDs()
-        let currentSelection = session.selectedSpaceID ?? session.startingSpaceID
-        let nextSelection = offset > 0
-            ? SpaceCycling.nextSpaceID(currentSpaceID: currentSelection, orderedSpaceIDs: ordered)
-            : SpaceCycling.previousSpaceID(currentSpaceID: currentSelection, orderedSpaceIDs: ordered)
-        session.selectedSpaceID = nextSelection
-        self.session = session
-    }
-
-    private func commitSelection(_ spaceID: Int) {
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            self.panelManager.dismiss()
-            self.session = nil
-            self.switchToSpace(spaceID)
-        }
-    }
-
-    private func showPanel() {
-        let snapshot = buildSnapshot()
-        let updateInfo = currentUpdateInfo
-        let onOpenUpdate = self.onOpenUpdate
-        let enablePanelKeyboardHandling = session?.trigger == .explicit
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            self.panelManager.present(
-                snapshot: snapshot,
-                onSelect: { [weak self] spaceID in
-                    self?.commitSelection(spaceID)
-                },
-                onFocusLost: { [weak self] in
-                    self?.switcherCancelActiveSession()
-                },
-                onCommit: enablePanelKeyboardHandling ? { [weak self] in
-                    self?.commitSwitcherSelection()
-                } : nil,
-                onCancel: enablePanelKeyboardHandling ? { [weak self] in
-                    self?.closeSwitcher()
-                } : nil,
-                onMoveUp: enablePanelKeyboardHandling ? { [weak self] in
-                    self?.moveSelectionBackward()
-                } : nil,
-                onMoveDown: enablePanelKeyboardHandling ? { [weak self] in
-                    self?.moveSelectionForward()
-                } : nil,
-                updateInfo: updateInfo,
-                onOpenUpdate: onOpenUpdate
-            )
-        }
+        coordinator.cancelSession()
     }
 
     func openSwitcher() {
-        let shortcut = switcherConfiguredShortcut()
-        ensureSession(using: shortcut, trigger: .explicit)
-        showPanel()
+        coordinator.openSwitcher()
     }
 
     func moveSelectionForward() {
-        let shortcut = switcherConfiguredShortcut()
-        ensureSession(using: shortcut, trigger: .explicit)
-        moveSelection(offset: 1)
-        showPanel()
+        coordinator.moveSelectionForward()
     }
 
     func moveSelectionBackward() {
-        let shortcut = switcherConfiguredShortcut()
-        ensureSession(using: shortcut, trigger: .explicit)
-        moveSelection(offset: -1)
-        showPanel()
+        coordinator.moveSelectionBackward()
     }
 
     func commitSwitcherSelection() {
-        switcherCommitOrDismissActiveSession()
+        coordinator.commitSwitcherSelection()
     }
 
     func commitSelection(at position: Int) {
-        let orderedIDs = registry.switchableOrderedSpaceIDs()
-        guard position > 0, position <= orderedIDs.count else { return }
-        commitSelection(orderedIDs[position - 1])
+        coordinator.commitSelection(at: position)
     }
 
     func closeSwitcher() {
-        switcherCancelActiveSession()
+        coordinator.closeSwitcher()
     }
 
-    private func buildSnapshot() -> SpaceSwitcherSnapshot {
+    private func buildSnapshot(for session: SpaceSwitcherSession?) -> SpaceSwitcherSnapshot {
         let orderedIDs = registry.switchableOrderedSpaceIDs()
         let selectedID = session?.selectedSpaceID ?? registry.activeSpaceID
         let items = orderedIDs.map { id in
@@ -213,46 +175,12 @@ final class SpaceSwitcherController: SwitcherEventSessionHandling {
         return SpaceSwitcherSnapshot(items: items, title: "Space Switcher")
     }
 
-    func switcherConfiguredShortcut() -> SpaceSwitcherShortcut {
-        session?.shortcut ?? shortcutProvider()
-    }
-
-    func switcherHasActiveSession() -> Bool {
-        session != nil
-    }
-
-    func switcherSessionModifiers() -> CGEventFlags? {
-        guard session?.trigger == .keyboard else { return nil }
-        return session?.shortcut.modifiers
-    }
-
-    func switcherEnsureSessionAndMoveSelection(backward: Bool) {
-        if session == nil {
-            let shortcut = switcherConfiguredShortcut()
-            ensureSession(using: shortcut, trigger: .keyboard)
+    private func commitSpace(_ spaceID: Int) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.panelManager.dismiss()
+            self.coordinator.closeSwitcher()
+            self.switchToSpace(spaceID)
         }
-        if backward {
-            moveSelection(offset: -1)
-        } else {
-            moveSelection(offset: 1)
-        }
-        showPanel()
-    }
-
-    func switcherCommitOrDismissActiveSession() {
-        guard let activeSession = session else { return }
-        if activeSession.trigger == .explicit, let selectedID = activeSession.selectedSpaceID {
-            commitSelection(selectedID)
-        } else if activeSession.didChangeSelection, let selectedID = activeSession.selectedSpaceID {
-            commitSelection(selectedID)
-        } else {
-            panelManager.dismiss()
-            session = nil
-        }
-    }
-
-    func switcherCancelActiveSession() {
-        panelManager.dismiss()
-        session = nil
     }
 }

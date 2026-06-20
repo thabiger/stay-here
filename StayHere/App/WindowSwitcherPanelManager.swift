@@ -2,7 +2,7 @@ import AppKit
 import Core
 import SwiftUI
 
-final class WindowSwitcherPanelManager: BaseWindowPanelManager<WindowSwitcherSnapshot, WindowSwitcherView> {
+final class WindowSwitcherPanelManager: BaseSwitcherPanelManager<WindowSwitcherSnapshot, WindowSwitcherView, WindowEntry> {
     override func makeRootView(
         snapshot: WindowSwitcherSnapshot,
         onSelect: @escaping (WindowEntry) -> Void,

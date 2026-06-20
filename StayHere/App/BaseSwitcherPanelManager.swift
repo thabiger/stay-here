@@ -2,12 +2,12 @@ import AppKit
 import Core
 import SwiftUI
 
-class BaseWindowPanelManager<Snapshot, Content: View> {
+class BaseSwitcherPanelManager<Snapshot, Content: View, Selection> {
     var panelPair: (window: NSPanel, hosting: NSHostingController<Content>)?
 
     func present(
         snapshot: Snapshot,
-        onSelect: @escaping (WindowEntry) -> Void,
+        onSelect: @escaping (Selection) -> Void,
         onFocusLost: (() -> Void)? = nil,
         onCommit: (() -> Void)? = nil,
         onCancel: (() -> Void)? = nil,
@@ -54,7 +54,7 @@ class BaseWindowPanelManager<Snapshot, Content: View> {
 
     func makeRootView(
         snapshot: Snapshot,
-        onSelect: @escaping (WindowEntry) -> Void,
+        onSelect: @escaping (Selection) -> Void,
         updateInfo: UpdateInfo?,
         onOpenUpdate: (() -> Void)?
     ) -> Content {
@@ -67,7 +67,7 @@ class BaseWindowPanelManager<Snapshot, Content: View> {
 
     private func ensurePanel(
         for snapshot: Snapshot,
-        onSelect: @escaping (WindowEntry) -> Void,
+        onSelect: @escaping (Selection) -> Void,
         onFocusLost: (() -> Void)?,
         onCommit: (() -> Void)?,
         onCancel: (() -> Void)?,
@@ -113,7 +113,7 @@ class BaseWindowPanelManager<Snapshot, Content: View> {
 
     private func updatePanel(
         with snapshot: Snapshot,
-        onSelect: @escaping (WindowEntry) -> Void,
+        onSelect: @escaping (Selection) -> Void,
         onFocusLost: (() -> Void)?,
         onCommit: (() -> Void)?,
         onCancel: (() -> Void)?,

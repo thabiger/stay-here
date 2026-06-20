@@ -3,7 +3,7 @@ import CoreGraphics
 import Core
 import SwiftUI
 
-final class WindowSwitcherController: SwitcherEventSessionHandling {
+final class WindowSwitcherController {
     let mode: WindowSwitcherMode
     let settings: SettingsRepository
     let registry: SpaceRegistry
@@ -15,15 +15,82 @@ final class WindowSwitcherController: SwitcherEventSessionHandling {
     let listBuilder: WindowListBuilder
     let panelPresenter: WindowSwitcherPanelPresenter
 
-    var session: (any WindowSwitcherSessionProtocol)?
-    var currentUpdateInfo: UpdateInfo?
-    var onOpenUpdate: (() -> Void)?
-
     private let eventTapUnavailableLog: String
 
-    private lazy var eventSupport = SwitcherEventControllerSupport(
-        handler: self,
-        eventTapUnavailableLog: eventTapUnavailableLog
+    private lazy var coordinator = SwitcherSessionCoordinator<
+        WindowSwitcherSession,
+        WindowSwitcherSnapshot,
+        Int
+    >(
+        shortcutProvider: { [weak self] in
+            self?.shortcutProvider() ?? SpaceSwitcherShortcut(keyCode: 50, modifiers: [.maskCommand])
+        },
+        eventTapUnavailableLog: eventTapUnavailableLog,
+        movesSelectionOnNewSession: false,
+        buildSession: { [weak self] shortcut, trigger in
+            guard let self, let source = self.listBuilder.makeSessionSource() else { return nil }
+            return WindowSwitcherSession(
+                startingWindowID: source.startingWindowID,
+                selectedWindowID: source.flatEntries.first?.windowID,
+                shortcut: shortcut,
+                spaceGroups: source.spaceGroups,
+                flatEntries: source.flatEntries,
+                trigger: trigger
+            )
+        },
+        moveSelection: { session, offset in
+            let entries = session.flatEntries
+            guard !entries.isEmpty else { return }
+            let ids = entries.map(\.windowID)
+            let currentSelection = session.selectedWindowID ?? session.startingWindowID ?? ids.first
+            let nextSelection = offset > 0
+                ? WindowSwitcherSelection.nextWindowID(currentWindowID: currentSelection, orderedWindowIDs: ids)
+                : WindowSwitcherSelection.previousWindowID(currentWindowID: currentSelection, orderedWindowIDs: ids)
+            session.selectedWindowID = nextSelection
+        },
+        buildSnapshot: { [weak self] session in
+            self?.listBuilder.buildSnapshot(for: session)
+                ?? WindowSwitcherSnapshot(
+                    spaceGroups: [],
+                    title: "Window Switcher",
+                    subtitle: "0 windows",
+                    emptyMessage: "No windows",
+                    iconName: "macwindow",
+                    showSpaceLabels: false
+                )
+        },
+        itemAtPosition: { session, position in
+            guard let session, position > 0, position <= session.flatEntries.count else { return nil }
+            return session.flatEntries[position - 1].windowID
+        },
+        shouldCommit: { _ in true },
+        commitSelection: { [weak self] session, windowID in
+            guard let self, let session, let entry = session.flatEntries.first(where: { $0.windowID == windowID }) else {
+                return false
+            }
+            self.recencyTracker.recordSelection(windowID, in: session)
+            self.commitSelectedEntry(entry)
+            return true
+        },
+        presentSnapshot: { [weak self] snapshot, onSelect, onFocusLost, onCommit, onCancel, onMoveUp, onMoveDown, updateInfo, onOpenUpdate in
+            self?.panelPresenter.present(
+                snapshot: snapshot,
+                onSelect: { entry in onSelect(entry.windowID) },
+                onFocusLost: onFocusLost,
+                onCommit: onCommit,
+                onCancel: onCancel,
+                onMoveUp: onMoveUp,
+                onMoveDown: onMoveDown,
+                updateInfo: updateInfo,
+                onOpenUpdate: onOpenUpdate
+            )
+        },
+        dismissPanel: { [weak self] in
+            self?.panelPresenter.dismiss()
+        },
+        releasePanel: { [weak self] in
+            self?.panelPresenter.release()
+        }
     )
 
     var panelPair: (window: NSPanel, hosting: NSHostingController<WindowSwitcherView>)? {
@@ -32,19 +99,19 @@ final class WindowSwitcherController: SwitcherEventSessionHandling {
     }
 
     internal var testSessionEntries: [WindowEntry]? {
-        (session as? WindowSwitcherSession)?.flatEntries
+        coordinator.testSession?.flatEntries
     }
 
     internal var testSessionSpaceID: Int? {
-        (session as? WindowSwitcherSession)?.spaceGroups.first?.spaceID
+        coordinator.testSession?.spaceGroups.first?.spaceID
     }
 
     internal var testSessionSpaceGroups: [WindowListProvider.SpaceWindowGroup]? {
-        (session as? WindowSwitcherSession)?.spaceGroups
+        coordinator.testSession?.spaceGroups
     }
 
     internal var testSessionSelectedWindowID: Int? {
-        session?.selectedWindowID
+        coordinator.testSession?.selectedWindowID
     }
 
     internal var testRecentWindowIDs: [Int] {
@@ -107,129 +174,70 @@ final class WindowSwitcherController: SwitcherEventSessionHandling {
         }
     }
 
-    var hasActiveSession: Bool { session != nil }
+    var hasActiveSession: Bool { coordinator.hasActiveSession }
 
     deinit {
         stop()
     }
 
     func start() {
-        eventSupport.start()
+        coordinator.start()
     }
 
     func stop() {
-        releasePanel()
-        session = nil
-        eventSupport.stop()
+        coordinator.stop()
     }
 
     internal func handle(event: CGEvent) -> Unmanaged<CGEvent>? {
-        eventSupport.handle(event: event)
+        coordinator.handle(event: event)
     }
 
     internal func handleKeyDown(event: CGEvent) -> Unmanaged<CGEvent>? {
-        eventSupport.handleKeyDown(event: event)
+        coordinator.handleKeyDown(event: event)
     }
 
     internal func handleFlagsChanged(event: CGEvent) -> Unmanaged<CGEvent>? {
-        eventSupport.handleFlagsChanged(event: event)
+        coordinator.handleFlagsChanged(event: event)
     }
 
     internal func cancelSession() {
-        DispatchQueue.main.async { [weak self] in
-            self?.switcherCancelActiveSession()
-        }
+        coordinator.cancelSession()
     }
 
     func setAvailableUpdate(_ updateInfo: UpdateInfo?) {
-        currentUpdateInfo = updateInfo
+        coordinator.setAvailableUpdate(updateInfo)
     }
 
     func setOnOpenUpdate(_ callback: @escaping () -> Void) {
-        onOpenUpdate = callback
+        coordinator.setOnOpenUpdate(callback)
     }
 
-    // MARK: - Session creation
-
-    @discardableResult
-    internal func ensureSession(using shortcut: SpaceSwitcherShortcut, trigger: SwitcherSessionTrigger) -> Bool {
-        guard session == nil else { return false }
-
-        guard let source = listBuilder.makeSessionSource() else { return false }
-
-        session = WindowSwitcherSession(
-            startingWindowID: source.startingWindowID,
-            selectedWindowID: source.flatEntries.first?.windowID,
-            shortcut: shortcut,
-            spaceGroups: source.spaceGroups,
-            flatEntries: source.flatEntries,
-            trigger: trigger
-        )
-        return true
+    func openSwitcher() {
+        coordinator.openSwitcher()
     }
 
-    // MARK: - Panel management
-
-    private func showPanel() {
-        let enablePanelKeyboardHandling = session?.trigger == .explicit
-        let snapshot = listBuilder.buildSnapshot(for: session)
-        let updateInfo = currentUpdateInfo
-        let onOpenUpdate = self.onOpenUpdate
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            self.panelPresenter.present(
-                snapshot: snapshot,
-                onSelect: { [weak self] entry in
-                    self?.commitSelection(entry)
-                },
-                onFocusLost: { [weak self] in
-                    self?.switcherCancelActiveSession()
-                },
-                onCommit: enablePanelKeyboardHandling ? { [weak self] in
-                    self?.commitSwitcherSelection()
-                } : nil,
-                onCancel: enablePanelKeyboardHandling ? { [weak self] in
-                    self?.closeSwitcher()
-                } : nil,
-                onMoveUp: enablePanelKeyboardHandling ? { [weak self] in
-                    self?.moveSelectionBackward()
-                } : nil,
-                onMoveDown: enablePanelKeyboardHandling ? { [weak self] in
-                    self?.moveSelectionForward()
-                } : nil,
-                updateInfo: updateInfo,
-                onOpenUpdate: onOpenUpdate
-            )
-        }
+    func moveSelectionForward() {
+        coordinator.moveSelectionForward()
     }
 
-    internal func dismissPanel() {
-        panelPresenter.dismiss()
+    func moveSelectionBackward() {
+        coordinator.moveSelectionBackward()
     }
 
-    internal func releasePanel() {
-        panelPresenter.release()
+    func commitSwitcherSelection() {
+        coordinator.commitSwitcherSelection()
     }
 
-    // MARK: - Selection
-
-    private func moveSelection(offset: Int) {
-        guard var session else { return }
-        let entries = session.flatEntries
-        guard !entries.isEmpty else { return }
-        let ids = entries.map(\.windowID)
-        let currentSelection = session.selectedWindowID ?? session.startingWindowID ?? ids.first
-        let nextSelection = offset > 0
-            ? WindowSwitcherSelection.nextWindowID(currentWindowID: currentSelection, orderedWindowIDs: ids)
-            : WindowSwitcherSelection.previousWindowID(currentWindowID: currentSelection, orderedWindowIDs: ids)
-        session.selectedWindowID = nextSelection
-        self.session = session
+    internal func switcherCommitOrDismissActiveSession() {
+        coordinator.commitSwitcherSelection()
     }
 
-    private func commitSelection(_ entry: WindowEntry) {
-        let activeSession = session
-        recencyTracker.recordSelection(entry.windowID, in: activeSession)
-        commitSelectedEntry(entry)
+    func commitSelection(at position: Int) {
+        coordinator.commitSelection(at: position)
+    }
+
+    func closeSwitcher() {
+        coordinator.closeSwitcher()
     }
 
     private func commitSelectedEntry(_ entry: WindowEntry) {
@@ -241,7 +249,7 @@ final class WindowSwitcherController: SwitcherEventSessionHandling {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             self.panelPresenter.dismiss()
-            self.session = nil
+            self.coordinator.closeSwitcher()
 
             if let targetSpaceID, targetSpaceID != currentSpaceID {
                 _ = self.registry.switchToSpace(targetSpaceID)
@@ -257,81 +265,5 @@ final class WindowSwitcherController: SwitcherEventSessionHandling {
                 }
             }
         }
-    }
-
-    // MARK: - Public API
-
-    func openSwitcher() {
-        let shortcut = switcherConfiguredShortcut()
-        ensureSession(using: shortcut, trigger: .explicit)
-        showPanel()
-    }
-
-    func moveSelectionForward() {
-        let shortcut = switcherConfiguredShortcut()
-        ensureSession(using: shortcut, trigger: .explicit)
-        moveSelection(offset: 1)
-        showPanel()
-    }
-
-    func moveSelectionBackward() {
-        let shortcut = switcherConfiguredShortcut()
-        ensureSession(using: shortcut, trigger: .explicit)
-        moveSelection(offset: -1)
-        showPanel()
-    }
-
-    func commitSwitcherSelection() {
-        switcherCommitOrDismissActiveSession()
-    }
-
-    func commitSelection(at position: Int) {
-        guard let session else { return }
-        guard position > 0, position <= session.flatEntries.count else { return }
-        commitSelection(session.flatEntries[position - 1])
-    }
-
-    func closeSwitcher() {
-        switcherCancelActiveSession()
-    }
-
-    // MARK: - SwitcherEventSessionHandling
-
-    func switcherConfiguredShortcut() -> SpaceSwitcherShortcut {
-        session?.shortcut ?? shortcutProvider()
-    }
-
-    func switcherHasActiveSession() -> Bool {
-        session != nil
-    }
-
-    func switcherSessionModifiers() -> CGEventFlags? {
-        guard session?.trigger == .keyboard else { return nil }
-        return session?.shortcut.modifiers
-    }
-
-    func switcherEnsureSessionAndMoveSelection(backward: Bool) {
-        let shortcut = switcherConfiguredShortcut()
-        let openedSession = ensureSession(using: shortcut, trigger: .keyboard)
-        if !openedSession {
-            moveSelection(offset: backward ? -1 : 1)
-        }
-        showPanel()
-    }
-
-    func switcherCommitOrDismissActiveSession() {
-        guard let activeSession = session else { return }
-        if let selectedID = activeSession.selectedWindowID,
-           let entry = activeSession.flatEntries.first(where: { $0.windowID == selectedID }) {
-            commitSelection(entry)
-        } else {
-            dismissPanel()
-            session = nil
-        }
-    }
-
-    func switcherCancelActiveSession() {
-        dismissPanel()
-        session = nil
     }
 }
