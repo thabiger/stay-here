@@ -107,12 +107,14 @@ final class AppCompositionRoot: NSObject {
     lazy var windowSwitcherController = WindowSwitcherController(
         settings: settings,
         registry: registry,
-        cgsBridge: cgsBridge
+        cgsBridge: cgsBridge,
+        mode: .currentSpace
     )
-    lazy var allSpacesWindowSwitcherController = AllSpacesWindowSwitcherController(
+    lazy var allSpacesWindowSwitcherController = WindowSwitcherController(
         settings: settings,
         registry: registry,
-        cgsBridge: cgsBridge
+        cgsBridge: cgsBridge,
+        mode: .allSpaces
     )
     lazy var hotCornerController = HotCornerController(
         settings: settings,

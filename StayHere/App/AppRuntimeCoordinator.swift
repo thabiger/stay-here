@@ -17,7 +17,7 @@ final class AppRuntimeCoordinator: AppCoordinating {
     private let activationController: ActivationController
     private let spaceSwitcherController: SpaceSwitcherController
     private let windowSwitcherController: WindowSwitcherController
-    private let allSpacesWindowSwitcherController: AllSpacesWindowSwitcherController
+    private let allSpacesWindowSwitcherController: WindowSwitcherController
     private let hotCornerController: HotCornerController
     private let switchPresentationHelper: SpaceSwitchPresentationHelper
     private let setupRequirementsPresenter: SetupRequirementsPresenter
@@ -40,7 +40,7 @@ final class AppRuntimeCoordinator: AppCoordinating {
         activationController: ActivationController,
         spaceSwitcherController: SpaceSwitcherController,
         windowSwitcherController: WindowSwitcherController,
-        allSpacesWindowSwitcherController: AllSpacesWindowSwitcherController,
+        allSpacesWindowSwitcherController: WindowSwitcherController,
         hotCornerController: HotCornerController,
         switchPresentationHelper: SpaceSwitchPresentationHelper,
         setupRequirementsPresenter: SetupRequirementsPresenter

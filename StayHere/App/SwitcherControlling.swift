@@ -12,4 +12,3 @@ protocol SwitcherControlling: AnyObject {
 
 extension SpaceSwitcherController: SwitcherControlling {}
 extension WindowSwitcherController: SwitcherControlling {}
-extension AllSpacesWindowSwitcherController: SwitcherControlling {}

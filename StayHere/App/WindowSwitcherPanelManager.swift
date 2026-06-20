@@ -21,8 +21,11 @@ final class WindowSwitcherPanelManager: BaseWindowPanelManager<WindowSwitcherSna
         guard let panelPair else { return }
         let width: CGFloat = 560
         let screenFrame = NSScreen.main?.visibleFrame ?? NSScreen.screens.first?.visibleFrame ?? .zero
+        let totalItemCount = snapshot.spaceGroups.reduce(0) { $0 + $1.items.count }
+        let groupCount = snapshot.showSpaceLabels ? snapshot.spaceGroups.count : 0
         let height = WindowSwitcherController.panelHeight(
-            itemCount: snapshot.items.count,
+            spaceGroupCount: groupCount,
+            totalWindowCount: totalItemCount,
             screenHeight: screenFrame.height
         )
         let frame = NSRect(

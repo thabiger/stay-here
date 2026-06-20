@@ -5,7 +5,7 @@ import Activation
 import Core
 @testable import StayHereApp
 
-private final class AllSpacesMockCGSBridge: CGSBridgeProtocol {
+private final class MockCGSBridge: CGSBridgeProtocol {
     var activeSpaceIDValue: Int?
     var managedSnapshotValue: CGSBridge.ManagedSnapshot
     var spacesForWindowMap: [Int: [Int]] = [:]
@@ -50,7 +50,7 @@ final class AllSpacesWindowSwitcherControllerTests: XCTestCase {
         windowInfo: @escaping () -> [[String: Any]]? = { [] },
         focusedWindowID: @escaping () -> Int? = { nil },
         spacesForWindowMap: [Int: [Int]] = [:]
-    ) -> (AllSpacesWindowSwitcherController, AllSpacesMockCGSBridge) {
+    ) -> (WindowSwitcherController, MockCGSBridge) {
         let spaces = [
             SpaceIdentity(id: 100, display: "display-a", kind: .desktop),
             SpaceIdentity(id: 200, display: "display-a", kind: .desktop)
@@ -60,7 +60,7 @@ final class AllSpacesWindowSwitcherControllerTests: XCTestCase {
             activeByDisplay: ["display-a": 100],
             orderedIDsByDisplay: ["display-a": [100, 200]]
         )
-        let bridge = AllSpacesMockCGSBridge(
+        let bridge = MockCGSBridge(
             activeSpaceIDValue: 100,
             managedSnapshotValue: snapshot
         )
@@ -82,10 +82,11 @@ final class AllSpacesWindowSwitcherControllerTests: XCTestCase {
             focusedWindowIDProvider: focusedWindowID,
             iconProvider: { _ in NSImage(size: NSSize(width: 18, height: 18)) }
         )
-        let controller = AllSpacesWindowSwitcherController(
+        let controller = WindowSwitcherController(
             settings: UserDefaultsSettingsRepository(),
             registry: registry,
             cgsBridge: bridge,
+            mode: .allSpaces,
             listProvider: listProvider
         )
         return (controller, bridge)
