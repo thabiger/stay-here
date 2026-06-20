@@ -4,16 +4,16 @@ public final class SpaceSwitchExecutor {
     private let cgsBridge: any CGSBridgeProtocol
     private let repository: SpaceStateManager
     private let switcherService: SpaceSwitcherService
-    private let refreshSpaces: () -> Void
-    private let scheduleRefreshSoon: () -> Void
+    private let refreshSpaces: @Sendable () async -> SpaceSwitchSnapshot
+    private let scheduleRefreshSoon: @Sendable () -> Void
     private let logger: any Logging
 
     public init(
         cgsBridge: any CGSBridgeProtocol = CGSBridge.live,
         repository: SpaceStateManager,
         switcherService: SpaceSwitcherService,
-        refreshSpaces: @escaping () -> Void,
-        scheduleRefreshSoon: @escaping () -> Void,
+        refreshSpaces: @escaping @Sendable () async -> SpaceSwitchSnapshot,
+        scheduleRefreshSoon: @escaping @Sendable () -> Void,
         logger: any Logging
     ) {
         self.cgsBridge = cgsBridge
@@ -32,8 +32,7 @@ public final class SpaceSwitchExecutor {
                 guard let self else {
                     return SpaceSwitchSnapshot(activeSpaceID: nil, spaces: [], nativeOrderByDisplay: [:])
                 }
-                self.refreshSpaces()
-                return self.repository.currentSwitchSnapshot()
+                return await self.refreshSpaces()
             },
             scheduleRefreshSoon: { [weak self] in
                 self?.scheduleRefreshSoon()

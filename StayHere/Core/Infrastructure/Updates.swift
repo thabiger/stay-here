@@ -51,28 +51,37 @@ public struct AppVersionProvider: AppVersionProviding, Sendable {
     }
 }
 
-public final class UpdateDefaultsStore: @unchecked Sendable {
+public final class UpdateDefaultsStore {
     public static let standard = UpdateDefaultsStore(defaults: .standard)
 
     private let defaults: UserDefaults
+    private let lock = NSLock()
 
     public init(defaults: UserDefaults) {
         self.defaults = defaults
     }
 
     func object(forKey defaultName: String) -> Any? {
-        defaults.object(forKey: defaultName)
+        lock.lock()
+        defer { lock.unlock() }
+        return defaults.object(forKey: defaultName)
     }
 
     func string(forKey defaultName: String) -> String? {
-        defaults.string(forKey: defaultName)
+        lock.lock()
+        defer { lock.unlock() }
+        return defaults.string(forKey: defaultName)
     }
 
     func set(_ value: Any?, forKey defaultName: String) {
+        lock.lock()
+        defer { lock.unlock() }
         defaults.set(value, forKey: defaultName)
     }
 
     func removeObject(forKey defaultName: String) {
+        lock.lock()
+        defer { lock.unlock() }
         defaults.removeObject(forKey: defaultName)
     }
 }

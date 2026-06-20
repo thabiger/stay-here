@@ -14,11 +14,14 @@ public final class SwitchSpaceUseCase {
             cgsBridge: cgsBridge,
             repository: repository,
             switcherService: switcherService ?? SpaceSwitcherService(cgsBridge: cgsBridge, logger: logger),
-            refreshSpaces: { [weak refreshUseCase] in
-                refreshUseCase?.execute()
+            refreshSpaces: {
+                await MainActor.run {
+                    refreshUseCase.execute()
+                }
+                return repository.currentSwitchSnapshot()
             },
-            scheduleRefreshSoon: { [weak refreshUseCase] in
-                refreshUseCase?.executeSoon()
+            scheduleRefreshSoon: {
+                refreshUseCase.executeSoon()
             },
             logger: logger
         )

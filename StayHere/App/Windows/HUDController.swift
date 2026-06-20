@@ -1,6 +1,7 @@
 import AppKit
 import Core
 
+@MainActor
 final class HUDController {
     private let settings: HUDSettings
     private let appearanceManager: AppearanceManager
@@ -10,7 +11,7 @@ final class HUDController {
     private let verticalPadding: CGFloat = 18
     private let textFont = NSFont.systemFont(ofSize: 18, weight: .semibold)
     private var windowPair: (window: NSWindow, label: NSTextField)?
-    private var hideTask: DispatchWorkItem?
+    private var hideTask: Task<Void, Never>?
 
     init(settings: HUDSettings, appearanceManager: AppearanceManager) {
         self.settings = settings
@@ -30,15 +31,17 @@ final class HUDController {
 
         hideTask?.cancel()
         let duration = settings.hudDisplayDuration
-        let task = DispatchWorkItem { [weak self] in
-            guard let pair = self?.windowPair else { return }
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.2
-                pair.window.animator().alphaValue = 0
+        hideTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(duration * 1_000_000_000))
+            guard let self, !Task.isCancelled else { return }
+            guard let pair = self.windowPair else { return }
+            await MainActor.run {
+                NSAnimationContext.runAnimationGroup { context in
+                    context.duration = 0.2
+                    pair.window.animator().alphaValue = 0
+                }
             }
         }
-        hideTask = task
-        DispatchQueue.main.asyncAfter(deadline: .now() + duration, execute: task)
     }
 
     private func ensureWindow(for message: String) {

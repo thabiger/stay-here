@@ -1,74 +1,83 @@
 import Foundation
 
-public final class RefreshSpacesUseCase {
+public final class RefreshSpacesUseCase: @unchecked Sendable {
     private let repository: SpaceStateManager
-    private let snapshotExecutor: (DispatchWorkItem) -> Void
-    private let mainExecutor: (DispatchWorkItem) -> Void
-    private let scheduleAfter: (TimeInterval, DispatchWorkItem) -> Void
     private let refreshRetryInterval: TimeInterval
     private let refreshRetryLimit: Int
     private let logger: any Logging
-    private var pendingRefresh: DispatchWorkItem?
+    private var pendingRefreshTask: Task<Void, Never>?
+    private let lock = NSLock()
 
     public init(
         repository: SpaceStateManager,
-        snapshotQueue: DispatchQueue = DispatchQueue(label: "stayhere.snapshot", qos: .userInitiated),
-        mainExecutor: @escaping (DispatchWorkItem) -> Void = { task in
-            DispatchQueue.main.async(execute: task)
-        },
-        scheduleAfter: @escaping (TimeInterval, DispatchWorkItem) -> Void = { interval, task in
-            DispatchQueue.main.asyncAfter(deadline: .now() + interval, execute: task)
-        },
         refreshRetryInterval: TimeInterval = 0.05,
         refreshRetryLimit: Int = 8,
         logger: any Logging
     ) {
         self.repository = repository
-        self.snapshotExecutor = { task in
-            snapshotQueue.async(execute: task)
-        }
-        self.mainExecutor = mainExecutor
-        self.scheduleAfter = scheduleAfter
         self.refreshRetryInterval = refreshRetryInterval
         self.refreshRetryLimit = refreshRetryLimit
         self.logger = logger
     }
 
     public func execute() {
-        repository.applyManagedSnapshot(repository.cgsBridge.managedSnapshot())
+        let snapshot = repository.cgsBridge.managedSnapshot()
+        repository.applyManagedSnapshot(snapshot)
     }
 
     public func executeAsync() {
-        let task = DispatchWorkItem { [weak self] in
+        Task.detached(priority: .userInitiated) { [weak self] in
             guard let self else { return }
-            let snapshot = self.repository.cgsBridge.managedSnapshot()
-            let applyTask = DispatchWorkItem { [weak self] in
-                self?.repository.applyManagedSnapshot(snapshot)
+            let snapshot = await MainActor.run {
+                self.repository.cgsBridge.managedSnapshot()
             }
-            self.mainExecutor(applyTask)
+            await MainActor.run {
+                self.repository.applyManagedSnapshot(snapshot)
+            }
         }
-        snapshotExecutor(task)
     }
 
     public func executeSoon() {
-        pendingRefresh?.cancel()
-        pendingRefresh = nil
+        lock.lock()
+        pendingRefreshTask?.cancel()
+        pendingRefreshTask = nil
         let baseline = repository.activeSpaceID
+        lock.unlock()
+
         execute()
-        guard repository.activeSpaceID == baseline else { return }
+
+        lock.lock()
+        let currentBaseline = repository.activeSpaceID
+        lock.unlock()
+        guard currentBaseline == baseline else { return }
+
         scheduleRefreshRetry(baseline: baseline, remainingAttempts: refreshRetryLimit)
     }
 
     private func scheduleRefreshRetry(baseline: Int?, remainingAttempts: Int) {
-        pendingRefresh?.cancel()
-        let task = DispatchWorkItem { [weak self] in
+        lock.lock()
+        pendingRefreshTask?.cancel()
+        let task = Task { [weak self] in
             guard let self else { return }
-            self.execute()
-            self.pendingRefresh = nil
-            guard self.repository.activeSpaceID == baseline, remainingAttempts > 1 else { return }
-            self.scheduleRefreshRetry(baseline: baseline, remainingAttempts: remainingAttempts - 1)
+
+            for _ in 0..<remainingAttempts {
+                try? await Task.sleep(nanoseconds: UInt64(self.refreshRetryInterval * 1_000_000_000))
+                guard !Task.isCancelled else { return }
+
+                await MainActor.run {
+                    self.execute()
+                }
+
+                guard !Task.isCancelled else { return }
+
+                let done: Bool = await MainActor.run {
+                    let current = self.repository.activeSpaceID
+                    return current != baseline || current == nil
+                }
+                if done { return }
+            }
         }
-        pendingRefresh = task
-        scheduleAfter(refreshRetryInterval, task)
+        pendingRefreshTask = task
+        lock.unlock()
     }
 }

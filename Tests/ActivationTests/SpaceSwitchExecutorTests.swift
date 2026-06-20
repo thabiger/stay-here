@@ -157,7 +157,10 @@ final class SpaceSwitchExecutorTests: XCTestCase {
                 refreshRetryLimit: 0,
                 logger: NoOpLogger()
             ),
-            refreshSpaces: { repository.applyManagedSnapshot(bridge.managedSnapshot()) },
+            refreshSpaces: {
+                repository.applyManagedSnapshot(bridge.managedSnapshot())
+                return repository.currentSwitchSnapshot()
+            },
             scheduleRefreshSoon: scheduleRefreshSoon,
             logger: NoOpLogger()
         )
