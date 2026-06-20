@@ -16,7 +16,6 @@ final class SpaceSwitcherController {
         shortcutProvider: { [weak self] in
             self?.shortcutProvider() ?? SpaceSwitcherShortcut(keyCode: 48, modifiers: [.maskCommand])
         },
-        eventTapUnavailableLog: "space-switcher failed=event-tap-unavailable",
         movesSelectionOnNewSession: true,
         buildSession: { [weak self] shortcut, trigger in
             guard let self else { return nil }

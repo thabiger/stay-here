@@ -29,11 +29,7 @@ where Session.Selection == Selection {
     private var currentUpdateInfo: UpdateInfo?
     private var onOpenUpdate: (() -> Void)?
 
-    private lazy var eventSupport = SwitcherEventControllerSupport(
-        handler: self,
-        eventTapUnavailableLog: eventTapUnavailableLog
-    )
-    private let eventTapUnavailableLog: String
+    private lazy var eventSupport = SwitcherEventControllerSupport(handler: self)
     private let shortcutProvider: () -> SpaceSwitcherShortcut
     private let movesSelectionOnNewSession: Bool
     private let buildSession: BuildSession
@@ -48,7 +44,6 @@ where Session.Selection == Selection {
 
     init(
         shortcutProvider: @escaping () -> SpaceSwitcherShortcut,
-        eventTapUnavailableLog: String,
         movesSelectionOnNewSession: Bool,
         buildSession: @escaping BuildSession,
         moveSelection: @escaping MoveSelection,
@@ -61,7 +56,6 @@ where Session.Selection == Selection {
         releasePanel: @escaping ReleasePanel
     ) {
         self.shortcutProvider = shortcutProvider
-        self.eventTapUnavailableLog = eventTapUnavailableLog
         self.movesSelectionOnNewSession = movesSelectionOnNewSession
         self.buildSession = buildSession
         self.moveSelection = moveSelection
@@ -78,14 +72,11 @@ where Session.Selection == Selection {
 
     var testSession: Session? { session }
 
-    func start() {
-        eventSupport.start()
-    }
+    func start() {}
 
     func stop() {
         releasePanel()
         session = nil
-        eventSupport.stop()
     }
 
     func setAvailableUpdate(_ updateInfo: UpdateInfo?) {

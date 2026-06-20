@@ -41,7 +41,6 @@ final class SwitcherSessionCoordinatorTests: XCTestCase {
             shortcutProvider: {
                 SpaceSwitcherShortcut(keyCode: 48, modifiers: [.maskCommand])
             },
-            eventTapUnavailableLog: "test",
             movesSelectionOnNewSession: movesSelectionOnNewSession,
             buildSession: { shortcut, trigger in
                 FakeSession(startingID: 1, selectedID: 1, shortcut: shortcut, trigger: trigger)

@@ -32,29 +32,11 @@ final class SwitcherEventControllerSupportTests: XCTestCase {
         wait(for: [exp], timeout: timeout)
     }
 
-    func testTapDisabledEventReEnablesExistingTap() {
-        let handler = FakeSwitcherHandler()
-        var enableCalls: [Bool] = []
-        let support = SwitcherEventControllerSupport(
-            handler: handler,
-            eventTapUnavailableLog: "test",
-            eventTapFactory: { _, _ in nil },
-            runLoopSourceFactory: { _ in nil },
-            tapEnableHandler: { _, enabled in enableCalls.append(enabled) },
-            addRunLoopSource: { _ in },
-            removeRunLoopSource: { _ in }
-        )
-
-        support.handleTapDisabledEvent(forceReenable: true)
-
-        XCTAssertEqual(enableCalls, [true])
-    }
-
     func testNonMatchingKeyCancelsActiveSession() {
         let handler = FakeSwitcherHandler()
         handler.hasActiveSessionValue = true
         handler.sessionModifiersValue = [.maskCommand]
-        let support = SwitcherEventControllerSupport(handler: handler, eventTapUnavailableLog: "test")
+        let support = SwitcherEventControllerSupport(handler: handler)
 
         let result = support.handleKeyDown(event: makeKeyEvent(keyCode: 12, flags: .maskCommand))
         waitForMainQueue()
@@ -65,7 +47,7 @@ final class SwitcherEventControllerSupportTests: XCTestCase {
 
     func testNonMatchingKeyPassesThroughWhenIdle() {
         let handler = FakeSwitcherHandler()
-        let support = SwitcherEventControllerSupport(handler: handler, eventTapUnavailableLog: "test")
+        let support = SwitcherEventControllerSupport(handler: handler)
         let event = makeKeyEvent(keyCode: 12, flags: .maskCommand)
 
         let result = support.handleKeyDown(event: event)?.takeUnretainedValue()
@@ -77,7 +59,7 @@ final class SwitcherEventControllerSupportTests: XCTestCase {
     func testModifierReleaseDispatchesCommitOrDismiss() {
         let handler = FakeSwitcherHandler()
         handler.sessionModifiersValue = [.maskCommand]
-        let support = SwitcherEventControllerSupport(handler: handler, eventTapUnavailableLog: "test")
+        let support = SwitcherEventControllerSupport(handler: handler)
 
         _ = support.handleFlagsChanged(event: makeKeyEvent(keyCode: 50, flags: []))
         waitForMainQueue()
@@ -87,7 +69,7 @@ final class SwitcherEventControllerSupportTests: XCTestCase {
 
     func testMatchingShortcutMovesBackwardWhenShiftIsAdded() {
         let handler = FakeSwitcherHandler()
-        let support = SwitcherEventControllerSupport(handler: handler, eventTapUnavailableLog: "test")
+        let support = SwitcherEventControllerSupport(handler: handler)
 
         _ = support.handleKeyDown(event: makeKeyEvent(keyCode: 50, flags: [.maskCommand, .maskShift]))
         waitForMainQueue()

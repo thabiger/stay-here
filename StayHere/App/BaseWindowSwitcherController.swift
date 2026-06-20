@@ -15,8 +15,6 @@ final class WindowSwitcherController {
     let listBuilder: WindowListBuilder
     let panelPresenter: WindowSwitcherPanelPresenter
 
-    private let eventTapUnavailableLog: String
-
     private lazy var coordinator = SwitcherSessionCoordinator<
         WindowSwitcherSession,
         WindowSwitcherSnapshot,
@@ -25,7 +23,6 @@ final class WindowSwitcherController {
         shortcutProvider: { [weak self] in
             self?.shortcutProvider() ?? SpaceSwitcherShortcut(keyCode: 50, modifiers: [.maskCommand])
         },
-        eventTapUnavailableLog: eventTapUnavailableLog,
         movesSelectionOnNewSession: false,
         buildSession: { [weak self] shortcut, trigger in
             guard let self, let source = self.listBuilder.makeSessionSource() else { return nil }
@@ -166,13 +163,8 @@ final class WindowSwitcherController {
         )
         self.panelPresenter = panelPresenter ?? WindowSwitcherPanelPresenter()
 
-        switch mode {
-        case .currentSpace:
-            self.eventTapUnavailableLog = "window-switcher failed=event-tap-unavailable"
-        case .allSpaces:
-            self.eventTapUnavailableLog = "all-spaces-window-switcher failed=event-tap-unavailable"
-        }
     }
+
 
     var hasActiveSession: Bool { coordinator.hasActiveSession }
 

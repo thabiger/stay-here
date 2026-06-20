@@ -55,16 +55,19 @@ final class AppRuntimeCoordinator: AppCoordinating, RuntimeCoordinating {
             registry: services.registry,
             settings: services.settings
         )
+        let eventTapProxy = AppEventTapProxy()
         self.switcherCoordinator = SwitcherCoordinator(
             spaceSwitcherController: controllers.spaceSwitcherController,
             windowSwitcherController: controllers.windowSwitcherController,
             allSpacesWindowSwitcherController: controllers.allSpacesWindowSwitcherController,
-            settings: services.settings
+            settings: services.settings,
+            eventTapProxy: eventTapProxy
         )
         self.eventOrchestrationCoordinator = EventOrchestrationCoordinator(
             hotCornerController: controllers.hotCornerController,
             activationController: controllers.activationController,
-            switcherCoordinator: switcherCoordinator
+            switcherCoordinator: switcherCoordinator,
+            eventTapProxy: eventTapProxy
         )
 
         controllers.runtimeCoordinator = self

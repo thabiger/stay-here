@@ -1,23 +1,25 @@
 import AppKit
 import Core
 
-@MainActor
 final class SwitcherCoordinator {
-    private let spaceSwitcherController: SpaceSwitcherController
-    private let windowSwitcherController: WindowSwitcherController
-    private let allSpacesWindowSwitcherController: WindowSwitcherController
+    private let spaceSwitcherController: any SwitcherControlling
+    private let windowSwitcherController: any SwitcherControlling
+    private let allSpacesWindowSwitcherController: any SwitcherControlling
     private let settings: SettingsRepository
+    private let eventTapProxy: any EventTapProxying
 
     init(
-        spaceSwitcherController: SpaceSwitcherController,
-        windowSwitcherController: WindowSwitcherController,
-        allSpacesWindowSwitcherController: WindowSwitcherController,
-        settings: SettingsRepository
+        spaceSwitcherController: any SwitcherControlling,
+        windowSwitcherController: any SwitcherControlling,
+        allSpacesWindowSwitcherController: any SwitcherControlling,
+        settings: SettingsRepository,
+        eventTapProxy: any EventTapProxying
     ) {
         self.spaceSwitcherController = spaceSwitcherController
         self.windowSwitcherController = windowSwitcherController
         self.allSpacesWindowSwitcherController = allSpacesWindowSwitcherController
         self.settings = settings
+        self.eventTapProxy = eventTapProxy
     }
 
     var hasActiveSession: Bool {
@@ -27,41 +29,24 @@ final class SwitcherCoordinator {
     }
 
     func start() {
-        if settings.spaceSwitcherEnabled {
-            spaceSwitcherController.start()
-        }
-        if settings.windowSwitcherEnabled {
-            windowSwitcherController.start()
-        }
-        if settings.allSpacesWindowSwitcherEnabled {
-            allSpacesWindowSwitcherController.start()
-        }
+        registerIfEnabled(spaceSwitcherController, enabled: settings.spaceSwitcherEnabled)
+        registerIfEnabled(windowSwitcherController, enabled: settings.windowSwitcherEnabled)
+        registerIfEnabled(allSpacesWindowSwitcherController, enabled: settings.allSpacesWindowSwitcherEnabled)
     }
 
     func stop() {
+        eventTapProxy.unregister(spaceSwitcherController)
+        eventTapProxy.unregister(windowSwitcherController)
+        eventTapProxy.unregister(allSpacesWindowSwitcherController)
         spaceSwitcherController.stop()
         windowSwitcherController.stop()
         allSpacesWindowSwitcherController.stop()
     }
 
     func syncControllers() {
-        if settings.spaceSwitcherEnabled {
-            spaceSwitcherController.start()
-        } else {
-            spaceSwitcherController.stop()
-        }
-
-        if settings.windowSwitcherEnabled {
-            windowSwitcherController.start()
-        } else {
-            windowSwitcherController.stop()
-        }
-
-        if settings.allSpacesWindowSwitcherEnabled {
-            allSpacesWindowSwitcherController.start()
-        } else {
-            allSpacesWindowSwitcherController.stop()
-        }
+        sync(spaceSwitcherController, enabled: settings.spaceSwitcherEnabled)
+        sync(windowSwitcherController, enabled: settings.windowSwitcherEnabled)
+        sync(allSpacesWindowSwitcherController, enabled: settings.allSpacesWindowSwitcherEnabled)
     }
 
     func handleIncomingURL(_ url: URL) {
@@ -77,6 +62,21 @@ final class SwitcherCoordinator {
         case .allSpacesWindow:
             handle(command.action, with: allSpacesWindowSwitcherController)
         }
+    }
+
+    private func sync(_ controller: any SwitcherControlling, enabled: Bool) {
+        if enabled {
+            registerIfEnabled(controller, enabled: true)
+            controller.start()
+        } else {
+            eventTapProxy.unregister(controller)
+            controller.stop()
+        }
+    }
+
+    private func registerIfEnabled(_ controller: any SwitcherControlling, enabled: Bool) {
+        guard enabled else { return }
+        eventTapProxy.register(controller)
     }
 
     private func handle(_ action: SwitcherAction, with controller: any SwitcherControlling) {

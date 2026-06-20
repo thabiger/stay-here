@@ -1,14 +1,29 @@
 import Foundation
+import CoreGraphics
+import Core
 
-protocol SwitcherControlling: AnyObject {
+protocol SwitcherControlling: AnyObject, CGEventTapClient {
+    var hasActiveSession: Bool { get }
+    func handle(event: CGEvent) -> Unmanaged<CGEvent>?
+    func start()
+    func stop()
     func openSwitcher()
     func closeSwitcher()
     func moveSelectionForward()
     func moveSelectionBackward()
     func commitSwitcherSelection()
     func commitSelection(at position: Int)
-    var hasActiveSession: Bool { get }
+    func cancelSession()
 }
 
 extension SpaceSwitcherController: SwitcherControlling {}
 extension WindowSwitcherController: SwitcherControlling {}
+
+extension SwitcherControlling {
+    func handle(proxy: CGEventTapProxy, event: CGEvent) -> Unmanaged<CGEvent>? {
+        handle(event: event)
+    }
+
+    var handlesKeyboardEvents: Bool { true }
+    var handlesMouseEvents: Bool { false }
+}

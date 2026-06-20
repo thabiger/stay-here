@@ -7,6 +7,7 @@ public final class ActivationController {
     private let executor: ActivationExecutor
     private let settings: SettingsRepository
     private var interceptor: DockClickInterceptor?
+    public private(set) var eventTapClient: (any CGEventTapClient)?
     private let currentSpaceID: () -> Int?
     private let activeSpaceIDs: () -> Set<Int>
 
@@ -42,12 +43,12 @@ public final class ActivationController {
             }
         )
         self.interceptor = interceptor
-        interceptor.start()
+        self.eventTapClient = interceptor
     }
 
     public func stop() {
-        interceptor?.stop()
         interceptor = nil
+        eventTapClient = nil
     }
 
     private func shouldInterceptDockClick(bundleID: String, optionHeld: Bool) -> Bool {
