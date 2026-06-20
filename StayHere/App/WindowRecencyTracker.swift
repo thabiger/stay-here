@@ -25,6 +25,13 @@ final class WindowRecencyTracker {
         recentWindowIDs = []
     }
 
+    func promoteToCurrent(_ windowID: Int) {
+        if let index = recentWindowIDs.firstIndex(of: windowID) {
+            let id = recentWindowIDs.remove(at: index)
+            recentWindowIDs.insert(id, at: 0)
+        }
+    }
+
     private func recentEntries(from spaceGroups: [WindowListProvider.SpaceWindowGroup]) -> [WindowListProvider.SpaceWindowGroup] {
         let allEntries = spaceGroups.flatMap(\.entries)
         guard !allEntries.isEmpty else {

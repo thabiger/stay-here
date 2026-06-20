@@ -40,7 +40,16 @@ final class WindowListBuilder {
         }
 
         let (recencyEntries, recencyGroups) = recencyTracker.orderedEntriesAndGroups(from: spaceGroups)
-        let sessionOrdered = WindowSwitcherSelection.sessionOrder(fromRecentEntries: recencyEntries)
+
+        var adjustedEntries = recencyEntries
+        if let focusedID = listProvider.focusedWindowID(),
+           let focusedIndex = adjustedEntries.firstIndex(where: { $0.windowID == focusedID }) {
+            let focused = adjustedEntries.remove(at: focusedIndex)
+            adjustedEntries.insert(focused, at: 0)
+            recencyTracker.promoteToCurrent(focusedID)
+        }
+
+        let sessionOrdered = WindowSwitcherSelection.sessionOrder(fromRecentEntries: adjustedEntries)
 
         let finalGroups: [WindowListProvider.SpaceWindowGroup]
         if mode == .currentSpace, recencyGroups.isEmpty, spaceGroups.count == 1 {
