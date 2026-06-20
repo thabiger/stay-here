@@ -1,6 +1,6 @@
 import Foundation
 
-public final class SpaceSwitchingCoordinator {
+public final class SpaceSwitchExecutor {
     private let cgsBridge: any CGSBridgeProtocol
     private let repository: SpaceStateManager
     private let switcherService: SpaceSwitcherService

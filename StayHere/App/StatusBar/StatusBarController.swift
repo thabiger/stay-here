@@ -265,11 +265,14 @@ final class StatusBarController: NSObject, NSMenuDelegate, StatusBarMenuActionHa
         return false
     }
 
+    private var isSelectingSpace = false
+
     func performSpaceSelection(_ spaceID: Int) {
+        guard !isSelectingSpace else { return }
+        isSelectingSpace = true
         menu.cancelTracking()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
-            self?.onSelectSpace?(spaceID)
-        }
+        onSelectSpace?(spaceID)
+        isSelectingSpace = false
     }
 
     func updateSpaceName(spaceID: Int, name: String) {

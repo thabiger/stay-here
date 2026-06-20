@@ -6,18 +6,18 @@ import Activation
 final class EventOrchestrationCoordinator {
     private let hotCornerController: any HotCornerControlling
     private let activationController: any ActivationControlling
-    private let switcherCoordinator: any SwitcherCoordinating
+    private let switcherDirector: any SwitcherDirecting
     private let eventTapProxy: any EventTapProxying
 
     init(
         hotCornerController: any HotCornerControlling,
         activationController: any ActivationControlling,
-        switcherCoordinator: any SwitcherCoordinating,
+        switcherDirector: any SwitcherDirecting,
         eventTapProxy: any EventTapProxying
     ) {
         self.hotCornerController = hotCornerController
         self.activationController = activationController
-        self.switcherCoordinator = switcherCoordinator
+        self.switcherDirector = switcherDirector
         self.eventTapProxy = eventTapProxy
     }
 
@@ -26,19 +26,19 @@ final class EventOrchestrationCoordinator {
         if let client = activationController.eventTapClient {
             eventTapProxy.register(client)
         }
-        switcherCoordinator.start()
+        switcherDirector.start()
         syncEventDrivenControllers()
     }
 
     func stopEventDrivenControllers() {
         eventTapProxy.removeAllClients()
-        switcherCoordinator.stop()
+        switcherDirector.stop()
         activationController.stop()
         hotCornerController.stop()
     }
 
     func syncEventDrivenControllers() {
-        switcherCoordinator.syncControllers()
+        switcherDirector.syncControllers()
 
         if hotCornerController.hasAssignedCorners() {
             hotCornerController.start()
@@ -48,6 +48,6 @@ final class EventOrchestrationCoordinator {
     }
 
     func handleIncomingURL(_ url: URL) {
-        switcherCoordinator.handleIncomingURL(url)
+        switcherDirector.handleIncomingURL(url)
     }
 }

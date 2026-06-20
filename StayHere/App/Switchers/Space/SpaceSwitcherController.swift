@@ -8,7 +8,7 @@ final class SpaceSwitcherController {
     private let switchToSpace: (Int) -> Void
     private let shortcutProvider: () -> SpaceSwitcherShortcut
     private let panelManager = SpaceSwitcherPanelManager()
-    private lazy var coordinator = SwitcherSessionCoordinator<
+    private lazy var coordinator = SwitcherSessionController<
         SpaceSwitcherSession,
         SpaceSwitcherSnapshot,
         Int

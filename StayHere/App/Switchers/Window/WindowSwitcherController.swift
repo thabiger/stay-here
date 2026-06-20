@@ -14,7 +14,7 @@ final class WindowSwitcherController {
     private let windowSwitchUseCase: WindowSwitchUseCase
     private let listProvider: WindowListProvider
 
-    private lazy var coordinator = SwitcherSessionCoordinator<
+    private lazy var coordinator = SwitcherSessionController<
         WindowSwitcherSession,
         WindowSwitcherSnapshot,
         Int

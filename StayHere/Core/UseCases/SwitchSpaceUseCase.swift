@@ -1,7 +1,7 @@
 import Foundation
 
 public final class SwitchSpaceUseCase {
-    private let coordinator: SpaceSwitchingCoordinator
+    private let executor: SpaceSwitchExecutor
 
     public init(
         cgsBridge: any CGSBridgeProtocol = CGSBridge.live,
@@ -10,7 +10,7 @@ public final class SwitchSpaceUseCase {
         refreshUseCase: RefreshSpacesUseCase,
         logger: any Logging
     ) {
-        self.coordinator = SpaceSwitchingCoordinator(
+        self.executor = SpaceSwitchExecutor(
             cgsBridge: cgsBridge,
             repository: repository,
             switcherService: switcherService ?? SpaceSwitcherService(cgsBridge: cgsBridge, logger: logger),
@@ -25,14 +25,14 @@ public final class SwitchSpaceUseCase {
     }
 
     public func execute(_ spaceID: Int) async -> SpaceSwitchResult {
-        await coordinator.switchToSpace(spaceID)
+        await executor.switchToSpace(spaceID)
     }
 
     public func next() async {
-        await coordinator.switchToNextSpace()
+        await executor.switchToNextSpace()
     }
 
     public func previous() async {
-        await coordinator.switchToPreviousSpace()
+        await executor.switchToPreviousSpace()
     }
 }

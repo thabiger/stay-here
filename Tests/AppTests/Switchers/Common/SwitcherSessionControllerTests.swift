@@ -22,13 +22,13 @@ private struct FakeSession: SwitcherSession {
     }
 }
 
-final class SwitcherSessionCoordinatorTests: XCTestCase {
-    private func makeCoordinator(
+final class SwitcherSessionControllerTests: XCTestCase {
+    private func makeController(
         movesSelectionOnNewSession: Bool = true,
         shouldCommit: @escaping (FakeSession) -> Bool = { $0.didChangeSelection },
         commitSelection: @escaping (FakeSession?, Int) -> Bool = { _, _ in true }
     ) -> (
-        SwitcherSessionCoordinator<FakeSession, FakeSnapshot, Int>,
+        SwitcherSessionController<FakeSession, FakeSnapshot, Int>,
         Ref<Bool>,
         Ref<Bool>,
         Ref<[FakeSnapshot]>
@@ -37,7 +37,7 @@ final class SwitcherSessionCoordinatorTests: XCTestCase {
         let released = Ref(false)
         let presented = Ref<[FakeSnapshot]>([])
 
-        let coordinator = SwitcherSessionCoordinator<FakeSession, FakeSnapshot, Int>(
+        let controller = SwitcherSessionController<FakeSession, FakeSnapshot, Int>(
             shortcutProvider: {
                 SpaceSwitcherShortcut(keyCode: 48, modifiers: [.maskCommand])
             },
@@ -61,25 +61,25 @@ final class SwitcherSessionCoordinatorTests: XCTestCase {
             releasePanel: { released.value = true }
         )
 
-        return (coordinator, dismissed, released, presented)
+        return (controller, dismissed, released, presented)
     }
 
     func testOpenSwitcherCreatesSessionAndPresentsSnapshot() {
-        let (coordinator, _, _, presented) = makeCoordinator()
+        let (controller, _, _, presented) = makeController()
 
-        coordinator.openSwitcher()
+        controller.openSwitcher()
 
-        XCTAssertTrue(coordinator.hasActiveSession)
+        XCTAssertTrue(controller.hasActiveSession)
         XCTAssertEqual(presented.value, [FakeSnapshot(selectedID: 1)])
     }
 
     func testMoveSelectionForwardMovesSelectionAndRepresents() {
-        let (coordinator, _, _, presented) = makeCoordinator()
+        let (controller, _, _, presented) = makeController()
 
-        coordinator.openSwitcher()
-        coordinator.moveSelectionForward()
+        controller.openSwitcher()
+        controller.moveSelectionForward()
 
-        XCTAssertEqual(coordinator.testSession?.selectedID, 2)
+        XCTAssertEqual(controller.testSession?.selectedID, 2)
         XCTAssertEqual(presented.value, [
             FakeSnapshot(selectedID: 1),
             FakeSnapshot(selectedID: 2)
@@ -87,40 +87,40 @@ final class SwitcherSessionCoordinatorTests: XCTestCase {
     }
 
     func testMoveSelectionBackwardMovesSelectionAndRepresents() {
-        let (coordinator, _, _, presented) = makeCoordinator()
+        let (controller, _, _, presented) = makeController()
 
-        coordinator.openSwitcher()
-        coordinator.moveSelectionBackward()
+        controller.openSwitcher()
+        controller.moveSelectionBackward()
 
-        XCTAssertEqual(coordinator.testSession?.selectedID, 0)
+        XCTAssertEqual(controller.testSession?.selectedID, 0)
         XCTAssertEqual(presented.value.last, FakeSnapshot(selectedID: 0))
     }
 
     func testCloseSwitcherDismissesAndClearsSession() {
-        let (coordinator, dismissed, _, _) = makeCoordinator()
+        let (controller, dismissed, _, _) = makeController()
 
-        coordinator.openSwitcher()
-        XCTAssertTrue(coordinator.hasActiveSession)
+        controller.openSwitcher()
+        XCTAssertTrue(controller.hasActiveSession)
 
-        coordinator.closeSwitcher()
+        controller.closeSwitcher()
 
-        XCTAssertFalse(coordinator.hasActiveSession)
+        XCTAssertFalse(controller.hasActiveSession)
         XCTAssertTrue(dismissed.value)
     }
 
     func testStopReleasesPanelAndClearsSession() {
-        let (coordinator, _, released, _) = makeCoordinator()
+        let (controller, _, released, _) = makeController()
 
-        coordinator.openSwitcher()
-        coordinator.stop()
+        controller.openSwitcher()
+        controller.stop()
 
-        XCTAssertFalse(coordinator.hasActiveSession)
+        XCTAssertFalse(controller.hasActiveSession)
         XCTAssertTrue(released.value)
     }
 
     func testCommitSwitcherSelectionCommitsWhenShouldCommitReturnsTrue() {
         var committedID: Int?
-        let (coordinator, _, _, _) = makeCoordinator(
+        let (controller, _, _, _) = makeController(
             shouldCommit: { _ in true },
             commitSelection: { _, selection in
                 committedID = selection
@@ -128,44 +128,44 @@ final class SwitcherSessionCoordinatorTests: XCTestCase {
             }
         )
 
-        coordinator.openSwitcher()
-        coordinator.moveSelectionForward()
-        coordinator.commitSwitcherSelection()
+        controller.openSwitcher()
+        controller.moveSelectionForward()
+        controller.commitSwitcherSelection()
 
         XCTAssertEqual(committedID, 2)
     }
 
     func testCommitSwitcherSelectionDismissesWhenShouldCommitReturnsFalse() {
-        let (coordinator, dismissed, _, _) = makeCoordinator(
+        let (controller, dismissed, _, _) = makeController(
             shouldCommit: { _ in false }
         )
 
-        coordinator.openSwitcher()
-        coordinator.commitSwitcherSelection()
+        controller.openSwitcher()
+        controller.commitSwitcherSelection()
 
-        XCTAssertFalse(coordinator.hasActiveSession)
+        XCTAssertFalse(controller.hasActiveSession)
         XCTAssertTrue(dismissed.value)
     }
 
     func testKeyboardShortcutDoesNotMoveOnFirstTriggerWhenConfigured() {
-        let (coordinator, _, _, presented) = makeCoordinator(
+        let (controller, _, _, presented) = makeController(
             movesSelectionOnNewSession: false
         )
 
-        coordinator.switcherEnsureSessionAndMoveSelection(backward: false)
+        controller.switcherEnsureSessionAndMoveSelection(backward: false)
 
-        XCTAssertEqual(coordinator.testSession?.selectedID, 1)
+        XCTAssertEqual(controller.testSession?.selectedID, 1)
         XCTAssertEqual(presented.value, [FakeSnapshot(selectedID: 1)])
     }
 
     func testKeyboardShortcutMovesOnFirstTriggerWhenConfigured() {
-        let (coordinator, _, _, presented) = makeCoordinator(
+        let (controller, _, _, presented) = makeController(
             movesSelectionOnNewSession: true
         )
 
-        coordinator.switcherEnsureSessionAndMoveSelection(backward: false)
+        controller.switcherEnsureSessionAndMoveSelection(backward: false)
 
-        XCTAssertEqual(coordinator.testSession?.selectedID, 2)
+        XCTAssertEqual(controller.testSession?.selectedID, 2)
         XCTAssertEqual(presented.value, [FakeSnapshot(selectedID: 2)])
     }
 }

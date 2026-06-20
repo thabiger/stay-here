@@ -1,11 +1,11 @@
 import Foundation
 
 @MainActor
-protocol SwitcherCoordinating: AnyObject {
+protocol SwitcherDirecting: AnyObject {
     func start()
     func stop()
     func syncControllers()
     func handleIncomingURL(_ url: URL)
 }
 
-extension SwitcherCoordinator: SwitcherCoordinating {}
+extension SwitcherDirector: SwitcherDirecting {}

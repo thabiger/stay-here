@@ -70,7 +70,6 @@ final class SpaceRenameCoordinator: SpaceMenuRowViewCoordinating {
         guard !isEditingSpaceName else { return }
         guard menuProvider?.isSwitchableSpace(spaceID) == true else { return }
         menuProvider?.performSpaceSelection(spaceID)
-        onSelectSpace?(spaceID)
     }
 }
 

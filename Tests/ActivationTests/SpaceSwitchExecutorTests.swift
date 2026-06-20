@@ -1,7 +1,7 @@
 import XCTest
 @testable import Core
 
-final class SpaceSwitchingCoordinatorTests: XCTestCase {
+final class SpaceSwitchExecutorTests: XCTestCase {
     func testSwitchToSpaceDelegatesAndSchedulesRefresh() async {
         let bridge = MockCGSBridge(
             activeSpaceIDValue: 101,
@@ -29,9 +29,9 @@ final class SpaceSwitchingCoordinatorTests: XCTestCase {
             return true
         }
 
-        let (repository, coordinator) = makeFixtures(bridge: bridge)
+        let (repository, executor) = makeFixtures(bridge: bridge)
 
-        let result = await coordinator.switchToSpace(102)
+        let result = await executor.switchToSpace(102)
 
         XCTAssertEqual(result, .switched)
         XCTAssertEqual(postedIndex, 2)
@@ -73,7 +73,7 @@ final class SpaceSwitchingCoordinatorTests: XCTestCase {
             return true
         }
 
-        let (repository, coordinator) = makeFixtures(bridge: bridge)
+        let (repository, executor) = makeFixtures(bridge: bridge)
         repository.stateStore.syncPersistenceState(
             labels: [:],
             displayOrder: [103, 101, 102],
@@ -81,7 +81,7 @@ final class SpaceSwitchingCoordinatorTests: XCTestCase {
         )
         repository.refreshSpaces()
 
-        await coordinator.switchToNextSpace()
+        await executor.switchToNextSpace()
         bridge.activeSpaceIDValue = 101
         bridge.managedSnapshotValue = CGSBridge.ManagedSnapshot(
             spaces: bridge.managedSnapshotValue.spaces,
@@ -89,7 +89,7 @@ final class SpaceSwitchingCoordinatorTests: XCTestCase {
             orderedIDsByDisplay: ["display-a": [101, 102, 103]]
         )
         repository.refreshSpaces()
-        await coordinator.switchToPreviousSpace()
+        await executor.switchToPreviousSpace()
 
         XCTAssertEqual(postedIndexes, [2, 3])
     }
@@ -103,9 +103,9 @@ final class SpaceSwitchingCoordinatorTests: XCTestCase {
             return true
         }
 
-        let (_, coordinator) = makeFixtures(bridge: bridge)
+        let (_, executor) = makeFixtures(bridge: bridge)
 
-        await coordinator.switchToNextSpace()
+        await executor.switchToNextSpace()
 
         XCTAssertFalse(postedShortcut)
     }
@@ -125,7 +125,7 @@ final class SpaceSwitchingCoordinatorTests: XCTestCase {
         )
 
         var scheduledSoon = false
-        let (_, coordinator) = makeFixtures(
+        let (_, executor) = makeFixtures(
             bridge: bridge,
             switcherService: SpaceSwitcherService(
                 cgsBridge: bridge,
@@ -137,7 +137,7 @@ final class SpaceSwitchingCoordinatorTests: XCTestCase {
             }
         )
 
-        let result = await coordinator.switchToSpace(102)
+        let result = await executor.switchToSpace(102)
 
         XCTAssertEqual(result, .switchUnmatched(index: 2, expectedSpaceID: 102, actualSpaceID: 101))
         XCTAssertTrue(scheduledSoon)
@@ -147,9 +147,9 @@ final class SpaceSwitchingCoordinatorTests: XCTestCase {
         bridge: MockCGSBridge,
         switcherService: SpaceSwitcherService? = nil,
         scheduleRefreshSoon: @escaping () -> Void = {}
-    ) -> (SpaceStateManager, SpaceSwitchingCoordinator) {
+    ) -> (SpaceStateManager, SpaceSwitchExecutor) {
         let repository = SpaceStateManager(cgsBridge: bridge, logger: NoOpLogger())
-        let coordinator = SpaceSwitchingCoordinator(
+        let executor = SpaceSwitchExecutor(
             cgsBridge: bridge,
             repository: repository,
             switcherService: switcherService ?? SpaceSwitcherService(
@@ -161,6 +161,6 @@ final class SpaceSwitchingCoordinatorTests: XCTestCase {
             scheduleRefreshSoon: scheduleRefreshSoon,
             logger: NoOpLogger()
         )
-        return (repository, coordinator)
+        return (repository, executor)
     }
 }

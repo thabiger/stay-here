@@ -3,7 +3,7 @@ import CoreGraphics
 import Core
 import Foundation
 
-final class SwitcherSessionCoordinator<Session: SwitcherSession, Snapshot, Selection>
+final class SwitcherSessionController<Session: SwitcherSession, Snapshot, Selection>
 where Session.Selection == Selection {
     typealias BuildSession = (SpaceSwitcherShortcut, SwitcherSessionTrigger) -> Session?
     typealias MoveSelection = (inout Session, Int) -> Void
@@ -187,7 +187,7 @@ where Session.Selection == Selection {
     }
 }
 
-extension SwitcherSessionCoordinator: SwitcherEventSessionHandling {
+extension SwitcherSessionController: SwitcherEventSessionHandling {
     func switcherConfiguredShortcut() -> SpaceSwitcherShortcut {
         session?.shortcut ?? shortcutProvider()
     }

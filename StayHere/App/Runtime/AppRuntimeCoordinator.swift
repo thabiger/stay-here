@@ -20,7 +20,7 @@ final class AppRuntimeCoordinator: AppCoordinating, RuntimeCoordinating {
     private let statusBarCoordinator: StatusBarCoordinator
     private let spaceObservationCoordinator: SpaceObservationCoordinator
     private let windowCoordinator: WindowCoordinator
-    private let switcherCoordinator: SwitcherCoordinator
+    private let switcherDirector: SwitcherDirector
     private let eventOrchestrationCoordinator: EventOrchestrationCoordinator
 
     init(
@@ -57,7 +57,7 @@ final class AppRuntimeCoordinator: AppCoordinating, RuntimeCoordinating {
             refreshSpaces: services.refreshSpaces
         )
         let eventTapProxy = AppEventTapProxy(logger: services.logger)
-        self.switcherCoordinator = SwitcherCoordinator(
+        self.switcherDirector = SwitcherDirector(
             spaceSwitcherController: controllers.spaceSwitcherController,
             windowSwitcherController: controllers.windowSwitcherController,
             allSpacesWindowSwitcherController: controllers.allSpacesWindowSwitcherController,
@@ -67,7 +67,7 @@ final class AppRuntimeCoordinator: AppCoordinating, RuntimeCoordinating {
         self.eventOrchestrationCoordinator = EventOrchestrationCoordinator(
             hotCornerController: controllers.hotCornerController,
             activationController: controllers.activationController,
-            switcherCoordinator: switcherCoordinator,
+            switcherDirector: switcherDirector,
             eventTapProxy: eventTapProxy
         )
 

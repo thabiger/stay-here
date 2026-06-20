@@ -4,27 +4,27 @@ import Core
 
 @MainActor
 final class EventOrchestrationCoordinatorTests: XCTestCase {
-    func testHandleIncomingURLForwardsToSwitcherCoordinator() {
-        let switcherCoordinator = SwitcherCoordinatingSpy()
+    func testHandleIncomingURLForwardsToSwitcherDirector() {
+        let switcherDirector = SwitcherDirectingSpy()
         let coordinator = EventOrchestrationCoordinator(
             hotCornerController: HotCornerControllingSpy(),
             activationController: ActivationControllingSpy(),
-            switcherCoordinator: switcherCoordinator,
+            switcherDirector: switcherDirector,
             eventTapProxy: AppEventTapProxySpy()
         )
         let url = URL(string: "stayhere://window-switcher/open")!
 
         coordinator.handleIncomingURL(url)
 
-        XCTAssertEqual(switcherCoordinator.receivedURLs, [url])
+        XCTAssertEqual(switcherDirector.receivedURLs, [url])
     }
 
     func testHandleIncomingURLForwardsMultipleURLs() {
-        let switcherCoordinator = SwitcherCoordinatingSpy()
+        let switcherDirector = SwitcherDirectingSpy()
         let coordinator = EventOrchestrationCoordinator(
             hotCornerController: HotCornerControllingSpy(),
             activationController: ActivationControllingSpy(),
-            switcherCoordinator: switcherCoordinator,
+            switcherDirector: switcherDirector,
             eventTapProxy: AppEventTapProxySpy()
         )
         let urls = [
@@ -34,17 +34,17 @@ final class EventOrchestrationCoordinatorTests: XCTestCase {
 
         urls.forEach(coordinator.handleIncomingURL)
 
-        XCTAssertEqual(switcherCoordinator.receivedURLs, urls)
+        XCTAssertEqual(switcherDirector.receivedURLs, urls)
     }
 
-    func testStartRegistersActivationClientAndStartsSwitcherCoordinator() {
+    func testStartRegistersActivationClientAndStartsSwitcherDirector() {
         let activationController = ActivationControllingSpy(eventTapClient: FakeEventTapClient())
-        let switcherCoordinator = SwitcherCoordinatingSpy()
+        let switcherDirector = SwitcherDirectingSpy()
         let proxy = AppEventTapProxySpy()
         let coordinator = EventOrchestrationCoordinator(
             hotCornerController: HotCornerControllingSpy(),
             activationController: activationController,
-            switcherCoordinator: switcherCoordinator,
+            switcherDirector: switcherDirector,
             eventTapProxy: proxy
         )
 
@@ -53,17 +53,17 @@ final class EventOrchestrationCoordinatorTests: XCTestCase {
         XCTAssertEqual(activationController.startCallCount, 1)
         XCTAssertEqual(proxy.registeredClients.count, 1)
         XCTAssertIdentical(proxy.registeredClients.first as? FakeEventTapClient, activationController.eventTapClient as? FakeEventTapClient)
-        XCTAssertEqual(switcherCoordinator.startCallCount, 1)
-        XCTAssertEqual(switcherCoordinator.syncControllersCallCount, 1)
+        XCTAssertEqual(switcherDirector.startCallCount, 1)
+        XCTAssertEqual(switcherDirector.syncControllersCallCount, 1)
     }
 
     func testStartWithoutActivationClientDoesNotRegisterNil() {
-        let switcherCoordinator = SwitcherCoordinatingSpy()
+        let switcherDirector = SwitcherDirectingSpy()
         let proxy = AppEventTapProxySpy()
         let coordinator = EventOrchestrationCoordinator(
             hotCornerController: HotCornerControllingSpy(),
             activationController: ActivationControllingSpy(),
-            switcherCoordinator: switcherCoordinator,
+            switcherDirector: switcherDirector,
             eventTapProxy: proxy
         )
 
@@ -74,13 +74,13 @@ final class EventOrchestrationCoordinatorTests: XCTestCase {
 
     func testStopRemovesAllClientsAndStopsSubordinates() {
         let activationController = ActivationControllingSpy(eventTapClient: FakeEventTapClient())
-        let switcherCoordinator = SwitcherCoordinatingSpy()
+        let switcherDirector = SwitcherDirectingSpy()
         let hotCornerController = HotCornerControllingSpy()
         let proxy = AppEventTapProxySpy()
         let coordinator = EventOrchestrationCoordinator(
             hotCornerController: hotCornerController,
             activationController: activationController,
-            switcherCoordinator: switcherCoordinator,
+            switcherDirector: switcherDirector,
             eventTapProxy: proxy
         )
 
@@ -89,37 +89,37 @@ final class EventOrchestrationCoordinatorTests: XCTestCase {
 
         XCTAssertTrue(proxy.registeredClients.isEmpty)
         XCTAssertTrue(proxy.didRemoveAllClients)
-        XCTAssertEqual(switcherCoordinator.stopCallCount, 1)
+        XCTAssertEqual(switcherDirector.stopCallCount, 1)
         XCTAssertEqual(activationController.stopCallCount, 1)
         XCTAssertEqual(hotCornerController.stopCallCount, 2)
     }
 
     func testSyncEventDrivenControllersSyncsSwitchersAndHotCorners() {
-        let switcherCoordinator = SwitcherCoordinatingSpy()
+        let switcherDirector = SwitcherDirectingSpy()
         let hotCornerController = HotCornerControllingSpy()
         let coordinator = EventOrchestrationCoordinator(
             hotCornerController: hotCornerController,
             activationController: ActivationControllingSpy(),
-            switcherCoordinator: switcherCoordinator,
+            switcherDirector: switcherDirector,
             eventTapProxy: AppEventTapProxySpy()
         )
 
         coordinator.syncEventDrivenControllers()
 
-        XCTAssertEqual(switcherCoordinator.syncControllersCallCount, 1)
+        XCTAssertEqual(switcherDirector.syncControllersCallCount, 1)
         XCTAssertEqual(hotCornerController.startCallCount, 0)
         XCTAssertEqual(hotCornerController.stopCallCount, 1)
 
         hotCornerController.hasAssignedCornersReturnValue = true
         coordinator.syncEventDrivenControllers()
 
-        XCTAssertEqual(switcherCoordinator.syncControllersCallCount, 2)
+        XCTAssertEqual(switcherDirector.syncControllersCallCount, 2)
         XCTAssertEqual(hotCornerController.startCallCount, 1)
     }
 }
 
 @MainActor
-private final class SwitcherCoordinatingSpy: SwitcherCoordinating {
+private final class SwitcherDirectingSpy: SwitcherDirecting {
     private(set) var receivedURLs: [URL] = []
     private(set) var startCallCount = 0
     private(set) var stopCallCount = 0

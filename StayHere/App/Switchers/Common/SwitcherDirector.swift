@@ -1,7 +1,7 @@
 import AppKit
 import Core
 
-final class SwitcherCoordinator {
+final class SwitcherDirector {
     private let spaceSwitcherController: any SwitcherControlling
     private let windowSwitcherController: any SwitcherControlling
     private let allSpacesWindowSwitcherController: any SwitcherControlling
