@@ -2,7 +2,7 @@ import XCTest
 @testable import Core
 
 final class SpaceSwitchingCoordinatorTests: XCTestCase {
-    func testSwitchToSpaceDelegatesAndSchedulesRefresh() {
+    func testSwitchToSpaceDelegatesAndSchedulesRefresh() async {
         let bridge = MockCGSBridge(
             activeSpaceIDValue: 101,
             managedSnapshotValue: CGSBridge.ManagedSnapshot(
@@ -31,14 +31,14 @@ final class SpaceSwitchingCoordinatorTests: XCTestCase {
 
         let (repository, coordinator) = makeFixtures(bridge: bridge)
 
-        let result = coordinator.switchToSpace(102)
+        let result = await coordinator.switchToSpace(102)
 
         XCTAssertEqual(result, .switched)
         XCTAssertEqual(postedIndex, 2)
         XCTAssertEqual(repository.activeSpaceID, 102)
     }
 
-    func testSwitchToNextAndPreviousUseEffectiveOrder() {
+    func testSwitchToNextAndPreviousUseEffectiveOrder() async {
         let bridge = MockCGSBridge(
             activeSpaceIDValue: 101,
             managedSnapshotValue: CGSBridge.ManagedSnapshot(
@@ -81,7 +81,7 @@ final class SpaceSwitchingCoordinatorTests: XCTestCase {
         )
         repository.refreshSpaces()
 
-        coordinator.switchToNextSpace()
+        await coordinator.switchToNextSpace()
         bridge.activeSpaceIDValue = 101
         bridge.managedSnapshotValue = CGSBridge.ManagedSnapshot(
             spaces: bridge.managedSnapshotValue.spaces,
@@ -89,12 +89,12 @@ final class SpaceSwitchingCoordinatorTests: XCTestCase {
             orderedIDsByDisplay: ["display-a": [101, 102, 103]]
         )
         repository.refreshSpaces()
-        coordinator.switchToPreviousSpace()
+        await coordinator.switchToPreviousSpace()
 
         XCTAssertEqual(postedIndexes, [2, 3])
     }
 
-    func testSwitchToNextSpaceSkipsEmptyOrderedList() {
+    func testSwitchToNextSpaceSkipsEmptyOrderedList() async {
         let bridge = MockCGSBridge()
         var postedShortcut = false
 
@@ -105,12 +105,12 @@ final class SpaceSwitchingCoordinatorTests: XCTestCase {
 
         let (_, coordinator) = makeFixtures(bridge: bridge)
 
-        coordinator.switchToNextSpace()
+        await coordinator.switchToNextSpace()
 
         XCTAssertFalse(postedShortcut)
     }
 
-    func testUnmatchedSwitchSchedulesRetryRefresh() {
+    func testUnmatchedSwitchSchedulesRetryRefresh() async {
         let bridge = MockCGSBridge(
             activeSpaceIDValue: 101,
             managedSnapshotValue: CGSBridge.ManagedSnapshot(
@@ -130,7 +130,6 @@ final class SpaceSwitchingCoordinatorTests: XCTestCase {
             switcherService: SpaceSwitcherService(
                 cgsBridge: bridge,
                 refreshRetryLimit: 1,
-                waitForRefresh: { _ in },
                 logger: NoOpLogger()
             ),
             scheduleRefreshSoon: {
@@ -138,7 +137,7 @@ final class SpaceSwitchingCoordinatorTests: XCTestCase {
             }
         )
 
-        let result = coordinator.switchToSpace(102)
+        let result = await coordinator.switchToSpace(102)
 
         XCTAssertEqual(result, .switchUnmatched(index: 2, expectedSpaceID: 102, actualSpaceID: 101))
         XCTAssertTrue(scheduledSoon)
@@ -156,7 +155,6 @@ final class SpaceSwitchingCoordinatorTests: XCTestCase {
             switcherService: switcherService ?? SpaceSwitcherService(
                 cgsBridge: bridge,
                 refreshRetryLimit: 0,
-                waitForRefresh: { _ in },
                 logger: NoOpLogger()
             ),
             refreshSpaces: { repository.applyManagedSnapshot(bridge.managedSnapshot()) },

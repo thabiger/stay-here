@@ -28,7 +28,7 @@ final class SpaceRepositoryTests: XCTestCase {
         XCTAssertEqual(repository.desktopNumberBySpaceID[201], 1)
     }
 
-    func testSwitchToSpaceUsesInjectedBridgeShortcutPosting() {
+    func testSwitchToSpaceUsesInjectedBridgeShortcutPosting() async {
         let store = makeStore()
         let bridge = MockCGSBridge(
             activeSpaceIDValue: 101,
@@ -64,7 +64,7 @@ final class SpaceRepositoryTests: XCTestCase {
             refreshUseCase: refreshSpaces,
             logger: NoOpLogger()
         )
-        let result = switchSpace.execute(102)
+        let result = await switchSpace.execute(102)
 
         XCTAssertEqual(result, .switched)
         XCTAssertEqual(postedIndex, 2)

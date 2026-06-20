@@ -4,7 +4,7 @@ import Core
 @MainActor
 protocol RuntimeCoordinating: AnyObject {
     func applyAppearanceImmediately()
-    func performSpaceSwitch(_ spaceID: Int)
+    func performSpaceSwitch(_ spaceID: Int) async
 }
 
 @MainActor
@@ -104,7 +104,9 @@ final class AppRuntimeCoordinator: AppCoordinating, RuntimeCoordinating {
             onOpenLogs: { [logger = services.logger] in logger.openLogsInFinder() },
             onQuit: { NSApp.terminate(nil) },
             onSelectSpace: { [weak self] id in
-                self?.spaceObservationCoordinator.performSpaceSwitch(id)
+                Task { [weak self] in
+                    await self?.spaceObservationCoordinator.performSpaceSwitch(id)
+                }
             },
             onRenameSpace: { [weak self] id, name in
                 guard let self else { return }
@@ -173,8 +175,8 @@ final class AppRuntimeCoordinator: AppCoordinating, RuntimeCoordinating {
         statusBarCoordinator.applyCurrentAppearance()
     }
 
-    func performSpaceSwitch(_ spaceID: Int) {
-        spaceObservationCoordinator.performSpaceSwitch(spaceID)
+    func performSpaceSwitch(_ spaceID: Int) async {
+        await spaceObservationCoordinator.performSpaceSwitch(spaceID)
     }
 
     private static func normalizedSpaceName(_ name: String) -> String {

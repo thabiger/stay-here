@@ -31,7 +31,9 @@ final class CompositionControllers {
         settings: services.settings,
         registry: services.registry,
         switchToSpace: { [weak self] spaceID in
-            self?.runtimeCoordinator?.performSpaceSwitch(spaceID)
+            Task { [weak self] in
+                await self?.runtimeCoordinator?.performSpaceSwitch(spaceID)
+            }
         }
     )
 
@@ -84,7 +86,9 @@ final class CompositionControllers {
             return Set([id])
         },
         switchToSpace: { [weak self] spaceID in
-            self?.runtimeCoordinator?.performSpaceSwitch(spaceID)
+            Task { [weak self] in
+                await self?.runtimeCoordinator?.performSpaceSwitch(spaceID)
+            }
         },
         onShowSingleWindowHint: { [weak self] message in
             self?.hudController.show(message: message)

@@ -243,24 +243,33 @@ final class WindowSwitcherController {
         let currentSpaceID = listProvider.currentContext()?.spaceID
         let targetSpaceID = windowSpaceIDs.first(where: { $0 != currentSpaceID })
             ?? windowSpaceIDs.first
+        let needsSpaceSwitch = targetSpaceID != nil && targetSpaceID != currentSpaceID
 
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             self.panelPresenter.dismiss()
             self.coordinator.closeSwitcher()
 
-            if let targetSpaceID, targetSpaceID != currentSpaceID {
-                _ = self.switchSpace.execute(targetSpaceID)
-            }
-
-            self.focusService.focusWindow(entry: entry)
-
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
-                guard let self else { return }
-                let currentContext = self.listProvider.currentContext()
-                if currentContext?.spaceID != currentSpaceID {
-                    self.refreshSpaces.execute()
+            if needsSpaceSwitch, let targetSpaceID {
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    _ = await self.switchSpace.execute(targetSpaceID)
+                    self.focusWindowAndRefresh(entry: entry, previousSpaceID: currentSpaceID)
                 }
+            } else {
+                self.focusWindowAndRefresh(entry: entry, previousSpaceID: currentSpaceID)
+            }
+        }
+    }
+
+    private func focusWindowAndRefresh(entry: WindowEntry, previousSpaceID: Int?) {
+        focusService.focusWindow(entry: entry)
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+            guard let self else { return }
+            let currentContext = self.listProvider.currentContext()
+            if currentContext?.spaceID != previousSpaceID {
+                self.refreshSpaces.execute()
             }
         }
     }

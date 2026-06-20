@@ -24,8 +24,8 @@ public final class SpaceSwitchingCoordinator {
         self.logger = logger
     }
 
-    public func switchToSpace(_ spaceID: Int) -> SpaceSwitchResult {
-        switcherService.switchToSpace(
+    public func switchToSpace(_ spaceID: Int) async -> SpaceSwitchResult {
+        await switcherService.switchToSpace(
             spaceID,
             snapshot: repository.currentSwitchSnapshot(),
             refreshSpaces: { [weak self] in
@@ -41,15 +41,15 @@ public final class SpaceSwitchingCoordinator {
         )
     }
 
-    public func switchToNextSpace() {
-        switchToAdjacentSpace(offset: 1)
+    public func switchToNextSpace() async {
+        await switchToAdjacentSpace(offset: 1)
     }
 
-    public func switchToPreviousSpace() {
-        switchToAdjacentSpace(offset: -1)
+    public func switchToPreviousSpace() async {
+        await switchToAdjacentSpace(offset: -1)
     }
 
-    private func switchToAdjacentSpace(offset: Int) {
+    private func switchToAdjacentSpace(offset: Int) async {
         let ordered = repository.orderedSpaceIDs()
         let target = offset > 0
             ? SpaceCycling.nextSpaceID(currentSpaceID: repository.activeSpaceID, orderedSpaceIDs: ordered)
@@ -58,6 +58,6 @@ public final class SpaceSwitchingCoordinator {
             logger.info("switch-space cycle skipped=empty")
             return
         }
-        _ = switchToSpace(target)
+        _ = await switchToSpace(target)
     }
 }

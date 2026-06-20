@@ -48,8 +48,8 @@ final class SpaceObservationCoordinator {
         observeActiveSpaceChanges()
     }
 
-    func performSpaceSwitch(_ spaceID: Int) {
-        let result = switchSpace.execute(spaceID)
+    func performSpaceSwitch(_ spaceID: Int) async {
+        let result = await switchSpace.execute(spaceID)
         switchPresentationHelper.presentWarning(for: result)
     }
 

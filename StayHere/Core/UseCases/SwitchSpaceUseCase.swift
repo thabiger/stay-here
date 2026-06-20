@@ -24,15 +24,15 @@ public final class SwitchSpaceUseCase {
         )
     }
 
-    public func execute(_ spaceID: Int) -> SpaceSwitchResult {
-        coordinator.switchToSpace(spaceID)
+    public func execute(_ spaceID: Int) async -> SpaceSwitchResult {
+        await coordinator.switchToSpace(spaceID)
     }
 
-    public func next() {
-        coordinator.switchToNextSpace()
+    public func next() async {
+        await coordinator.switchToNextSpace()
     }
 
-    public func previous() {
-        coordinator.switchToPreviousSpace()
+    public func previous() async {
+        await coordinator.switchToPreviousSpace()
     }
 }

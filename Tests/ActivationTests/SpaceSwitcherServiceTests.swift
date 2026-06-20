@@ -2,7 +2,7 @@ import XCTest
 import Core
 
 final class SpaceSwitcherServiceTests: XCTestCase {
-    func testSwitchToSpaceUsesDesktopShortcutIndexFromDisplayOrder() {
+    func testSwitchToSpaceUsesDesktopShortcutIndexFromDisplayOrder() async {
         let bridge = MockCGSBridge(
             activeSpaceIDValue: 101,
             managedSnapshotValue: CGSBridge.ManagedSnapshot(
@@ -24,7 +24,6 @@ final class SpaceSwitcherServiceTests: XCTestCase {
         let service = SpaceSwitcherService(
             cgsBridge: bridge,
             refreshRetryLimit: 0,
-            waitForRefresh: { _ in },
             logger: NoOpLogger()
         )
         var refreshedState = SpaceSwitchSnapshot(
@@ -36,7 +35,7 @@ final class SpaceSwitcherServiceTests: XCTestCase {
             nativeOrderByDisplay: ["display-a": [101, 102]]
         )
 
-        let result = service.switchToSpace(
+        let result = await service.switchToSpace(
             102,
             snapshot: refreshedState,
             refreshSpaces: {
@@ -54,7 +53,7 @@ final class SpaceSwitcherServiceTests: XCTestCase {
         XCTAssertEqual(postedIndex, 2)
     }
 
-    func testSwitchToSpaceReturnsUnmatchedWhenActiveSpaceNeverChanges() {
+    func testSwitchToSpaceReturnsUnmatchedWhenActiveSpaceNeverChanges() async {
         let bridge = MockCGSBridge(
             activeSpaceIDValue: 101,
             managedSnapshotValue: CGSBridge.ManagedSnapshot(
@@ -70,7 +69,6 @@ final class SpaceSwitcherServiceTests: XCTestCase {
         let service = SpaceSwitcherService(
             cgsBridge: bridge,
             refreshRetryLimit: 1,
-            waitForRefresh: { _ in },
             logger: NoOpLogger()
         )
         let snapshot = SpaceSwitchSnapshot(
@@ -83,7 +81,7 @@ final class SpaceSwitcherServiceTests: XCTestCase {
         )
         var refreshSoonCalled = false
 
-        let result = service.switchToSpace(
+        let result = await service.switchToSpace(
             102,
             snapshot: snapshot,
             refreshSpaces: { snapshot },

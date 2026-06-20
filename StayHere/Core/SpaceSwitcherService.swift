@@ -16,35 +16,30 @@ public struct SpaceSwitchSnapshot {
     }
 }
 
-public final class SpaceSwitcherService {
+public actor SpaceSwitcherService {
     private let cgsBridge: any CGSBridgeProtocol
     private let refreshRetryInterval: TimeInterval
     private let refreshRetryLimit: Int
-    private let waitForRefresh: (TimeInterval) -> Void
     private let logger: any Logging
 
     public init(
         cgsBridge: any CGSBridgeProtocol = CGSBridge.live,
         refreshRetryInterval: TimeInterval = 0.05,
         refreshRetryLimit: Int = 8,
-        waitForRefresh: @escaping (TimeInterval) -> Void = { interval in
-            RunLoop.current.run(until: Date().addingTimeInterval(interval))
-        },
         logger: any Logging
     ) {
         self.cgsBridge = cgsBridge
         self.refreshRetryInterval = refreshRetryInterval
         self.refreshRetryLimit = refreshRetryLimit
-        self.waitForRefresh = waitForRefresh
         self.logger = logger
     }
 
     public func switchToSpace(
         _ spaceID: Int,
         snapshot: SpaceSwitchSnapshot,
-        refreshSpaces: () -> SpaceSwitchSnapshot,
+        refreshSpaces: () async -> SpaceSwitchSnapshot,
         scheduleRefreshSoon: () -> Void
-    ) -> SpaceSwitchResult {
+    ) async -> SpaceSwitchResult {
         if snapshot.activeSpaceID == spaceID {
             logger.info("switch-space skipped=already-active")
             return .alreadyActive
@@ -76,7 +71,7 @@ public final class SpaceSwitcherService {
 
         logger.info("switch-space posted")
 
-        let refreshed = verifySwitchResult(expectedSpaceID: spaceID, refreshSpaces: refreshSpaces)
+        let refreshed = await verifySwitchResult(expectedSpaceID: spaceID, refreshSpaces: refreshSpaces)
         logger.info("switch-space result matched=\(refreshed.activeSpaceID == spaceID)")
         guard refreshed.activeSpaceID == spaceID else {
             logger.error("switch-space failed=shortcut-posted-but-unmatched")
@@ -94,17 +89,21 @@ public final class SpaceSwitcherService {
 
     private func verifySwitchResult(
         expectedSpaceID: Int,
-        refreshSpaces: () -> SpaceSwitchSnapshot
-    ) -> SpaceSwitchSnapshot {
-        let initial = refreshSpaces()
+        refreshSpaces: () async -> SpaceSwitchSnapshot
+    ) async -> SpaceSwitchSnapshot {
+        let initial = await refreshSpaces()
         if initial.activeSpaceID == expectedSpaceID {
             return initial
         }
 
         var latest = initial
         for _ in 0..<refreshRetryLimit {
-            waitForRefresh(refreshRetryInterval)
-            latest = refreshSpaces()
+            do {
+                try await Task.sleep(nanoseconds: UInt64(refreshRetryInterval * 1_000_000_000))
+            } catch {
+                return latest
+            }
+            latest = await refreshSpaces()
             if latest.activeSpaceID == expectedSpaceID {
                 return latest
             }
