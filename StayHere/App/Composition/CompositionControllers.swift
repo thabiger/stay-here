@@ -34,18 +34,22 @@ final class CompositionControllers {
         }
     )
 
+    private lazy var windowRecencyTracker = WindowRecencyTracker()
+
     lazy var windowSwitcherController = WindowSwitcherController(
         settings: services.settings,
         registry: services.registry,
         cgsBridge: services.cgsBridge,
-        mode: .currentSpace
+        mode: .currentSpace,
+        recencyTracker: windowRecencyTracker
     )
 
     lazy var allSpacesWindowSwitcherController = WindowSwitcherController(
         settings: services.settings,
         registry: services.registry,
         cgsBridge: services.cgsBridge,
-        mode: .allSpaces
+        mode: .allSpaces,
+        recencyTracker: windowRecencyTracker
     )
 
     lazy var hotCornerController = HotCornerController(

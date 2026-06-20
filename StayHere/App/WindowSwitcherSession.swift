@@ -11,6 +11,7 @@ protocol WindowSwitcherSessionProtocol {
     var selectedWindowID: Int? { get set }
     var shortcut: SpaceSwitcherShortcut { get }
     var trigger: SwitcherSessionTrigger { get }
+    var spaceGroups: [WindowListProvider.SpaceWindowGroup] { get }
     var flatEntries: [WindowEntry] { get }
 }
 
@@ -18,6 +19,15 @@ extension WindowSwitcherSessionProtocol {
     var didChangeSelection: Bool {
         selectedWindowID != nil && selectedWindowID != startingWindowID
     }
+}
+
+struct WindowSwitcherSession: WindowSwitcherSessionProtocol {
+    let startingWindowID: Int?
+    var selectedWindowID: Int?
+    let shortcut: SpaceSwitcherShortcut
+    let spaceGroups: [WindowListProvider.SpaceWindowGroup]
+    let flatEntries: [WindowEntry]
+    let trigger: SwitcherSessionTrigger
 }
 
 enum WindowSwitcherSelection {

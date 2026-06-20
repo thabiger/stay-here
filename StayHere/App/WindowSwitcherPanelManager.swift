@@ -23,7 +23,7 @@ final class WindowSwitcherPanelManager: BaseWindowPanelManager<WindowSwitcherSna
         let screenFrame = NSScreen.main?.visibleFrame ?? NSScreen.screens.first?.visibleFrame ?? .zero
         let totalItemCount = snapshot.spaceGroups.reduce(0) { $0 + $1.items.count }
         let groupCount = snapshot.showSpaceLabels ? snapshot.spaceGroups.count : 0
-        let height = WindowSwitcherController.panelHeight(
+        let height = WindowSwitcherPanelLayout.panelHeight(
             spaceGroupCount: groupCount,
             totalWindowCount: totalItemCount,
             screenHeight: screenFrame.height
