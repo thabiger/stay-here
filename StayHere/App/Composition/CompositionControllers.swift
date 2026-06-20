@@ -39,23 +39,49 @@ final class CompositionControllers {
 
     private lazy var windowRecencyTracker = WindowRecencyTracker()
 
+    private lazy var currentSpaceListProvider = WindowListProvider(
+        registry: services.registry,
+        cgsBridge: services.cgsBridge,
+        settings: services.settings
+    )
+
+    private lazy var allSpacesListProvider = WindowListProvider(
+        registry: services.registry,
+        cgsBridge: services.cgsBridge,
+        settings: services.settings
+    )
+
+    private lazy var currentSpaceWindowSwitchUseCase = WindowSwitchUseCase(dependencies: .init(
+        cgsBridge: services.cgsBridge,
+        listProvider: currentSpaceListProvider,
+        switchSpace: services.switchSpace,
+        refreshSpaces: services.refreshSpaces,
+        focusService: WindowFocusService()
+    ))
+
+    private lazy var allSpacesWindowSwitchUseCase = WindowSwitchUseCase(dependencies: .init(
+        cgsBridge: services.cgsBridge,
+        listProvider: allSpacesListProvider,
+        switchSpace: services.switchSpace,
+        refreshSpaces: services.refreshSpaces,
+        focusService: WindowFocusService()
+    ))
+
     lazy var windowSwitcherController = WindowSwitcherController(
         settings: services.settings,
         registry: services.registry,
-        switchSpace: services.switchSpace,
-        refreshSpaces: services.refreshSpaces,
-        cgsBridge: services.cgsBridge,
         mode: .currentSpace,
+        windowSwitchUseCase: currentSpaceWindowSwitchUseCase,
+        listProvider: currentSpaceListProvider,
         recencyTracker: windowRecencyTracker
     )
 
     lazy var allSpacesWindowSwitcherController = WindowSwitcherController(
         settings: services.settings,
         registry: services.registry,
-        switchSpace: services.switchSpace,
-        refreshSpaces: services.refreshSpaces,
-        cgsBridge: services.cgsBridge,
         mode: .allSpaces,
+        windowSwitchUseCase: allSpacesWindowSwitchUseCase,
+        listProvider: allSpacesListProvider,
         recencyTracker: windowRecencyTracker
     )
 

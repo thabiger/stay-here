@@ -42,17 +42,33 @@ final class SwitcherPanelReleaseTests: XCTestCase {
             .appendingPathComponent("spaces.json")
         let store = SpaceStore(fileURL: fileURL)
         let bridge = LocalMockCGSBridge()
-        let repository = SpaceRepository(store: store, cgsBridge: bridge, logger: NoOpLogger())
+        let repository = SpaceStateManager(store: store, cgsBridge: bridge, logger: NoOpLogger())
         let registry = SpaceRegistry(repository: repository)
         let refreshSpaces = RefreshSpacesUseCase(repository: repository, logger: NoOpLogger())
         let switchSpace = SwitchSpaceUseCase(cgsBridge: bridge, repository: repository, refreshUseCase: refreshSpaces, logger: NoOpLogger())
+        let listProvider = WindowListProvider(
+            registry: registry,
+            cgsBridge: bridge,
+            settings: UserDefaultsSettingsRepository(),
+            windowInfoProvider: { nil },
+            runningApplicationProvider: { _ in nil },
+            accessibilityWindowTitlesProvider: { _ in [:] },
+            focusedWindowIDProvider: { nil },
+            iconProvider: { _ in NSImage(size: NSSize(width: 18, height: 18)) }
+        )
+        let windowSwitchUseCase = WindowSwitchUseCase(dependencies: .init(
+            cgsBridge: bridge,
+            listProvider: listProvider,
+            switchSpace: switchSpace,
+            refreshSpaces: refreshSpaces,
+            focusService: WindowFocusService()
+        ))
         return WindowSwitcherController(
             settings: UserDefaultsSettingsRepository(),
             registry: registry,
-            switchSpace: switchSpace,
-            refreshSpaces: refreshSpaces,
-            cgsBridge: bridge,
-            mode: .currentSpace
+            mode: .currentSpace,
+            windowSwitchUseCase: windowSwitchUseCase,
+            listProvider: listProvider
         )
     }
 

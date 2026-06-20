@@ -1,7 +1,7 @@
 import XCTest
 import Core
 
-final class SpaceRepositoryTests: XCTestCase {
+final class SpaceStateManagerTests: XCTestCase {
     func testRefreshSpacesUsesInjectedBridgeSnapshot() {
         let store = makeStore()
         let snapshot = CGSBridge.ManagedSnapshot(
@@ -19,7 +19,7 @@ final class SpaceRepositoryTests: XCTestCase {
             managedSnapshotValue: snapshot
         )
 
-        let repository = SpaceRepository(store: store, cgsBridge: bridge, logger: NoOpLogger())
+        let repository = SpaceStateManager(store: store, cgsBridge: bridge, logger: NoOpLogger())
 
         XCTAssertEqual(repository.activeSpaceID, 201)
         XCTAssertEqual(repository.spaces.map(\.id), [201, 202])
@@ -56,7 +56,7 @@ final class SpaceRepositoryTests: XCTestCase {
             return true
         }
 
-        let repository = SpaceRepository(store: store, cgsBridge: bridge, logger: NoOpLogger())
+        let repository = SpaceStateManager(store: store, cgsBridge: bridge, logger: NoOpLogger())
         let refreshSpaces = RefreshSpacesUseCase(repository: repository, logger: NoOpLogger())
         let switchSpace = SwitchSpaceUseCase(
             cgsBridge: bridge,
@@ -79,7 +79,7 @@ final class SpaceRepositoryTests: XCTestCase {
             orderedIDsByDisplay: ["display-a": [101]]
         )
 
-        let writer = SpaceRepository(
+        let writer = SpaceStateManager(
             store: store,
             cgsBridge: MockCGSBridge(activeSpaceIDValue: 101, managedSnapshotValue: snapshot),
             logger: NoOpLogger()
@@ -87,7 +87,7 @@ final class SpaceRepositoryTests: XCTestCase {
         writer.rename(spaceID: 101, name: "Inbox")
         writer.persistNow()
 
-        let reader = SpaceRepository(
+        let reader = SpaceStateManager(
             store: store,
             cgsBridge: MockCGSBridge(activeSpaceIDValue: 101, managedSnapshotValue: snapshot),
             logger: NoOpLogger()
@@ -108,7 +108,7 @@ final class SpaceRepositoryTests: XCTestCase {
             orderedIDsByDisplay: ["display-a": [101, 102, 103]]
         )
 
-        let writer = SpaceRepository(
+        let writer = SpaceStateManager(
             store: store,
             cgsBridge: MockCGSBridge(activeSpaceIDValue: 101, managedSnapshotValue: snapshot),
             logger: NoOpLogger()
@@ -116,7 +116,7 @@ final class SpaceRepositoryTests: XCTestCase {
         writer.moveDisplayOrder(fromOffsets: IndexSet(integer: 2), toOffset: 0)
         writer.persistNow()
 
-        let reader = SpaceRepository(
+        let reader = SpaceStateManager(
             store: store,
             cgsBridge: MockCGSBridge(activeSpaceIDValue: 101, managedSnapshotValue: snapshot),
             logger: NoOpLogger()
@@ -136,7 +136,7 @@ final class SpaceRepositoryTests: XCTestCase {
             )
         )
 
-        let repository = SpaceRepository(
+        let repository = SpaceStateManager(
             store: store,
             cgsBridge: MockCGSBridge(
                 activeSpaceIDValue: nil,
@@ -167,7 +167,7 @@ final class SpaceRepositoryTests: XCTestCase {
             )
         )
 
-        let repository = SpaceRepository(store: store, cgsBridge: bridge, logger: NoOpLogger())
+        let repository = SpaceStateManager(store: store, cgsBridge: bridge, logger: NoOpLogger())
 
         bridge.activeSpaceIDValue = 101
         bridge.managedSnapshotValue = .init(
@@ -183,7 +183,7 @@ final class SpaceRepositoryTests: XCTestCase {
 
     private func makeStore() -> SpaceStore {
         let fileURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("SpaceRepositoryTests")
+            .appendingPathComponent("SpaceStateManagerTests")
             .appendingPathComponent(UUID().uuidString)
             .appendingPathComponent("spaces.json")
         return SpaceStore(fileURL: fileURL)

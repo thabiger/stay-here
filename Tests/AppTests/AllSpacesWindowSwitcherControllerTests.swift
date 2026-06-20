@@ -71,7 +71,7 @@ final class AllSpacesWindowSwitcherControllerTests: XCTestCase {
             .appendingPathComponent(UUID().uuidString)
             .appendingPathComponent("spaces.json")
         let store = SpaceStore(fileURL: fileURL)
-        let repository = SpaceRepository(store: store, cgsBridge: bridge, logger: NoOpLogger())
+        let repository = SpaceStateManager(store: store, cgsBridge: bridge, logger: NoOpLogger())
         let registry = SpaceRegistry(repository: repository)
         let refreshSpaces = RefreshSpacesUseCase(repository: repository, logger: NoOpLogger())
         let switchSpace = SwitchSpaceUseCase(cgsBridge: bridge, repository: repository, refreshUseCase: refreshSpaces, logger: NoOpLogger())
@@ -85,13 +85,19 @@ final class AllSpacesWindowSwitcherControllerTests: XCTestCase {
             focusedWindowIDProvider: focusedWindowID,
             iconProvider: { _ in NSImage(size: NSSize(width: 18, height: 18)) }
         )
+        let focusService = WindowFocusService()
+        let windowSwitchUseCase = WindowSwitchUseCase(dependencies: .init(
+            cgsBridge: bridge,
+            listProvider: listProvider,
+            switchSpace: switchSpace,
+            refreshSpaces: refreshSpaces,
+            focusService: focusService
+        ))
         let controller = WindowSwitcherController(
             settings: UserDefaultsSettingsRepository(),
             registry: registry,
-            switchSpace: switchSpace,
-            refreshSpaces: refreshSpaces,
-            cgsBridge: bridge,
             mode: .allSpaces,
+            windowSwitchUseCase: windowSwitchUseCase,
             listProvider: listProvider
         )
         return (controller, bridge)

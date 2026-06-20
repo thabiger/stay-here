@@ -3,7 +3,7 @@ import Core
 
 final class RefreshSpacesUseCaseTests: XCTestCase {
     func testExecuteAppliesSnapshotImmediately() {
-        let repository = SpaceRepository(
+        let repository = SpaceStateManager(
             cgsBridge: MockCGSBridge(
                 activeSpaceIDValue: 201,
                 managedSnapshotValue: CGSBridge.ManagedSnapshot(
@@ -31,7 +31,7 @@ final class RefreshSpacesUseCaseTests: XCTestCase {
                 orderedIDsByDisplay: ["display-b": [201]]
             )
         )
-        let repository = SpaceRepository(cgsBridge: bridge, logger: NoOpLogger())
+        let repository = SpaceStateManager(cgsBridge: bridge, logger: NoOpLogger())
         let applied = expectation(description: "applied")
         let useCase = RefreshSpacesUseCase(
             repository: repository,
@@ -59,7 +59,7 @@ final class RefreshSpacesUseCaseTests: XCTestCase {
                 orderedIDsByDisplay: ["display-a": [101]]
             )
         )
-        let repository = SpaceRepository(cgsBridge: bridge, logger: NoOpLogger())
+        let repository = SpaceStateManager(cgsBridge: bridge, logger: NoOpLogger())
 
         var scheduledTasks: [DispatchWorkItem] = []
         let useCase = RefreshSpacesUseCase(

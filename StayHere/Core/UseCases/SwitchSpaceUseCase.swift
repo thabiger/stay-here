@@ -5,7 +5,7 @@ public final class SwitchSpaceUseCase {
 
     public init(
         cgsBridge: any CGSBridgeProtocol = CGSBridge.live,
-        repository: SpaceRepository,
+        repository: SpaceStateManager,
         switcherService: SpaceSwitcherService? = nil,
         refreshUseCase: RefreshSpacesUseCase,
         logger: any Logging

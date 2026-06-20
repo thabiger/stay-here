@@ -7,15 +7,12 @@ final class WindowSwitcherController {
     let mode: WindowSwitcherMode
     let settings: WindowSwitcherSettings & AllSpacesWindowSwitcherSettings
     let registry: SpaceRegistry
-    let switchSpace: SwitchSpaceUseCase
-    let refreshSpaces: RefreshSpacesUseCase
-    let cgsBridge: any CGSBridgeProtocol
-    let listProvider: WindowListProvider
-    let focusService: WindowFocusService
     let shortcutProvider: () -> SpaceSwitcherShortcut
     let recencyTracker: WindowRecencyTracker
     let listBuilder: WindowListBuilder
     let panelPresenter: WindowSwitcherPanelPresenter
+    private let windowSwitchUseCase: WindowSwitchUseCase
+    private let listProvider: WindowListProvider
 
     private lazy var coordinator = SwitcherSessionCoordinator<
         WindowSwitcherSession,
@@ -120,12 +117,13 @@ final class WindowSwitcherController {
     init(
         settings: WindowSwitcherSettings & AllSpacesWindowSwitcherSettings,
         registry: SpaceRegistry,
-        switchSpace: SwitchSpaceUseCase,
-        refreshSpaces: RefreshSpacesUseCase,
-        cgsBridge: any CGSBridgeProtocol = CGSBridge.live,
         mode: WindowSwitcherMode,
+        windowSwitchUseCase: WindowSwitchUseCase? = nil,
         shortcutProvider: (() -> SpaceSwitcherShortcut)? = nil,
         listProvider: WindowListProvider? = nil,
+        cgsBridge: any CGSBridgeProtocol = CGSBridge.live,
+        switchSpace: SwitchSpaceUseCase? = nil,
+        refreshSpaces: RefreshSpacesUseCase? = nil,
         focusService: WindowFocusService = WindowFocusService(),
         recencyTracker: WindowRecencyTracker? = nil,
         listBuilder: WindowListBuilder? = nil,
@@ -134,10 +132,6 @@ final class WindowSwitcherController {
         self.mode = mode
         self.settings = settings
         self.registry = registry
-        self.switchSpace = switchSpace
-        self.refreshSpaces = refreshSpaces
-        self.cgsBridge = cgsBridge
-        self.focusService = focusService
 
         let resolvedShortcut = shortcutProvider ?? {
             switch mode {
@@ -158,7 +152,6 @@ final class WindowSwitcherController {
             cgsBridge: cgsBridge,
             settings: settings
         )
-
         self.recencyTracker = recencyTracker ?? WindowRecencyTracker()
         self.listBuilder = listBuilder ?? WindowListBuilder(
             mode: mode,
@@ -168,6 +161,19 @@ final class WindowSwitcherController {
             settings: settings
         )
         self.panelPresenter = panelPresenter ?? WindowSwitcherPanelPresenter()
+
+        self.windowSwitchUseCase = windowSwitchUseCase ?? WindowSwitchUseCase(dependencies: .init(
+            cgsBridge: cgsBridge,
+            listProvider: self.listProvider,
+            switchSpace: switchSpace ?? SwitchSpaceUseCase(
+                cgsBridge: cgsBridge,
+                repository: SpaceStateManager(cgsBridge: cgsBridge, logger: NoOpLogger()),
+                refreshUseCase: refreshSpaces ?? RefreshSpacesUseCase(repository: SpaceStateManager(cgsBridge: cgsBridge, logger: NoOpLogger()), logger: NoOpLogger()),
+                logger: NoOpLogger()
+            ),
+            refreshSpaces: refreshSpaces ?? RefreshSpacesUseCase(repository: SpaceStateManager(cgsBridge: cgsBridge, logger: NoOpLogger()), logger: NoOpLogger()),
+            focusService: focusService
+        ))
 
     }
 
@@ -239,38 +245,12 @@ final class WindowSwitcherController {
     }
 
     private func commitSelectedEntry(_ entry: WindowEntry) {
-        let windowSpaceIDs = cgsBridge.spacesForWindow(windowID: entry.windowID)
-        let currentSpaceID = listProvider.currentContext()?.spaceID
-        let targetSpaceID = windowSpaceIDs.first(where: { $0 != currentSpaceID })
-            ?? windowSpaceIDs.first
-        let needsSpaceSwitch = targetSpaceID != nil && targetSpaceID != currentSpaceID
+        let previousSpaceID = listProvider.currentContext()?.spaceID
+        panelPresenter.dismiss()
+        coordinator.closeSwitcher()
 
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            self.panelPresenter.dismiss()
-            self.coordinator.closeSwitcher()
-
-            if needsSpaceSwitch, let targetSpaceID {
-                Task { @MainActor [weak self] in
-                    guard let self else { return }
-                    _ = await self.switchSpace.execute(targetSpaceID)
-                    self.focusWindowAndRefresh(entry: entry, previousSpaceID: currentSpaceID)
-                }
-            } else {
-                self.focusWindowAndRefresh(entry: entry, previousSpaceID: currentSpaceID)
-            }
-        }
-    }
-
-    private func focusWindowAndRefresh(entry: WindowEntry, previousSpaceID: Int?) {
-        focusService.focusWindow(entry: entry)
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
-            guard let self else { return }
-            let currentContext = self.listProvider.currentContext()
-            if currentContext?.spaceID != previousSpaceID {
-                self.refreshSpaces.execute()
-            }
+        Task { @MainActor [weak self] in
+            await self?.windowSwitchUseCase.execute(entry: entry, previousSpaceID: previousSpaceID)
         }
     }
 }

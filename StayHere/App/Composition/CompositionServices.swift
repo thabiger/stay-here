@@ -9,7 +9,7 @@ final class CompositionServices {
     let appearanceManager: AppearanceManager
     let lifecycleCoordinator: AppLifecycleCoordinator
     let updateService: any UpdateService
-    let repository: SpaceRepository
+    let repository: SpaceStateManager
     let registry: SpaceRegistry
     let refreshSpaces: RefreshSpacesUseCase
     let renameSpace: RenameSpaceUseCase
@@ -34,7 +34,7 @@ final class CompositionServices {
             appearanceManager: self.appearanceManager,
             logger: logger
         )
-        self.repository = SpaceRepository(cgsBridge: cgsBridge, logger: logger)
+        self.repository = SpaceStateManager(cgsBridge: cgsBridge, logger: logger)
         self.refreshSpaces = RefreshSpacesUseCase(
             repository: self.repository,
             logger: logger

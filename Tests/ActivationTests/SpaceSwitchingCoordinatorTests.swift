@@ -147,8 +147,8 @@ final class SpaceSwitchingCoordinatorTests: XCTestCase {
         bridge: MockCGSBridge,
         switcherService: SpaceSwitcherService? = nil,
         scheduleRefreshSoon: @escaping () -> Void = {}
-    ) -> (SpaceRepository, SpaceSwitchingCoordinator) {
-        let repository = SpaceRepository(cgsBridge: bridge, logger: NoOpLogger())
+    ) -> (SpaceStateManager, SpaceSwitchingCoordinator) {
+        let repository = SpaceStateManager(cgsBridge: bridge, logger: NoOpLogger())
         let coordinator = SpaceSwitchingCoordinator(
             cgsBridge: bridge,
             repository: repository,

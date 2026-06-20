@@ -1,9 +1,9 @@
 import Foundation
 
 public final class BuildSpaceSnapshotUseCase {
-    private let repository: SpaceRepository
+    private let repository: SpaceStateManager
 
-    public init(repository: SpaceRepository) {
+    public init(repository: SpaceStateManager) {
         self.repository = repository
     }
 

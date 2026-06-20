@@ -12,10 +12,10 @@ public final class SpaceRegistry: ObservableObject {
     public var desktopNumberBySpaceID: [Int: Int] { repository.desktopNumberBySpaceID }
     public var nativeOrderByDisplay: [String: [Int]] { repository.nativeOrderByDisplay }
 
-    private let repository: SpaceRepository
+    private let repository: SpaceStateManager
     private var repositoryObserver: AnyCancellable?
 
-    public init(repository: SpaceRepository) {
+    public init(repository: SpaceStateManager) {
         self.repository = repository
         bindRepository()
     }
@@ -26,7 +26,7 @@ public final class SpaceRegistry: ObservableObject {
         labelStore: SpaceLabelStore? = nil,
         logger: any Logging
     ) {
-        let repository = SpaceRepository(
+        let repository = SpaceStateManager(
             store: store,
             cgsBridge: cgsBridge,
             labelStore: labelStore,

@@ -1,7 +1,7 @@
 import Foundation
 import Combine
 
-public final class SpaceRepository: ObservableObject {
+public final class SpaceStateManager: ObservableObject {
     public var spaces: [SpaceIdentity] { stateStore.spaces }
     public var activeSpaceID: Int? { stateStore.activeSpaceID }
     public var labels: [Int: SpaceLabel] { stateStore.labels }

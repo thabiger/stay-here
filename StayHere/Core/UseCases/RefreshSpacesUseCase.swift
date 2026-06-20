@@ -1,7 +1,7 @@
 import Foundation
 
 public final class RefreshSpacesUseCase {
-    private let repository: SpaceRepository
+    private let repository: SpaceStateManager
     private let snapshotExecutor: (DispatchWorkItem) -> Void
     private let mainExecutor: (DispatchWorkItem) -> Void
     private let scheduleAfter: (TimeInterval, DispatchWorkItem) -> Void
@@ -11,7 +11,7 @@ public final class RefreshSpacesUseCase {
     private var pendingRefresh: DispatchWorkItem?
 
     public init(
-        repository: SpaceRepository,
+        repository: SpaceStateManager,
         snapshotQueue: DispatchQueue = DispatchQueue(label: "stayhere.snapshot", qos: .userInitiated),
         mainExecutor: @escaping (DispatchWorkItem) -> Void = { task in
             DispatchQueue.main.async(execute: task)

@@ -3,7 +3,7 @@ import Core
 
 final class SpaceRegistryTests: XCTestCase {
     func testForwardsReadPropertiesToRepository() {
-        let repository = SpaceRepository(
+        let repository = SpaceStateManager(
             cgsBridge: MockCGSBridge(
                 activeSpaceIDValue: 101,
                 managedSnapshotValue: CGSBridge.ManagedSnapshot(
@@ -23,7 +23,7 @@ final class SpaceRegistryTests: XCTestCase {
     }
 
     func testForwardsReadMethodsToRepository() {
-        let repository = SpaceRepository(
+        let repository = SpaceStateManager(
             cgsBridge: MockCGSBridge(
                 activeSpaceIDValue: 101,
                 managedSnapshotValue: CGSBridge.ManagedSnapshot(

@@ -2,7 +2,7 @@ import Foundation
 
 public final class SpaceSwitchingCoordinator {
     private let cgsBridge: any CGSBridgeProtocol
-    private let repository: SpaceRepository
+    private let repository: SpaceStateManager
     private let switcherService: SpaceSwitcherService
     private let refreshSpaces: () -> Void
     private let scheduleRefreshSoon: () -> Void
@@ -10,7 +10,7 @@ public final class SpaceSwitchingCoordinator {
 
     public init(
         cgsBridge: any CGSBridgeProtocol = CGSBridge.live,
-        repository: SpaceRepository,
+        repository: SpaceStateManager,
         switcherService: SpaceSwitcherService,
         refreshSpaces: @escaping () -> Void,
         scheduleRefreshSoon: @escaping () -> Void,
