@@ -4,6 +4,42 @@ import Core
 
 @MainActor
 final class StatusBarControllerTests: XCTestCase {
+    private final class MockBridge: CGSBridgeProtocol {
+        var activeSpaceIDValue: Int?
+        var managedSnapshotValue: CGSBridge.ManagedSnapshot
+
+        init(
+            activeSpaceIDValue: Int? = nil,
+            managedSnapshotValue: CGSBridge.ManagedSnapshot = CGSBridge.ManagedSnapshot(
+                spaces: [],
+                activeByDisplay: [:],
+                orderedIDsByDisplay: [:]
+            )
+        ) {
+            self.activeSpaceIDValue = activeSpaceIDValue
+            self.managedSnapshotValue = managedSnapshotValue
+        }
+
+        func activeSpaceID() -> Int? { activeSpaceIDValue }
+        func managedSnapshot() -> CGSBridge.ManagedSnapshot { managedSnapshotValue }
+        func managedSpaces() -> [SpaceIdentity] { managedSnapshotValue.spaces }
+        func switchByDesktopShortcut(index: Int) -> Bool { true }
+        func spacesForWindow(windowID: Int) -> [Int] { [] }
+    }
+
+    private func makeRegistry() -> SpaceRegistry {
+        let bridge = MockBridge(
+            activeSpaceIDValue: 1,
+            managedSnapshotValue: CGSBridge.ManagedSnapshot(
+                spaces: [SpaceIdentity(id: 1, display: "Main", kind: .desktop)],
+                activeByDisplay: ["Main": 1],
+                orderedIDsByDisplay: ["Main": [1]]
+            )
+        )
+        let store = SpaceStore()
+        return SpaceRegistry(store: store, cgsBridge: bridge, logger: NoOpLogger())
+    }
+
     func testMenuContainsCheckForUpdatesByDefault() {
         let settings = UserDefaultsSettingsRepository()
         let controller = StatusBarController(
@@ -12,6 +48,7 @@ final class StatusBarControllerTests: XCTestCase {
         )
 
         controller.configure(
+            registry: makeRegistry(),
             onOpenSettings: {},
             onOpenAbout: {},
             onCheckForUpdates: {},
@@ -35,6 +72,7 @@ final class StatusBarControllerTests: XCTestCase {
         )
 
         controller.configure(
+            registry: makeRegistry(),
             onOpenSettings: {},
             onOpenAbout: {},
             onCheckForUpdates: {},

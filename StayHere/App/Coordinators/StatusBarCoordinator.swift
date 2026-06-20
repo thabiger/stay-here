@@ -39,6 +39,7 @@ final class StatusBarCoordinator {
         onRenameSpace: @escaping (Int, String) -> Void
     ) {
         statusController.configure(
+            registry: registry,
             onOpenSettings: onOpenSettings,
             onOpenAbout: onOpenAbout,
             onCheckForUpdates: onCheckForUpdates,

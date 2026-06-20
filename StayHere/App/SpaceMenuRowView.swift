@@ -178,7 +178,11 @@ final class SpaceMenuRowView: NSView, NSTextFieldDelegate {
     }
 
     private func startEditing() {
-        guard !isEditingName, coordinator?.beginEditing(row: self, spaceID: spaceID) == true else { return }
+        guard !isEditingName else { return }
+        guard coordinator?.beginEditing(row: self, spaceID: spaceID) == true else {
+            finishEditing(commit: false)
+            return
+        }
         isEditingName = true
         isHighlighted = false
         namespaceField.textColor = .labelColor
