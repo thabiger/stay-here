@@ -44,7 +44,7 @@ public final class SpaceSwitcherService {
         snapshot: SpaceSwitchSnapshot,
         refreshSpaces: () -> SpaceSwitchSnapshot,
         scheduleRefreshSoon: () -> Void
-    ) -> SpaceRegistry.SwitchResult {
+    ) -> SpaceSwitchResult {
         if snapshot.activeSpaceID == spaceID {
             logger.info("switch-space skipped=already-active")
             return .alreadyActive

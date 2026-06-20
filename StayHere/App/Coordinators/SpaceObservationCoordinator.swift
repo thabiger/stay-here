@@ -5,6 +5,8 @@ import Core
 @MainActor
 final class SpaceObservationCoordinator {
     private let registry: SpaceRegistry
+    private let switchSpace: SwitchSpaceUseCase
+    private let buildSpaceSnapshot: BuildSpaceSnapshotUseCase
     private let hudController: HUDController
     private let switchPresentationHelper: SpaceSwitchPresentationHelper
 
@@ -17,10 +19,14 @@ final class SpaceObservationCoordinator {
 
     init(
         registry: SpaceRegistry,
+        switchSpace: SwitchSpaceUseCase,
+        buildSpaceSnapshot: BuildSpaceSnapshotUseCase,
         hudController: HUDController,
         switchPresentationHelper: SpaceSwitchPresentationHelper
     ) {
         self.registry = registry
+        self.switchSpace = switchSpace
+        self.buildSpaceSnapshot = buildSpaceSnapshot
         self.hudController = hudController
         self.switchPresentationHelper = switchPresentationHelper
     }
@@ -43,14 +49,14 @@ final class SpaceObservationCoordinator {
     }
 
     func performSpaceSwitch(_ spaceID: Int) {
-        let result = registry.switchToSpace(spaceID)
+        let result = switchSpace.execute(spaceID)
         switchPresentationHelper.presentWarning(for: result)
     }
 
     func copySpaceState() {
         let pb = NSPasteboard.general
         pb.clearContents()
-        pb.setString(registry.snapshotJSON(), forType: .string)
+        pb.setString(buildSpaceSnapshot.execute(), forType: .string)
     }
 
     private func bindRegistry() {

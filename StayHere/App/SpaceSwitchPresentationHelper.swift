@@ -26,12 +26,12 @@ final class SpaceSwitchPresentationHelper {
         self.openSystemSettingsApp = openSystemSettingsApp
     }
 
-    func presentWarning(for result: SpaceRegistry.SwitchResult) {
+    func presentWarning(for result: SpaceSwitchResult) {
         guard let payload = warningPayload(for: result) else { return }
         presentMissionControlShortcutWarning(title: payload.title, message: payload.message)
     }
 
-    func warningPayload(for result: SpaceRegistry.SwitchResult) -> WarningPayload? {
+    func warningPayload(for result: SpaceSwitchResult) -> WarningPayload? {
         switch result {
         case .switched, .alreadyActive, .unknownSpace:
             return nil

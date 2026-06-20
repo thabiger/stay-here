@@ -9,7 +9,13 @@ final class CompositionServices {
     let appearanceManager: AppearanceManager
     let lifecycleCoordinator: AppLifecycleCoordinator
     let updateService: any UpdateService
+    let repository: SpaceRepository
     let registry: SpaceRegistry
+    let refreshSpaces: RefreshSpacesUseCase
+    let renameSpace: RenameSpaceUseCase
+    let reorderSpaces: ReorderSpacesUseCase
+    let switchSpace: SwitchSpaceUseCase
+    let buildSpaceSnapshot: BuildSpaceSnapshotUseCase
     let logger: any Logging
 
     init(
@@ -28,6 +34,20 @@ final class CompositionServices {
             appearanceManager: self.appearanceManager,
             logger: logger
         )
-        self.registry = SpaceRegistry(cgsBridge: cgsBridge, logger: logger)
+        self.repository = SpaceRepository(cgsBridge: cgsBridge, logger: logger)
+        self.refreshSpaces = RefreshSpacesUseCase(
+            repository: self.repository,
+            logger: logger
+        )
+        self.renameSpace = RenameSpaceUseCase(repository: self.repository)
+        self.reorderSpaces = ReorderSpacesUseCase(repository: self.repository)
+        self.switchSpace = SwitchSpaceUseCase(
+            cgsBridge: cgsBridge,
+            repository: self.repository,
+            refreshUseCase: self.refreshSpaces,
+            logger: logger
+        )
+        self.buildSpaceSnapshot = BuildSpaceSnapshotUseCase(repository: self.repository)
+        self.registry = SpaceRegistry(repository: self.repository)
     }
 }

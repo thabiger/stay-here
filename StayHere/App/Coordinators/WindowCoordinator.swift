@@ -7,6 +7,7 @@ final class WindowCoordinator {
     private let aboutWindowManager: AboutWindowManager
     private let appearanceManager: AppearanceManager
     private let registry: SpaceRegistry
+    private let refreshSpaces: RefreshSpacesUseCase
     private let settings: SettingsRepository
 
     var onSettingsWillOpen: (() -> Void)?
@@ -17,12 +18,14 @@ final class WindowCoordinator {
         aboutWindowManager: AboutWindowManager,
         appearanceManager: AppearanceManager,
         registry: SpaceRegistry,
+        refreshSpaces: RefreshSpacesUseCase,
         settings: SettingsRepository
     ) {
         self.settingsWindowManager = settingsWindowManager
         self.aboutWindowManager = aboutWindowManager
         self.appearanceManager = appearanceManager
         self.registry = registry
+        self.refreshSpaces = refreshSpaces
         self.settings = settings
 
         self.settingsWindowManager.onWillOpen = { [weak self] in
@@ -39,7 +42,7 @@ final class WindowCoordinator {
 
     func showSettings() {
         settingsWindowManager.showSettings(refreshRegistry: { [weak self] in
-            self?.registry.refreshSpaces()
+            self?.refreshSpaces.execute()
         })
     }
 
@@ -62,6 +65,6 @@ final class WindowCoordinator {
     }
 
     private func statusBarItemsDidClose() {
-        registry.refreshSpaces()
+        refreshSpaces.execute()
     }
 }

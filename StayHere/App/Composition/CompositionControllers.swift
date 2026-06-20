@@ -40,6 +40,8 @@ final class CompositionControllers {
     lazy var windowSwitcherController = WindowSwitcherController(
         settings: services.settings,
         registry: services.registry,
+        switchSpace: services.switchSpace,
+        refreshSpaces: services.refreshSpaces,
         cgsBridge: services.cgsBridge,
         mode: .currentSpace,
         recencyTracker: windowRecencyTracker
@@ -48,6 +50,8 @@ final class CompositionControllers {
     lazy var allSpacesWindowSwitcherController = WindowSwitcherController(
         settings: services.settings,
         registry: services.registry,
+        switchSpace: services.switchSpace,
+        refreshSpaces: services.refreshSpaces,
         cgsBridge: services.cgsBridge,
         mode: .allSpaces,
         recencyTracker: windowRecencyTracker

@@ -45,6 +45,8 @@ final class AppRuntimeCoordinator: AppCoordinating, RuntimeCoordinating {
         )
         self.spaceObservationCoordinator = SpaceObservationCoordinator(
             registry: services.registry,
+            switchSpace: services.switchSpace,
+            buildSpaceSnapshot: services.buildSpaceSnapshot,
             hudController: controllers.hudController,
             switchPresentationHelper: controllers.switchPresentationHelper
         )
@@ -53,6 +55,7 @@ final class AppRuntimeCoordinator: AppCoordinating, RuntimeCoordinating {
             aboutWindowManager: windowManagers.aboutWindowManager,
             appearanceManager: services.appearanceManager,
             registry: services.registry,
+            refreshSpaces: services.refreshSpaces,
             settings: services.settings
         )
         let eventTapProxy = AppEventTapProxy(logger: services.logger)
@@ -105,7 +108,7 @@ final class AppRuntimeCoordinator: AppCoordinating, RuntimeCoordinating {
             },
             onRenameSpace: { [weak self] id, name in
                 guard let self else { return }
-                self.registry.rename(spaceID: id, name: name)
+                self.services.renameSpace.execute(spaceID: id, name: name)
                 self.statusBarCoordinator.setTitle(
                     self.registry.activeSpaceID == id
                         ? Self.normalizedSpaceName(name)
@@ -139,8 +142,8 @@ final class AppRuntimeCoordinator: AppCoordinating, RuntimeCoordinating {
         // Run lifecycle coordinator - sets activation policy, starts timers, checks setup requirements
         lifecycleCoordinator.applicationDidFinishLaunching(
             isSettingsOpen: { [weak self] in self?.isSettingsOpen ?? false },
-            refreshSpacesSoon: { [weak self] in self?.registry.refreshSpacesSoon() },
-            refreshSpacesAsync: { [weak self] in self?.registry.refreshSpacesAsync() },
+            refreshSpacesSoon: { [weak self] in self?.services.refreshSpaces.executeSoon() },
+            refreshSpacesAsync: { [weak self] in self?.services.refreshSpaces.executeAsync() },
             rebuildSpaceItems: { [weak self] in
                 self?.statusBarCoordinator.rebuildSpaceItems()
             },

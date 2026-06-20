@@ -7,6 +7,8 @@ final class WindowSwitcherController {
     let mode: WindowSwitcherMode
     let settings: SettingsRepository
     let registry: SpaceRegistry
+    let switchSpace: SwitchSpaceUseCase
+    let refreshSpaces: RefreshSpacesUseCase
     let cgsBridge: any CGSBridgeProtocol
     let listProvider: WindowListProvider
     let focusService: WindowFocusService
@@ -118,6 +120,8 @@ final class WindowSwitcherController {
     init(
         settings: SettingsRepository,
         registry: SpaceRegistry,
+        switchSpace: SwitchSpaceUseCase,
+        refreshSpaces: RefreshSpacesUseCase,
         cgsBridge: any CGSBridgeProtocol = CGSBridge.live,
         mode: WindowSwitcherMode,
         shortcutProvider: (() -> SpaceSwitcherShortcut)? = nil,
@@ -130,6 +134,8 @@ final class WindowSwitcherController {
         self.mode = mode
         self.settings = settings
         self.registry = registry
+        self.switchSpace = switchSpace
+        self.refreshSpaces = refreshSpaces
         self.cgsBridge = cgsBridge
         self.focusService = focusService
 
@@ -244,7 +250,7 @@ final class WindowSwitcherController {
             self.coordinator.closeSwitcher()
 
             if let targetSpaceID, targetSpaceID != currentSpaceID {
-                _ = self.registry.switchToSpace(targetSpaceID)
+                _ = self.switchSpace.execute(targetSpaceID)
             }
 
             self.focusService.focusWindow(entry: entry)
@@ -253,7 +259,7 @@ final class WindowSwitcherController {
                 guard let self else { return }
                 let currentContext = self.listProvider.currentContext()
                 if currentContext?.spaceID != currentSpaceID {
-                    self.registry.refreshSpaces()
+                    self.refreshSpaces.execute()
                 }
             }
         }
