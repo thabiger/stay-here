@@ -2,133 +2,32 @@ import AppKit
 import Core
 import SwiftUI
 
-final class WindowSwitcherPanelManager {
-    var panelPair: (window: NSPanel, hosting: NSHostingController<WindowSwitcherView>)?
-
-    func present(
+final class WindowSwitcherPanelManager: BaseWindowPanelManager<WindowSwitcherSnapshot, WindowSwitcherView> {
+    override func makeRootView(
         snapshot: WindowSwitcherSnapshot,
         onSelect: @escaping (WindowEntry) -> Void,
-        onFocusLost: (() -> Void)? = nil,
-        onCommit: (() -> Void)? = nil,
-        onCancel: (() -> Void)? = nil,
-        onMoveUp: (() -> Void)? = nil,
-        onMoveDown: (() -> Void)? = nil,
-        updateInfo: UpdateInfo? = nil,
-        onOpenUpdate: (() -> Void)? = nil
-    ) {
-        ensurePanel(
-            for: snapshot,
-            onSelect: onSelect,
-            onFocusLost: onFocusLost,
-            onCommit: onCommit,
-            onCancel: onCancel,
-            onMoveUp: onMoveUp,
-            onMoveDown: onMoveDown,
-            updateInfo: updateInfo,
-            onOpenUpdate: onOpenUpdate
-        )
-        updatePanel(
-            with: snapshot,
-            onSelect: onSelect,
-            onFocusLost: onFocusLost,
-            onCommit: onCommit,
-            onCancel: onCancel,
-            onMoveUp: onMoveUp,
-            onMoveDown: onMoveDown,
-            updateInfo: updateInfo,
-            onOpenUpdate: onOpenUpdate
-        )
-        panelPair?.window.orderFrontRegardless()
-        panelPair?.window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
-    }
-
-    func dismiss() {
-        panelPair?.window.orderOut(nil)
-    }
-
-    func release() {
-        dismiss()
-        panelPair = nil
-    }
-
-    private func ensurePanel(
-        for snapshot: WindowSwitcherSnapshot,
-        onSelect: @escaping (WindowEntry) -> Void,
-        onFocusLost: (() -> Void)?,
-        onCommit: (() -> Void)?,
-        onCancel: (() -> Void)?,
-        onMoveUp: (() -> Void)?,
-        onMoveDown: (() -> Void)?,
         updateInfo: UpdateInfo?,
         onOpenUpdate: (() -> Void)?
-    ) {
-        guard panelPair == nil else { return }
-
-        let window = SwitcherPanel(
-            contentRect: .zero,
-            styleMask: [.borderless],
-            backing: .buffered,
-            defer: false
-        )
-        window.level = .statusBar
-        window.isOpaque = false
-        window.backgroundColor = .clear
-        window.hasShadow = true
-        window.ignoresMouseEvents = true
-        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
-        window.onFocusLost = onFocusLost
-        window.onCommit = onCommit
-        window.onCancel = onCancel
-        window.onMoveUp = onMoveUp
-        window.onMoveDown = onMoveDown
-
-        let hosting = NSHostingController(
-            rootView: WindowSwitcherView(
-                snapshot: snapshot,
-                onSelect: onSelect,
-                updateInfo: updateInfo,
-                onOpenUpdate: onOpenUpdate
-            )
-        )
-        window.contentViewController = hosting
-        window.ignoresMouseEvents = false
-
-        panelPair = (window, hosting)
-        resizePanel(for: snapshot)
-    }
-
-    private func updatePanel(
-        with snapshot: WindowSwitcherSnapshot,
-        onSelect: @escaping (WindowEntry) -> Void,
-        onFocusLost: (() -> Void)?,
-        onCommit: (() -> Void)?,
-        onCancel: (() -> Void)?,
-        onMoveUp: (() -> Void)?,
-        onMoveDown: (() -> Void)?,
-        updateInfo: UpdateInfo?,
-        onOpenUpdate: (() -> Void)?
-    ) {
-        guard let panelPair else { return }
-        (panelPair.window as? SwitcherPanel)?.onFocusLost = onFocusLost
-        (panelPair.window as? SwitcherPanel)?.onCommit = onCommit
-        (panelPair.window as? SwitcherPanel)?.onCancel = onCancel
-        (panelPair.window as? SwitcherPanel)?.onMoveUp = onMoveUp
-        (panelPair.window as? SwitcherPanel)?.onMoveDown = onMoveDown
-        panelPair.hosting.rootView = WindowSwitcherView(
+    ) -> WindowSwitcherView {
+        WindowSwitcherView(
             snapshot: snapshot,
             onSelect: onSelect,
             updateInfo: updateInfo,
             onOpenUpdate: onOpenUpdate
         )
-        resizePanel(for: snapshot)
     }
 
-    private func resizePanel(for snapshot: WindowSwitcherSnapshot) {
+    override func resizePanel(for snapshot: WindowSwitcherSnapshot) {
         guard let panelPair else { return }
         let width: CGFloat = 560
         let screenFrame = NSScreen.main?.visibleFrame ?? NSScreen.screens.first?.visibleFrame ?? .zero
-        let height = WindowSwitcherController.panelHeight(itemCount: snapshot.items.count, screenHeight: screenFrame.height)
+        let totalItemCount = snapshot.spaceGroups.reduce(0) { $0 + $1.items.count }
+        let groupCount = snapshot.showSpaceLabels ? snapshot.spaceGroups.count : 0
+        let height = WindowSwitcherController.panelHeight(
+            spaceGroupCount: groupCount,
+            totalWindowCount: totalItemCount,
+            screenHeight: screenFrame.height
+        )
         let frame = NSRect(
             x: screenFrame.midX - width / 2,
             y: screenFrame.midY - height / 2 + 30,

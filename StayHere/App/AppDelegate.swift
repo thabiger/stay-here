@@ -21,12 +21,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         super.init()
     }
 
+    /// This is used for testing purposes
     init(compositionRoot: AppCompositionRoot) {
         self.retainedDependencyGraph = compositionRoot
         self.appCoordinator = compositionRoot.runtimeCoordinator
         super.init()
     }
 
+    /// This is used for testing purposes
     init(appCoordinator: any AppCoordinating) {
         self.retainedDependencyGraph = nil
         self.appCoordinator = appCoordinator

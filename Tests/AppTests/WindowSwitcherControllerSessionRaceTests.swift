@@ -105,6 +105,7 @@ final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
             settings: UserDefaultsSettingsRepository(),
             registry: registry,
             cgsBridge: bridge,
+            mode: .currentSpace,
             listProvider: listProvider,
             focusService: focusService
         )
@@ -508,13 +509,13 @@ final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
     }
 
     func testPanelHeightAllowsMoreThanTenRowsWhenScreenHasRoom() {
-        let height = WindowSwitcherController.panelHeight(itemCount: 14, screenHeight: 1000)
+        let height = WindowSwitcherController.panelHeight(spaceGroupCount: 0, totalWindowCount: 14, screenHeight: 1000)
 
         XCTAssertEqual(height, 634, "Taller screens should allow more than the previous ten visible rows")
     }
 
     func testPanelHeightStillCapsToAvailableScreenHeight() {
-        let height = WindowSwitcherController.panelHeight(itemCount: 30, screenHeight: 700)
+        let height = WindowSwitcherController.panelHeight(spaceGroupCount: 0, totalWindowCount: 30, screenHeight: 700)
 
         XCTAssertEqual(height, 620, "Panel height should stop at the available visible screen height")
     }

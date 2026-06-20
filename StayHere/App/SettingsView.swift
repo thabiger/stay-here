@@ -19,6 +19,8 @@ final class SettingsCoordinator: ObservableObject {
     @Published var screenRecordingGranted: Bool = ScreenRecordingPermissionCheck.isGranted
     @Published var windowSwitcherShowMinimizedWindows: Bool = false
     @Published var windowSwitcherShowHiddenWindows: Bool = false
+    @Published var allSpacesWindowSwitcherEnabled: Bool = true
+    @Published var allSpacesWindowSwitcherShortcutText: String = ""
     @Published var hotCornerTopLeftAction: HotCornerAction = .none
     @Published var hotCornerTopRightAction: HotCornerAction = .none
     @Published var hotCornerBottomLeftAction: HotCornerAction = .none
@@ -47,6 +49,8 @@ final class SettingsCoordinator: ObservableObject {
         screenRecordingGranted = ScreenRecordingPermissionCheck.isGranted
         windowSwitcherShowMinimizedWindows = settings.windowSwitcherShowMinimizedWindows
         windowSwitcherShowHiddenWindows = settings.windowSwitcherShowHiddenWindows
+        allSpacesWindowSwitcherEnabled = settings.allSpacesWindowSwitcherEnabled
+        allSpacesWindowSwitcherShortcutText = settings.allSpacesWindowSwitcherShortcutText
         hotCornerTopLeftAction = settings.hotCornerTopLeftAction
         hotCornerTopRightAction = settings.hotCornerTopRightAction
         hotCornerBottomLeftAction = settings.hotCornerBottomLeftAction
@@ -67,6 +71,8 @@ final class SettingsCoordinator: ObservableObject {
         settings.windowSwitcherTitleFormat = windowSwitcherTitleFormat
         settings.windowSwitcherShowMinimizedWindows = windowSwitcherShowMinimizedWindows
         settings.windowSwitcherShowHiddenWindows = windowSwitcherShowHiddenWindows
+        settings.allSpacesWindowSwitcherEnabled = allSpacesWindowSwitcherEnabled
+        settings.allSpacesWindowSwitcherShortcutText = allSpacesWindowSwitcherShortcutText
         settings.hotCornerTopLeftAction = hotCornerTopLeftAction
         settings.hotCornerTopRightAction = hotCornerTopRightAction
         settings.hotCornerBottomLeftAction = hotCornerBottomLeftAction
@@ -166,6 +172,17 @@ struct SettingsView: View {
                     TextField("command+`", text: $coordinator.windowSwitcherShortcutText)
                         .textFieldStyle(.roundedBorder)
                     Text("This combo opens the window picker for windows on the current Space. The default replaces the macOS app switcher, but you can change it to any supported shortcut.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("All Spaces Window Switcher Shortcut")
+                        .font(.headline)
+                    Toggle("Enable All Spaces Window Switcher", isOn: $coordinator.allSpacesWindowSwitcherEnabled)
+                    TextField("command+shift+`", text: $coordinator.allSpacesWindowSwitcherShortcutText)
+                        .textFieldStyle(.roundedBorder)
+                    Text("This combo opens the window picker showing windows from all Spaces, grouped by Space. Useful for quickly finding and switching to any window across your entire desktop.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }

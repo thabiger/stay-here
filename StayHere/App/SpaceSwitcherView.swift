@@ -35,12 +35,27 @@ struct SpaceSwitcherView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(snapshot.title)
-                .font(.headline.weight(.semibold))
-                .foregroundStyle(.primary)
-                .padding(.horizontal, 16)
-                .padding(.top, 14)
-                .padding(.bottom, 10)
+            HStack(spacing: 10) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(Color.accentColor.opacity(0.12))
+                        .frame(width: 28, height: 28)
+                    Image(systemName: "square.grid.2x2")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Color.accentColor)
+                }
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(snapshot.title)
+                        .font(.system(size: 15, weight: .semibold))
+                    Text("\(snapshot.items.count) spaces")
+                        .font(.system(size: 11, weight: .regular))
+                        .foregroundStyle(.tertiary)
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            Divider().padding(.leading, 72)
 
             ScrollView(showsIndicators: false) {
                 LazyVStack(alignment: .leading, spacing: 6) {

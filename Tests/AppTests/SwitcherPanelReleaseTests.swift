@@ -46,7 +46,8 @@ final class SwitcherPanelReleaseTests: XCTestCase {
         return WindowSwitcherController(
             settings: UserDefaultsSettingsRepository(),
             registry: registry,
-            cgsBridge: bridge
+            cgsBridge: bridge,
+            mode: .currentSpace
         )
     }
 
@@ -73,7 +74,14 @@ final class SwitcherPanelReleaseTests: XCTestCase {
             defer: false
         )
         let view = WindowSwitcherView(
-            snapshot: WindowSwitcherSnapshot(items: [], title: "", emptyMessage: ""),
+            snapshot: WindowSwitcherSnapshot(
+                spaceGroups: [],
+                title: "",
+                subtitle: "",
+                emptyMessage: "",
+                iconName: "macwindow",
+                showSpaceLabels: false
+            ),
             onSelect: { _ in }
         )
         let hosting = NSHostingController(rootView: view)

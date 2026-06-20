@@ -2,23 +2,6 @@ import SwiftUI
 import AppKit
 import Core
 
-struct WindowSwitcherItem: Identifiable {
-    let id: Int
-    let icon: NSImage
-    let title: String
-    /// Captured entry so the click callback can hand the controller a
-    /// fully-resolved `WindowEntry` without re-querying the window
-    /// list. The cache that produced it lives in `Session.entries`.
-    let entry: WindowEntry
-    let isSelected: Bool
-}
-
-struct WindowSwitcherSnapshot {
-    let items: [WindowSwitcherItem]
-    let title: String
-    let emptyMessage: String
-}
-
 struct WindowSwitcherView: View {
     let snapshot: WindowSwitcherSnapshot
     let onSelect: (WindowEntry) -> Void
@@ -39,29 +22,15 @@ struct WindowSwitcherView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(snapshot.title)
-                .font(.headline.weight(.semibold))
-                .foregroundStyle(.primary)
-                .padding(.horizontal, 16)
-                .padding(.top, 14)
-                .padding(.bottom, 10)
+            header
+            Divider().padding(.leading, 72)
 
-            if snapshot.items.isEmpty {
-                Text(snapshot.emptyMessage)
-                    .font(.system(size: 14.5, weight: .regular))
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 18)
+            if snapshot.spaceGroups.isEmpty {
+                emptyState
+            } else if snapshot.showSpaceLabels {
+                groupedBody
             } else {
-                ScrollView(showsIndicators: false) {
-                    LazyVStack(alignment: .leading, spacing: 6) {
-                        ForEach(snapshot.items) { item in
-                            row(for: item)
-                        }
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.bottom, 12)
-                }
+                flatBody
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -97,6 +66,94 @@ struct WindowSwitcherView: View {
                 .padding(.bottom, 10)
             }
         }
+    }
+
+    private var header: some View {
+        HStack(spacing: 10) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Color.accentColor.opacity(0.12))
+                    .frame(width: 28, height: 28)
+                Image(systemName: snapshot.iconName)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(Color.accentColor)
+            }
+            VStack(alignment: .leading, spacing: 1) {
+                Text(snapshot.title)
+                    .font(.system(size: 15, weight: .semibold))
+                Text(snapshot.subtitle)
+                    .font(.system(size: 11, weight: .regular))
+                    .foregroundStyle(.tertiary)
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+    }
+
+    private var emptyState: some View {
+        Text(snapshot.emptyMessage)
+            .font(.system(size: 14.5, weight: .regular))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 18)
+    }
+
+    private var flatBody: some View {
+        ScrollView(showsIndicators: false) {
+            LazyVStack(alignment: .leading, spacing: 6) {
+                ForEach(snapshot.spaceGroups.flatMap(\.items)) { item in
+                    row(for: item)
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.bottom, 12)
+        }
+    }
+
+    private var groupedBody: some View {
+        ScrollView(showsIndicators: false) {
+            LazyVStack(alignment: .leading, spacing: 0) {
+                ForEach(snapshot.spaceGroups) { group in
+                    spaceSection(group: group)
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.bottom, 12)
+        }
+    }
+
+    @ViewBuilder
+    private func spaceSection(group: WindowSwitcherSpaceGroup) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(.tertiary)
+                    .frame(width: 5, height: 5)
+                Text(group.spaceLabel.uppercased())
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.secondary)
+                    .kerning(0.5)
+                Spacer()
+                Text("\(group.items.count)")
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(.tertiary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(
+                        Capsule()
+                            .fill(Color(nsColor: .separatorColor).opacity(0.3))
+                    )
+            }
+            .padding(.horizontal, 12)
+            .padding(.top, 10)
+            .padding(.bottom, 2)
+
+            ForEach(group.items) { item in
+                row(for: item)
+            }
+        }
+        .padding(.bottom, 6)
     }
 
     @ViewBuilder

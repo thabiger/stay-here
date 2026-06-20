@@ -15,6 +15,8 @@ public final class UserDefaultsSettingsRepository: SettingsRepository {
         static let windowSwitcherTitleFormat = "windowSwitcher.titleFormat"
         static let windowSwitcherShowMinimizedWindows = "windowSwitcher.showMinimizedWindows"
         static let windowSwitcherShowHiddenWindows = "windowSwitcher.showHiddenWindows"
+        static let allSpacesWindowSwitcherEnabled = "allSpacesWindowSwitcher.enabled"
+        static let allSpacesWindowSwitcherShortcut = "allSpacesWindowSwitcher.shortcut"
         static let hotCornerTopLeftAction = "hotCorner.topLeft.action"
         static let hotCornerTopRightAction = "hotCorner.topRight.action"
         static let hotCornerBottomLeftAction = "hotCorner.bottomLeft.action"
@@ -37,6 +39,8 @@ public final class UserDefaultsSettingsRepository: SettingsRepository {
         static let windowSwitcherTitleFormat: WindowSwitcherTitleFormat = .appNameOnly
         static let windowSwitcherShowMinimizedWindows: Bool = false
         static let windowSwitcherShowHiddenWindows: Bool = false
+        static let allSpacesWindowSwitcherShortcut = "command+shift+`"
+        static let allSpacesWindowSwitcherEnabled: Bool = true
         static let hotCornerAction: HotCornerAction = .none
         static let hudDisplayDuration: TimeInterval = 1.8
         static let activationDockClickInterceptionEnabled: Bool = true
@@ -174,6 +178,31 @@ public final class UserDefaultsSettingsRepository: SettingsRepository {
         }
         set {
             defaults.set(newValue, forKey: Key.windowSwitcherShowHiddenWindows)
+        }
+    }
+
+    public var allSpacesWindowSwitcherEnabled: Bool {
+        get {
+            if defaults.object(forKey: Key.allSpacesWindowSwitcherEnabled) != nil {
+                return defaults.bool(forKey: Key.allSpacesWindowSwitcherEnabled)
+            }
+            return Defaults.allSpacesWindowSwitcherEnabled
+        }
+        set {
+            defaults.set(newValue, forKey: Key.allSpacesWindowSwitcherEnabled)
+        }
+    }
+
+    public var allSpacesWindowSwitcherShortcutText: String {
+        get {
+            if let stored = defaults.string(forKey: Key.allSpacesWindowSwitcherShortcut),
+               !stored.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return stored
+            }
+            return Defaults.allSpacesWindowSwitcherShortcut
+        }
+        set {
+            defaults.set(newValue.trimmingCharacters(in: .whitespacesAndNewlines), forKey: Key.allSpacesWindowSwitcherShortcut)
         }
     }
 

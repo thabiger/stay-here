@@ -67,7 +67,7 @@ final class AppCompositionRoot: NSObject {
     lazy var updateWindowManager = UpdateWindowManager(
         appearanceManager: appearanceManager
     )
-    lazy var updateController = UpdateController(
+    lazy var         updateController = UpdateController(
         settings: settings,
         updateService: updateService,
         updateWindowManager: updateWindowManager,
@@ -77,6 +77,7 @@ final class AppCompositionRoot: NSObject {
             self.statusController.setAvailableUpdate(updateInfo)
             self.spaceSwitcherController.setAvailableUpdate(updateInfo)
             self.windowSwitcherController.setAvailableUpdate(updateInfo)
+            self.allSpacesWindowSwitcherController.setAvailableUpdate(updateInfo)
         }
     )
     lazy var activationController = ActivationController(
@@ -106,7 +107,14 @@ final class AppCompositionRoot: NSObject {
     lazy var windowSwitcherController = WindowSwitcherController(
         settings: settings,
         registry: registry,
-        cgsBridge: cgsBridge
+        cgsBridge: cgsBridge,
+        mode: .currentSpace
+    )
+    lazy var allSpacesWindowSwitcherController = WindowSwitcherController(
+        settings: settings,
+        registry: registry,
+        cgsBridge: cgsBridge,
+        mode: .allSpaces
     )
     lazy var hotCornerController = HotCornerController(
         settings: settings,
@@ -118,6 +126,8 @@ final class AppCompositionRoot: NSObject {
                 self?.spaceSwitcherController.openSwitcher()
             case .windowSwitcher:
                 self?.windowSwitcherController.openSwitcher()
+            case .allSpacesWindowSwitcher:
+                self?.allSpacesWindowSwitcherController.openSwitcher()
             }
         }
     )
@@ -134,6 +144,7 @@ final class AppCompositionRoot: NSObject {
         activationController: activationController,
         spaceSwitcherController: spaceSwitcherController,
         windowSwitcherController: windowSwitcherController,
+        allSpacesWindowSwitcherController: allSpacesWindowSwitcherController,
         hotCornerController: hotCornerController,
         switchPresentationHelper: switchPresentationHelper,
         setupRequirementsPresenter: setupRequirementsPresenter
@@ -161,6 +172,9 @@ final class AppCompositionRoot: NSObject {
             self?.updateController.presentAvailableUpdate()
         }
         windowSwitcherController.setOnOpenUpdate { [weak self] in
+            self?.updateController.presentAvailableUpdate()
+        }
+        allSpacesWindowSwitcherController.setOnOpenUpdate { [weak self] in
             self?.updateController.presentAvailableUpdate()
         }
     }

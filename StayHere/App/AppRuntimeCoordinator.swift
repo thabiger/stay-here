@@ -17,6 +17,7 @@ final class AppRuntimeCoordinator: AppCoordinating {
     private let activationController: ActivationController
     private let spaceSwitcherController: SpaceSwitcherController
     private let windowSwitcherController: WindowSwitcherController
+    private let allSpacesWindowSwitcherController: WindowSwitcherController
     private let hotCornerController: HotCornerController
     private let switchPresentationHelper: SpaceSwitchPresentationHelper
     private let setupRequirementsPresenter: SetupRequirementsPresenter
@@ -39,6 +40,7 @@ final class AppRuntimeCoordinator: AppCoordinating {
         activationController: ActivationController,
         spaceSwitcherController: SpaceSwitcherController,
         windowSwitcherController: WindowSwitcherController,
+        allSpacesWindowSwitcherController: WindowSwitcherController,
         hotCornerController: HotCornerController,
         switchPresentationHelper: SpaceSwitchPresentationHelper,
         setupRequirementsPresenter: SetupRequirementsPresenter
@@ -55,6 +57,7 @@ final class AppRuntimeCoordinator: AppCoordinating {
         self.activationController = activationController
         self.spaceSwitcherController = spaceSwitcherController
         self.windowSwitcherController = windowSwitcherController
+        self.allSpacesWindowSwitcherController = allSpacesWindowSwitcherController
         self.hotCornerController = hotCornerController
         self.switchPresentationHelper = switchPresentationHelper
         self.setupRequirementsPresenter = setupRequirementsPresenter
@@ -104,6 +107,8 @@ final class AppRuntimeCoordinator: AppCoordinating {
             handle(command.action, with: spaceSwitcherController)
         case .window:
             handle(command.action, with: windowSwitcherController)
+        case .allSpacesWindow:
+            handle(command.action, with: allSpacesWindowSwitcherController)
         }
     }
 
@@ -232,27 +237,11 @@ final class AppRuntimeCoordinator: AppCoordinating {
         hotCornerController.stop()
         spaceSwitcherController.stop()
         windowSwitcherController.stop()
+        allSpacesWindowSwitcherController.stop()
         activationController.stop()
     }
 
-    private func handle(_ action: SwitcherAction, with controller: SpaceSwitcherController) {
-        switch action {
-        case .open:
-            controller.openSwitcher()
-        case .close, .cancel:
-            controller.closeSwitcher()
-        case .next:
-            controller.moveSelectionForward()
-        case .previous:
-            controller.moveSelectionBackward()
-        case .commit:
-            controller.commitSwitcherSelection()
-        case .select:
-            break
-        }
-    }
-
-    private func handle(_ action: SwitcherAction, with controller: WindowSwitcherController) {
+    private func handle(_ action: SwitcherAction, with controller: any SwitcherControlling) {
         switch action {
         case .open:
             controller.openSwitcher()
@@ -274,21 +263,28 @@ final class AppRuntimeCoordinator: AppCoordinating {
         case .close, .cancel:
             spaceSwitcherController.closeSwitcher()
             windowSwitcherController.closeSwitcher()
+            allSpacesWindowSwitcherController.closeSwitcher()
         case .next:
             if windowSwitcherController.hasActiveSession {
                 windowSwitcherController.moveSelectionForward()
+            } else if allSpacesWindowSwitcherController.hasActiveSession {
+                allSpacesWindowSwitcherController.moveSelectionForward()
             } else if spaceSwitcherController.hasActiveSession {
                 spaceSwitcherController.moveSelectionForward()
             }
         case .previous:
             if windowSwitcherController.hasActiveSession {
                 windowSwitcherController.moveSelectionBackward()
+            } else if allSpacesWindowSwitcherController.hasActiveSession {
+                allSpacesWindowSwitcherController.moveSelectionBackward()
             } else if spaceSwitcherController.hasActiveSession {
                 spaceSwitcherController.moveSelectionBackward()
             }
         case .commit:
             if windowSwitcherController.hasActiveSession {
                 windowSwitcherController.commitSwitcherSelection()
+            } else if allSpacesWindowSwitcherController.hasActiveSession {
+                allSpacesWindowSwitcherController.commitSwitcherSelection()
             } else if spaceSwitcherController.hasActiveSession {
                 spaceSwitcherController.commitSwitcherSelection()
             }
@@ -296,6 +292,8 @@ final class AppRuntimeCoordinator: AppCoordinating {
             guard let index = command.index else { return }
             if windowSwitcherController.hasActiveSession {
                 windowSwitcherController.commitSelection(at: index)
+            } else if allSpacesWindowSwitcherController.hasActiveSession {
+                allSpacesWindowSwitcherController.commitSelection(at: index)
             } else if spaceSwitcherController.hasActiveSession {
                 spaceSwitcherController.commitSelection(at: index)
             }
@@ -315,6 +313,12 @@ final class AppRuntimeCoordinator: AppCoordinating {
             windowSwitcherController.start()
         } else {
             windowSwitcherController.stop()
+        }
+
+        if settings.allSpacesWindowSwitcherEnabled {
+            allSpacesWindowSwitcherController.start()
+        } else {
+            allSpacesWindowSwitcherController.stop()
         }
 
         if hotCornerController.hasAssignedCorners() {

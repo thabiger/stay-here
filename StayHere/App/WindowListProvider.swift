@@ -122,6 +122,100 @@ final class WindowListProvider {
         focusedWindowIDProvider()
     }
 
+    struct SpaceWindowGroup {
+        let spaceID: Int
+        let spaceLabel: String
+        let entries: [WindowEntry]
+    }
+
+    func entriesForAllSpaces() -> [SpaceWindowGroup] {
+        guard let raw = windowInfoProvider() else { return [] }
+        var accessibilityTitleCache: [pid_t: [Int: String]] = [:]
+
+        let orderedSpaceIDs = registry.orderedSpaceIDs()
+        let spacesByID = Dictionary(uniqueKeysWithValues: registry.spaces.map { ($0.id, $0) })
+
+        var windowsBySpace: [Int: [WindowEntry]] = [:]
+
+        for item in raw {
+            guard let owner = item[kCGWindowOwnerPID as String] as? NSNumber,
+                  let windowNumber = item[kCGWindowNumber as String] as? NSNumber,
+                  let layer = item[kCGWindowLayer as String] as? NSNumber,
+                  layer.intValue == 0 else {
+                continue
+            }
+
+            let pid = owner.int32Value
+            let application = runningApplicationProvider(pid)
+
+            // Filter hidden apps (respect the user setting)
+            if application?.isHidden == true,
+               !settings.windowSwitcherShowHiddenWindows {
+                continue
+            }
+
+            // For non-active spaces, kCGWindowIsOnscreen is false even for normal
+            // windows. Only filter minimized/off-screen windows on the current space.
+            let isOnScreen = (item[kCGWindowIsOnscreen as String] as? NSNumber)?.boolValue ?? false
+            if !isOnScreen && !settings.windowSwitcherShowMinimizedWindows {
+                let spaceIDs = cgsBridge.spacesForWindow(windowID: windowNumber.intValue)
+                let isOnCurrentSpace = spaceIDs.contains(
+                    cgsBridge.activeSpaceID() ?? registry.activeSpaceID ?? -1
+                )
+                if isOnCurrentSpace {
+                    // Minimized window on current space — respect the setting
+                    continue
+                }
+                // Window on another space — include it (it's not minimized, just off-screen)
+            }
+
+            let appName = application?.localizedName
+                ?? (item[kCGWindowOwnerName as String] as? String)
+                ?? "App"
+            let windowTitle = title(for: item) ?? accessibilityTitle(
+                for: pid,
+                windowNumber: windowNumber.intValue,
+                cache: &accessibilityTitleCache
+            )
+            let entry = WindowEntry(
+                windowID: windowNumber.intValue,
+                pid: pid,
+                appName: appName,
+                windowTitle: windowTitle,
+                icon: iconProvider(application)
+            )
+
+            let spaceIDs = cgsBridge.spacesForWindow(windowID: windowNumber.intValue)
+            if let primarySpaceID = spaceIDs.first(where: { orderedSpaceIDs.contains($0) })
+                ?? spaceIDs.first {
+                windowsBySpace[primarySpaceID, default: []].append(entry)
+            }
+        }
+
+        var groups: [SpaceWindowGroup] = []
+        for spaceID in orderedSpaceIDs {
+            guard let entries = windowsBySpace[spaceID], !entries.isEmpty else { continue }
+            let space = spacesByID[spaceID]
+            let label = registry.name(for: spaceID)
+            let systemName = space?.systemName
+            let displayLabel: String
+            if label != "Unnamed space" {
+                displayLabel = label
+            } else if let systemName, !systemName.isEmpty {
+                displayLabel = systemName
+            } else {
+                displayLabel = registry.namespaceLabel(for: spaceID)
+            }
+            groups.append(SpaceWindowGroup(
+                spaceID: spaceID,
+                spaceLabel: displayLabel,
+                entries: entries
+            ))
+        }
+
+        return groups
+    }
+
     private func title(for item: [String: Any]) -> String? {
         let raw = (item[kCGWindowName as String] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return raw.isEmpty ? nil : raw
