@@ -74,6 +74,7 @@ public final class SpaceRepository: ObservableObject {
     public func rename(spaceID: Int, name: String) {
         labelStore.rename(spaceID: spaceID, name: name, orderedSpaceIDs: orderedSpaceIDs())
         syncPersistenceState()
+        persistNow()
     }
 
     public func moveDisplayOrder(fromOffsets: IndexSet, toOffset: Int) {
@@ -83,6 +84,7 @@ public final class SpaceRepository: ObservableObject {
             currentOrderedSpaceIDs: orderedSpaceIDs()
         )
         syncPersistenceState()
+        persistNow()
     }
 
     public func orderedSpaceIDs() -> [Int] {
