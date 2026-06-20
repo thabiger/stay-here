@@ -38,8 +38,8 @@ final class AppLifecycleCoordinator {
         startEventDrivenControllers: @escaping () -> Void,
         presentSetupRequirementsWarning: @escaping () -> Void
     ) {
-        setActivationPolicy(.accessory)
-        applyAppearance()
+        setActivationPolicy(.accessory) // set the app to accessory mode (hidden in the Dock)
+        applyAppearance() // light/dark mode
 
         pollTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
             guard !isSettingsOpen() else { return }

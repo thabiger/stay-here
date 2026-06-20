@@ -6,8 +6,8 @@ final class SettingsWindowManager: NSObject, NSWindowDelegate {
     private let settings: SettingsRepository
     private let appearanceManager: AppearanceManager
     private let onAppearanceChange: () -> Void
-    private let onWillOpen: () -> Void
-    private let onDidClose: () -> Void
+    var onWillOpen: () -> Void
+    var onDidClose: () -> Void
     private let setActivationPolicy: (NSApplication.ActivationPolicy) -> Void
     private let activateApp: () -> Void
     private let hasVisibleOwnedWindow: () -> Bool

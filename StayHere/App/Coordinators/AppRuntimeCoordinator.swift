@@ -1,0 +1,178 @@
+import AppKit
+import Core
+
+@MainActor
+protocol RuntimeCoordinating: AnyObject {
+    func applyAppearanceImmediately()
+    func performSpaceSwitch(_ spaceID: Int)
+}
+
+@MainActor
+final class AppRuntimeCoordinator: AppCoordinating, RuntimeCoordinating {
+    private let services: CompositionServices
+    private let registry: SpaceRegistry
+    private let lifecycleCoordinator: AppLifecycleCoordinator
+    private let controllers: CompositionControllers
+    private let windowManagers: CompositionWindowManagers
+    private let updateController: any UpdateControlling
+    private let setupRequirementsPresenter: SetupRequirementsPresenter
+
+    private let statusBarCoordinator: StatusBarCoordinator
+    private let spaceObservationCoordinator: SpaceObservationCoordinator
+    private let windowCoordinator: WindowCoordinator
+    private let switcherCoordinator: SwitcherCoordinator
+    private let eventOrchestrationCoordinator: EventOrchestrationCoordinator
+
+    init(
+        services: CompositionServices,
+        controllers: CompositionControllers,
+        windowManagers: CompositionWindowManagers,
+        updateController: any UpdateControlling,
+        setupRequirementsPresenter: SetupRequirementsPresenter
+    ) {
+        self.services = services
+        self.registry = services.registry
+        self.lifecycleCoordinator = services.lifecycleCoordinator
+        self.controllers = controllers
+        self.windowManagers = windowManagers
+        self.updateController = updateController
+        self.setupRequirementsPresenter = setupRequirementsPresenter
+
+        self.statusBarCoordinator = StatusBarCoordinator(
+            statusController: controllers.statusController,
+            registry: services.registry,
+            settings: services.settings
+        )
+        self.spaceObservationCoordinator = SpaceObservationCoordinator(
+            registry: services.registry,
+            hudController: controllers.hudController,
+            switchPresentationHelper: controllers.switchPresentationHelper
+        )
+        self.windowCoordinator = WindowCoordinator(
+            settingsWindowManager: windowManagers.settingsWindowManager,
+            aboutWindowManager: windowManagers.aboutWindowManager,
+            appearanceManager: services.appearanceManager,
+            registry: services.registry,
+            settings: services.settings
+        )
+        self.switcherCoordinator = SwitcherCoordinator(
+            spaceSwitcherController: controllers.spaceSwitcherController,
+            windowSwitcherController: controllers.windowSwitcherController,
+            allSpacesWindowSwitcherController: controllers.allSpacesWindowSwitcherController,
+            settings: services.settings
+        )
+        self.eventOrchestrationCoordinator = EventOrchestrationCoordinator(
+            hotCornerController: controllers.hotCornerController,
+            activationController: controllers.activationController,
+            switcherCoordinator: switcherCoordinator
+        )
+
+        controllers.runtimeCoordinator = self
+        windowManagers.runtimeCoordinator = self
+
+        windowCoordinator.onSettingsWillOpen = { [weak self] in
+            self?.statusBarCoordinator.rebuildSpaceItems()
+        }
+        windowCoordinator.onSettingsDidClose = { [weak self] in
+            guard let self else { return }
+            self.eventOrchestrationCoordinator.syncEventDrivenControllers()
+            self.statusBarCoordinator.setTitle(self.registry.activeNameSummary())
+            self.statusBarCoordinator.rebuildSpaceItems()
+        }
+    }
+
+    var isSettingsOpen: Bool {
+        windowCoordinator.isSettingsOpen
+    }
+
+    func applicationDidFinishLaunching() {
+        updateController.restoreCachedState()
+
+        // Configure status bar with all menu actions
+        statusBarCoordinator.configure(
+            onOpenSettings: { [weak self] in self?.windowCoordinator.showSettings() },
+            onOpenAbout: { [weak self] in self?.windowCoordinator.showAbout() },
+            onCheckForUpdates: { [weak self] in self?.updateController.performManualCheck() },
+            onOpenAvailableUpdate: { [weak self] in self?.updateController.presentAvailableUpdate() },
+            onCopyState: { [weak self] in self?.spaceObservationCoordinator.copySpaceState() },
+            onOpenLogs: { Logger.shared.openLogsInFinder() },
+            onQuit: { NSApp.terminate(nil) },
+            onSelectSpace: { [weak self] id in
+                self?.spaceObservationCoordinator.performSpaceSwitch(id)
+            },
+            onRenameSpace: { [weak self] id, name in
+                guard let self else { return }
+                self.registry.rename(spaceID: id, name: name)
+                self.statusBarCoordinator.setTitle(
+                    self.registry.activeSpaceID == id
+                        ? Self.normalizedSpaceName(name)
+                        : self.registry.activeNameSummary()
+                )
+            }
+        )
+
+        // Bind "settings open" state to observation
+        statusBarCoordinator.bindSettingsOpen { [weak self] in
+            self?.isSettingsOpen ?? false
+        }
+        spaceObservationCoordinator.bindSettingsOpen { [weak self] in
+            self?.isSettingsOpen ?? false
+        }
+
+        // When active space changes → update status bar title
+        spaceObservationCoordinator.bindActiveSpaceChangedHandler { [weak self] in
+            guard let self else { return }
+            self.statusBarCoordinator.setTitle(self.registry.activeNameSummary())
+        }
+
+        // When registry changes → rebuild menu
+        spaceObservationCoordinator.bindMenuRebuildHandler { [weak self] in
+            self?.statusBarCoordinator.rebuildSpaceItems()
+        }
+
+        // Start space observation (begins listening to NSWorkspace.activeSpaceDidChangeNotification)
+        spaceObservationCoordinator.startObserving()
+
+        // Run lifecycle coordinator - sets activation policy, starts timers, checks setup requirements
+        lifecycleCoordinator.applicationDidFinishLaunching(
+            isSettingsOpen: { [weak self] in self?.isSettingsOpen ?? false },
+            refreshSpacesSoon: { [weak self] in self?.registry.refreshSpacesSoon() },
+            refreshSpacesAsync: { [weak self] in self?.registry.refreshSpacesAsync() },
+            rebuildSpaceItems: { [weak self] in
+                self?.statusBarCoordinator.rebuildSpaceItems()
+            },
+            startEventDrivenControllers: { [weak self] in
+                self?.eventOrchestrationCoordinator.startEventDrivenControllers()
+            },
+            presentSetupRequirementsWarning: { [weak self] in
+                self?.setupRequirementsPresenter.presentSetupRequirementsWarning()
+            }
+        )
+        updateController.scheduleAutomaticCheck()
+    }
+
+    func applicationWillTerminate() {
+        lifecycleCoordinator.applicationWillTerminate { [weak self] in
+            self?.eventOrchestrationCoordinator.stopEventDrivenControllers()
+        }
+        spaceObservationCoordinator.stopObserving()
+    }
+
+    func handleIncomingURL(_ url: URL) {
+        eventOrchestrationCoordinator.handleIncomingURL(url)
+    }
+
+    func applyAppearanceImmediately() {
+        windowCoordinator.applyAppearanceImmediately()
+        statusBarCoordinator.applyCurrentAppearance()
+    }
+
+    func performSpaceSwitch(_ spaceID: Int) {
+        spaceObservationCoordinator.performSpaceSwitch(spaceID)
+    }
+
+    private static func normalizedSpaceName(_ name: String) -> String {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "Unnamed space" : trimmed
+    }
+}

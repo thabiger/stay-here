@@ -6,90 +6,34 @@ import Activation
 @MainActor
 final class AppRuntimeCoordinatorUpdateTests: XCTestCase {
     func testLaunchRestoresCachedStateAndSchedulesAutomaticCheck() {
-        let updateController = UpdateControllerSpy()
         let settings = UserDefaultsSettingsRepository()
-        let appearanceManager = AppearanceManager(settings: settings)
         let cgsBridge = FakeCGSBridge()
-        let registry = SpaceRegistry(cgsBridge: cgsBridge)
-        let coordinator = AppRuntimeCoordinator(
-            settings: settings,
+        let appearanceManager = AppearanceManager(settings: settings)
+
+        let lifecycleCoordinator = AppLifecycleCoordinator(
             appearanceManager: appearanceManager,
-            lifecycleCoordinator: AppLifecycleCoordinator(
-                appearanceManager: appearanceManager,
-                applyAppearance: {},
-                setupStatusProvider: {
-                    AppSetupStatusSnapshot(isSatisfied: true, missingDescriptionsCount: 0)
-                },
-                setActivationPolicy: { _ in }
-            ),
-            registry: registry,
-            statusController: StatusBarController(
-                settings: settings,
-                appearanceManager: appearanceManager
-            ),
+            applyAppearance: {},
+            setupStatusProvider: {
+                AppSetupStatusSnapshot(isSatisfied: true, missingDescriptionsCount: 0)
+            },
+            setActivationPolicy: { _ in }
+        )
+
+        let services = CompositionServices(
+            settings: settings,
+            cgsBridge: cgsBridge,
+            lifecycleCoordinator: lifecycleCoordinator
+        )
+        let controllers = CompositionControllers(services: services)
+        let windowManagers = CompositionWindowManagers(services: services)
+
+        let updateController = UpdateControllerSpy()
+        let coordinator = AppRuntimeCoordinator(
+            services: services,
+            controllers: controllers,
+            windowManagers: windowManagers,
             updateController: updateController,
-            hudController: HUDController(
-                settings: settings,
-                appearanceManager: appearanceManager
-            ),
-            settingsWindowManager: SettingsWindowManager(
-                settings: settings,
-                appearanceManager: appearanceManager,
-                onAppearanceChange: {},
-                setActivationPolicy: { _ in },
-                activateApp: {},
-                hasVisibleOwnedWindow: { false }
-            ),
-            aboutWindowManager: AboutWindowManager(
-                appearanceManager: appearanceManager,
-                setActivationPolicy: { _ in },
-                activateApp: {},
-                hasVisibleOwnedWindow: { false }
-            ),
-            activationController: ActivationController(
-                settings: settings,
-                windowIndex: WindowIndex(cgsBridge: cgsBridge),
-                currentSpaceID: { nil },
-                activeSpaceIDs: { [] },
-                switchToSpace: { _ in },
-                onShowSingleWindowHint: { _ in }
-            ),
-            spaceSwitcherController: SpaceSwitcherController(
-                settings: settings,
-                registry: registry,
-                switchToSpace: { _ in }
-            ),
-            windowSwitcherController: WindowSwitcherController(
-                settings: settings,
-                registry: registry,
-                cgsBridge: cgsBridge,
-                mode: .currentSpace
-            ),
-            allSpacesWindowSwitcherController: WindowSwitcherController(
-                settings: settings,
-                registry: registry,
-                cgsBridge: cgsBridge,
-                mode: .allSpaces
-            ),
-            hotCornerController: HotCornerController(
-                settings: settings,
-                actionHandler: { _ in }
-            ),
-            switchPresentationHelper: SpaceSwitchPresentationHelper(
-                appearanceManager: appearanceManager,
-                activateApp: {},
-                openURL: { _ in true },
-                openSystemSettingsApp: {}
-            ),
-            setupRequirementsPresenter: SetupRequirementsPresenter(
-                appearanceManager: appearanceManager,
-                switchPresentationHelper: SpaceSwitchPresentationHelper(
-                    appearanceManager: appearanceManager,
-                    activateApp: {},
-                    openURL: { _ in true },
-                    openSystemSettingsApp: {}
-                )
-            )
+            setupRequirementsPresenter: controllers.setupRequirementsPresenter
         )
 
         coordinator.applicationDidFinishLaunching()
