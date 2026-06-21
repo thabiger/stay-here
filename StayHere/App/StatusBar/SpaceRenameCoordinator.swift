@@ -8,7 +8,6 @@ final class SpaceRenameCoordinator: SpaceMenuRowViewCoordinating {
 
     private let appearanceManager: AppearanceManager
     private var onRenameSpace: ((Int, String) -> Void)?
-    private var onSelectSpace: ((Int) -> Void)?
     private weak var menuProvider: (any SpaceMenuProviding)?
 
     var isEditingSpaceName: Bool {
@@ -28,11 +27,9 @@ final class SpaceRenameCoordinator: SpaceMenuRowViewCoordinating {
     }
 
     func configure(
-        onRenameSpace: @escaping (Int, String) -> Void,
-        onSelectSpace: @escaping (Int) -> Void
+        onRenameSpace: @escaping (Int, String) -> Void
     ) {
         self.onRenameSpace = onRenameSpace
-        self.onSelectSpace = onSelectSpace
     }
 
     func beginEditing(row: SpaceMenuRowView, spaceID: Int) -> Bool {

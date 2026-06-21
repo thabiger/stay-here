@@ -69,9 +69,6 @@ final class StatusBarController: NSObject, NSMenuDelegate, StatusBarMenuActionHa
         renameCoordinator.configure(
             onRenameSpace: { [weak self] spaceID, name in
                 self?.onRenameSpace?(spaceID, name)
-            },
-            onSelectSpace: { [weak self] spaceID in
-                self?.onSelectSpace?(spaceID)
             }
         )
         renameCoordinator.setMenuProvider(self)
@@ -257,12 +254,7 @@ final class StatusBarController: NSObject, NSMenuDelegate, StatusBarMenuActionHa
     }
 
     func isSwitchableSpace(_ spaceID: Int) -> Bool {
-        for item in menu.items {
-            if let number = item.representedObject as? NSNumber, number.intValue == spaceID {
-                return item.isEnabled
-            }
-        }
-        return false
+        snapshot?.spaceItems.contains(where: { $0.spaceID == spaceID }) ?? false
     }
 
     private var isSelectingSpace = false
