@@ -120,6 +120,14 @@ public final class SpaceLabelStore: @unchecked Sendable {
         }
     }
 
+    /// Returns a consistent snapshot of all persistence-related state,
+    /// acquired under the lock so callers can read without racing mutations.
+    func persistenceSnapshot() -> (labels: [Int: SpaceLabel], displayOrder: [Int], usesCustomDisplayOrder: Bool) {
+        lock.lock()
+        defer { lock.unlock() }
+        return (labels, displayOrder, usesCustomDisplayOrder)
+    }
+
     private func persistDebounced(
         orderedSpaceIDs: [Int],
         labels labelsSnapshot: [Int: SpaceLabel],

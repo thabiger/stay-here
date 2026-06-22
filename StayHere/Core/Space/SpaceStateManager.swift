@@ -162,10 +162,11 @@ public final class SpaceStateManager: ObservableObject {
     }
 
     func syncPersistenceState() {
+        let snapshot = labelStore.persistenceSnapshot()
         stateStore.syncPersistenceState(
-            labels: labelStore.labels,
-            displayOrder: labelStore.displayOrder,
-            usesCustomDisplayOrder: labelStore.usesCustomDisplayOrder
+            labels: snapshot.labels,
+            displayOrder: snapshot.displayOrder,
+            usesCustomDisplayOrder: snapshot.usesCustomDisplayOrder
         )
     }
 }
