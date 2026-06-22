@@ -118,13 +118,9 @@ final class WindowSwitcherController {
         settings: WindowSwitcherSettings & AllSpacesWindowSwitcherSettings,
         registry: SpaceRegistry,
         mode: WindowSwitcherMode,
-        windowSwitchUseCase: WindowSwitchUseCase? = nil,
+        windowSwitchUseCase: WindowSwitchUseCase,
         shortcutProvider: (() -> SpaceSwitcherShortcut)? = nil,
         listProvider: WindowListProvider? = nil,
-        cgsBridge: any CGSBridgeProtocol = CGSBridge.live,
-        switchSpace: SwitchSpaceUseCase? = nil,
-        refreshSpaces: RefreshSpacesUseCase? = nil,
-        focusService: WindowFocusService = WindowFocusService(),
         recencyTracker: WindowRecencyTracker? = nil,
         listBuilder: WindowListBuilder? = nil,
         panelPresenter: WindowSwitcherPanelPresenter? = nil
@@ -149,7 +145,7 @@ final class WindowSwitcherController {
 
         self.listProvider = listProvider ?? WindowListProvider(
             registry: registry,
-            cgsBridge: cgsBridge,
+            cgsBridge: CGSBridge.live,
             settings: settings
         )
         self.recencyTracker = recencyTracker ?? WindowRecencyTracker()
@@ -162,18 +158,7 @@ final class WindowSwitcherController {
         )
         self.panelPresenter = panelPresenter ?? WindowSwitcherPanelPresenter()
 
-        self.windowSwitchUseCase = windowSwitchUseCase ?? WindowSwitchUseCase(dependencies: .init(
-            cgsBridge: cgsBridge,
-            listProvider: self.listProvider,
-            switchSpace: switchSpace ?? SwitchSpaceUseCase(
-                cgsBridge: cgsBridge,
-                repository: SpaceStateManager(cgsBridge: cgsBridge, logger: NoOpLogger()),
-                refreshUseCase: refreshSpaces ?? RefreshSpacesUseCase(repository: SpaceStateManager(cgsBridge: cgsBridge, logger: NoOpLogger()), logger: NoOpLogger()),
-                logger: NoOpLogger()
-            ),
-            refreshSpaces: refreshSpaces ?? RefreshSpacesUseCase(repository: SpaceStateManager(cgsBridge: cgsBridge, logger: NoOpLogger()), logger: NoOpLogger()),
-            focusService: focusService
-        ))
+        self.windowSwitchUseCase = windowSwitchUseCase
 
     }
 

@@ -35,7 +35,11 @@ public final class SpaceLabelStore: @unchecked Sendable {
         }
 
         labels[spaceID] = SpaceLabel(name: normalized)
-        persistDebounced(orderedSpaceIDs: orderedSpaceIDs())
+        persistDebounced(
+            orderedSpaceIDs: orderedSpaceIDs(),
+            labels: labels,
+            usesCustomDisplayOrder: usesCustomDisplayOrder
+        )
     }
 
     public func moveDisplayOrder(fromOffsets: IndexSet, toOffset: Int, currentOrderedSpaceIDs: [Int]) {
@@ -57,7 +61,11 @@ public final class SpaceLabelStore: @unchecked Sendable {
 
         displayOrder = ids
         usesCustomDisplayOrder = true
-        persistDebounced(orderedSpaceIDs: ids)
+        persistDebounced(
+            orderedSpaceIDs: ids,
+            labels: labels,
+            usesCustomDisplayOrder: usesCustomDisplayOrder
+        )
         lock.unlock()
     }
 
@@ -83,7 +91,11 @@ public final class SpaceLabelStore: @unchecked Sendable {
         }
 
         labels = updated
-        persistDebounced(orderedSpaceIDs: orderedSpaceIDs())
+        persistDebounced(
+            orderedSpaceIDs: orderedSpaceIDs(),
+            labels: labels,
+            usesCustomDisplayOrder: usesCustomDisplayOrder
+        )
         lock.unlock()
     }
 
@@ -108,11 +120,12 @@ public final class SpaceLabelStore: @unchecked Sendable {
         }
     }
 
-    private func persistDebounced(orderedSpaceIDs: [Int]) {
+    private func persistDebounced(
+        orderedSpaceIDs: [Int],
+        labels labelsSnapshot: [Int: SpaceLabel],
+        usesCustomDisplayOrder usesCustomSnapshot: Bool
+    ) {
         pendingPersistTask?.cancel()
-
-        let labelsSnapshot = labels
-        let usesCustomSnapshot = usesCustomDisplayOrder
 
         let task = Task { [weak self] in
             guard let self else { return }
