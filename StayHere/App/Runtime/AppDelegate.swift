@@ -1,6 +1,7 @@
 import AppKit
 import Carbon
 import Core
+import OSLog
 
 @MainActor
 protocol AppCoordinating: AnyObject {
@@ -13,6 +14,11 @@ protocol AppCoordinating: AnyObject {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let retainedDependencyGraph: AnyObject?
     private let appCoordinator: any AppCoordinating
+
+    private static let urlLogger = Logger(
+        subsystem: "com.stayhere.StayHere",
+        category: "url-scheme"
+    )
 
     override init() {
         let compositionRoot = AppCompositionRoot()
@@ -58,6 +64,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func application(_ application: NSApplication, open urls: [URL]) {
         for url in urls {
+            let frontmostApp = NSWorkspace.shared.frontmostApplication
+            Self.urlLogger.info("Processing stayhere:// URL via Launch Services from frontmost app \(frontmostApp?.bundleIdentifier ?? "nil", privacy: .public): \(url.absoluteString, privacy: .public)")
             appCoordinator.handleIncomingURL(url)
         }
     }
@@ -67,6 +75,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
               let url = URL(string: urlString) else {
             return
         }
+
+        guard let senderPID = event.attributeDescriptor(forKeyword: keySenderPIDAttr)?.int32Value else {
+            Self.urlLogger.error("Blocked stayhere:// URL from unknown sender (no PID in event): \(url.absoluteString, privacy: .public)")
+            return
+        }
+        guard let frontmostPID = NSWorkspace.shared.frontmostApplication?.processIdentifier else {
+            Self.urlLogger.error("Blocked stayhere:// URL from PID \(senderPID) — no frontmost application")
+            return
+        }
+        guard senderPID == frontmostPID else {
+            if let senderApp = NSRunningApplication(processIdentifier: senderPID) {
+                Self.urlLogger.error("Blocked stayhere:// URL from PID \(senderPID) (\(senderApp.bundleIdentifier ?? "?")), frontmost is PID \(frontmostPID)")
+            } else {
+                Self.urlLogger.error("Blocked stayhere:// URL from PID \(senderPID) (unknown app), frontmost is PID \(frontmostPID)")
+            }
+            return
+        }
+
+        Self.urlLogger.info("Accepted stayhere:// URL from frontmost app PID \(senderPID): \(url.absoluteString, privacy: .public)")
         appCoordinator.handleIncomingURL(url)
     }
 }
