@@ -7,12 +7,10 @@ final class SpaceObservationCoordinator {
     private let registry: any SpaceRegistryProtocol
     private let switchSpace: SwitchSpaceUseCase
     private let buildSpaceSnapshot: BuildSpaceSnapshotUseCase
-    private let hudController: HUDController
     private let switchPresentationHelper: SpaceSwitchPresentationHelper
 
     private var cancellables: Set<AnyCancellable> = []
     private var activeSpaceObserver: NSObjectProtocol?
-    private var lastObservedActiveSpaceID: Int?
     private var isSettingsOpen: () -> Bool = { false }
     private var onActiveSpaceChanged: (() -> Void)?
     private var onScheduleMenuRebuild: (() -> Void)?
@@ -21,13 +19,11 @@ final class SpaceObservationCoordinator {
         registry: any SpaceRegistryProtocol,
         switchSpace: SwitchSpaceUseCase,
         buildSpaceSnapshot: BuildSpaceSnapshotUseCase,
-        hudController: HUDController,
         switchPresentationHelper: SpaceSwitchPresentationHelper
     ) {
         self.registry = registry
         self.switchSpace = switchSpace
         self.buildSpaceSnapshot = buildSpaceSnapshot
-        self.hudController = hudController
         self.switchPresentationHelper = switchPresentationHelper
     }
 
@@ -60,20 +56,11 @@ final class SpaceObservationCoordinator {
     }
 
     private func bindRegistry() {
-        lastObservedActiveSpaceID = registry.activeSpaceID
-
         registry.objectWillChange
             .receive(on: RunLoop.main)
             .sink { [weak self] in
                 guard let self, !self.isSettingsOpen() else { return }
-                let activeSpaceID = self.registry.activeSpaceID
                 self.onActiveSpaceChanged?()
-                if activeSpaceID != self.lastObservedActiveSpaceID {
-                    self.lastObservedActiveSpaceID = activeSpaceID
-                    if activeSpaceID != nil {
-                        self.hudController.show(name: self.registry.activeName())
-                    }
-                }
                 self.onScheduleMenuRebuild?()
             }
             .store(in: &cancellables)

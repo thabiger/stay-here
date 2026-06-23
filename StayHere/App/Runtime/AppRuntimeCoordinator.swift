@@ -22,6 +22,7 @@ final class AppRuntimeCoordinator: AppCoordinating, RuntimeCoordinating {
     private let windowCoordinator: WindowCoordinator
     private let switcherDirector: SwitcherDirector
     private let eventOrchestrationCoordinator: EventOrchestrationCoordinator
+    private var lastObservedActiveSpaceID: Int?
 
     init(
         services: CompositionServices,
@@ -46,7 +47,6 @@ final class AppRuntimeCoordinator: AppCoordinating, RuntimeCoordinating {
             registry: services.repository,
             switchSpace: services.switchSpace,
             buildSpaceSnapshot: services.buildSpaceSnapshot,
-            hudController: controllers.hudController,
             switchPresentationHelper: controllers.switchPresentationHelper
         )
         self.windowCoordinator = WindowCoordinator(
@@ -125,16 +125,27 @@ final class AppRuntimeCoordinator: AppCoordinating, RuntimeCoordinating {
             self?.isSettingsOpen ?? false
         }
 
-        // When active space changes → update status bar title
+        // When active space changes → update status bar title and show HUD
         spaceObservationCoordinator.bindActiveSpaceChangedHandler { [weak self] in
             guard let self else { return }
             self.statusBarCoordinator.setTitle(self.registry.activeNameSummary())
+
+            let activeSpaceID = self.registry.activeSpaceID
+            if activeSpaceID != self.lastObservedActiveSpaceID {
+                self.lastObservedActiveSpaceID = activeSpaceID
+                if activeSpaceID != nil {
+                    self.controllers.hudController.show(name: self.registry.activeName())
+                }
+            }
         }
 
         // When registry changes → rebuild menu
         spaceObservationCoordinator.bindMenuRebuildHandler { [weak self] in
             self?.statusBarCoordinator.rebuildSpaceItems()
         }
+
+        // Initialize HUD dedup to avoid HUD on first registry event at startup
+        lastObservedActiveSpaceID = registry.activeSpaceID
 
         // Start space observation (begins listening to NSWorkspace.activeSpaceDidChangeNotification)
         spaceObservationCoordinator.startObserving()
