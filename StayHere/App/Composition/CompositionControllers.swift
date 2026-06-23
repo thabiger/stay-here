@@ -3,129 +3,153 @@ import Core
 import Activation
 
 @MainActor
+final class RuntimeCoordinatorBox {
+    weak var value: (any RuntimeCoordinating)?
+}
+
+@MainActor
 final class CompositionControllers {
     let services: CompositionServices
-    weak var runtimeCoordinator: (any RuntimeCoordinating)?
+    let runtimeCoordinatorBox = RuntimeCoordinatorBox()
+    weak var runtimeCoordinator: (any RuntimeCoordinating)? {
+        didSet { runtimeCoordinatorBox.value = runtimeCoordinator }
+    }
 
-    lazy var statusController = StatusBarController(
-        settings: services.settings,
-        appearanceManager: services.appearanceManager
-    )
+    let statusController: StatusBarController
+    let hudController: HUDController
+    let switchPresentationHelper: SpaceSwitchPresentationHelper
+    let setupRequirementsPresenter: SetupRequirementsPresenter
+    let spaceSwitcherController: SpaceSwitcherController
+    let windowSwitcherController: WindowSwitcherController
+    let allSpacesWindowSwitcherController: WindowSwitcherController
+    let hotCornerController: HotCornerController
+    let activationController: ActivationController
 
-    lazy var hudController = HUDController(
-        settings: services.settings,
-        appearanceManager: services.appearanceManager
-    )
-
-    lazy var switchPresentationHelper = SpaceSwitchPresentationHelper(
-        appearanceManager: services.appearanceManager
-    )
-
-    lazy var setupRequirementsPresenter = SetupRequirementsPresenter(
-        appearanceManager: services.appearanceManager,
-        switchPresentationHelper: switchPresentationHelper,
-        logger: services.logger
-    )
-
-    lazy var spaceSwitcherController = SpaceSwitcherController(
-        settings: services.settings,
-        registry: services.registry,
-        switchToSpace: { [weak self] spaceID in
-            Task { [weak self] in
-                await self?.runtimeCoordinator?.performSpaceSwitch(spaceID)
-            }
-        }
-    )
-
-    private lazy var windowRecencyTracker = WindowRecencyTracker()
-
-    private lazy var currentSpaceListProvider = WindowListProvider(
-        registry: services.registry,
-        cgsBridge: services.cgsBridge,
-        settings: services.settings
-    )
-
-    private lazy var allSpacesListProvider = WindowListProvider(
-        registry: services.registry,
-        cgsBridge: services.cgsBridge,
-        settings: services.settings
-    )
-
-    private lazy var currentSpaceWindowSwitchUseCase = WindowSwitchUseCase(dependencies: .init(
-        cgsBridge: services.cgsBridge,
-        listProvider: currentSpaceListProvider,
-        switchSpace: services.switchSpace,
-        refreshSpaces: services.refreshSpaces,
-        focusService: WindowFocusService()
-    ))
-
-    private lazy var allSpacesWindowSwitchUseCase = WindowSwitchUseCase(dependencies: .init(
-        cgsBridge: services.cgsBridge,
-        listProvider: allSpacesListProvider,
-        switchSpace: services.switchSpace,
-        refreshSpaces: services.refreshSpaces,
-        focusService: WindowFocusService()
-    ))
-
-    lazy var windowSwitcherController = WindowSwitcherController(
-        settings: services.settings,
-        registry: services.registry,
-        mode: .currentSpace,
-        windowSwitchUseCase: currentSpaceWindowSwitchUseCase,
-        cgsBridge: services.cgsBridge,
-        listProvider: currentSpaceListProvider,
-        recencyTracker: windowRecencyTracker
-    )
-
-    lazy var allSpacesWindowSwitcherController = WindowSwitcherController(
-        settings: services.settings,
-        registry: services.registry,
-        mode: .allSpaces,
-        windowSwitchUseCase: allSpacesWindowSwitchUseCase,
-        cgsBridge: services.cgsBridge,
-        listProvider: allSpacesListProvider,
-        recencyTracker: windowRecencyTracker
-    )
-
-    lazy var hotCornerController = HotCornerController(
-        settings: services.settings,
-        actionHandler: { [weak self] action in
-            switch action {
-            case .none:
-                break
-            case .spaceSwitcher:
-                self?.spaceSwitcherController.openSwitcher()
-            case .windowSwitcher:
-                self?.windowSwitcherController.openSwitcher()
-            case .allSpacesWindowSwitcher:
-                self?.allSpacesWindowSwitcherController.openSwitcher()
-            }
-        }
-    )
-
-    lazy var activationController = ActivationController(
-        settings: services.settings,
-        windowIndex: WindowIndex(cgsBridge: services.cgsBridge),
-        currentSpaceID: { [weak self] in
-            self?.services.registry.activeSpaceID
-        },
-        activeSpaceIDs: { [weak self] in
-            guard let id = self?.services.registry.activeSpaceID else { return [] }
-            return Set([id])
-        },
-        switchToSpace: { [weak self] spaceID in
-            Task { [weak self] in
-                await self?.runtimeCoordinator?.performSpaceSwitch(spaceID)
-            }
-        },
-        onShowSingleWindowHint: { [weak self] message in
-            self?.hudController.show(message: message)
-        },
-        logger: services.logger
-    )
+    private let windowRecencyTracker: WindowRecencyTracker
+    private let currentSpaceListProvider: WindowListProvider
+    private let allSpacesListProvider: WindowListProvider
+    private let currentSpaceWindowSwitchUseCase: WindowSwitchUseCase
+    private let allSpacesWindowSwitchUseCase: WindowSwitchUseCase
 
     init(services: CompositionServices) {
         self.services = services
+
+        statusController = StatusBarController(
+            settings: services.settings,
+            appearanceManager: services.appearanceManager
+        )
+
+        hudController = HUDController(
+            settings: services.settings,
+            appearanceManager: services.appearanceManager
+        )
+
+        switchPresentationHelper = SpaceSwitchPresentationHelper(
+            appearanceManager: services.appearanceManager
+        )
+
+        windowRecencyTracker = WindowRecencyTracker()
+
+        currentSpaceListProvider = WindowListProvider(
+            registry: services.registry,
+            cgsBridge: services.cgsBridge,
+            settings: services.settings
+        )
+
+        allSpacesListProvider = WindowListProvider(
+            registry: services.registry,
+            cgsBridge: services.cgsBridge,
+            settings: services.settings
+        )
+
+        currentSpaceWindowSwitchUseCase = WindowSwitchUseCase(dependencies: .init(
+            cgsBridge: services.cgsBridge,
+            listProvider: currentSpaceListProvider,
+            switchSpace: services.switchSpace,
+            refreshSpaces: services.refreshSpaces,
+            focusService: WindowFocusService()
+        ))
+
+        allSpacesWindowSwitchUseCase = WindowSwitchUseCase(dependencies: .init(
+            cgsBridge: services.cgsBridge,
+            listProvider: allSpacesListProvider,
+            switchSpace: services.switchSpace,
+            refreshSpaces: services.refreshSpaces,
+            focusService: WindowFocusService()
+        ))
+
+        windowSwitcherController = WindowSwitcherController(
+            settings: services.settings,
+            registry: services.registry,
+            mode: .currentSpace,
+            windowSwitchUseCase: currentSpaceWindowSwitchUseCase,
+            cgsBridge: services.cgsBridge,
+            listProvider: currentSpaceListProvider,
+            recencyTracker: windowRecencyTracker
+        )
+
+        allSpacesWindowSwitcherController = WindowSwitcherController(
+            settings: services.settings,
+            registry: services.registry,
+            mode: .allSpaces,
+            windowSwitchUseCase: allSpacesWindowSwitchUseCase,
+            cgsBridge: services.cgsBridge,
+            listProvider: allSpacesListProvider,
+            recencyTracker: windowRecencyTracker
+        )
+
+        setupRequirementsPresenter = SetupRequirementsPresenter(
+            appearanceManager: services.appearanceManager,
+            switchPresentationHelper: switchPresentationHelper,
+            logger: services.logger
+        )
+
+        spaceSwitcherController = SpaceSwitcherController(
+            settings: services.settings,
+            registry: services.registry,
+            switchToSpace: { [box = runtimeCoordinatorBox] spaceID in
+                Task {
+                    await box.value?.performSpaceSwitch(spaceID)
+                }
+            }
+        )
+
+        hotCornerController = HotCornerController(
+            settings: services.settings,
+            actionHandler: { [spaceSwitcher = spaceSwitcherController, windowSwitcher = windowSwitcherController, allSpacesWindowSwitcher = allSpacesWindowSwitcherController] action in
+                switch action {
+                case .none:
+                    break
+                case .spaceSwitcher:
+                    spaceSwitcher.openSwitcher()
+                case .windowSwitcher:
+                    windowSwitcher.openSwitcher()
+                case .allSpacesWindowSwitcher:
+                    allSpacesWindowSwitcher.openSwitcher()
+                }
+            }
+        )
+
+        activationController = ActivationController(
+            settings: services.settings,
+            windowIndex: WindowIndex(cgsBridge: services.cgsBridge),
+            currentSpaceID: { [services] in
+                services.registry.activeSpaceID
+            },
+            activeSpaceIDs: { [services] in
+                guard let id = services.registry.activeSpaceID else { return [] }
+                return Set([id])
+            },
+            switchToSpace: { [box = runtimeCoordinatorBox] spaceID in
+                Task {
+                    await box.value?.performSpaceSwitch(spaceID)
+                }
+            },
+            onShowSingleWindowHint: { [hud = hudController] message in
+                hud.show(message: message)
+            },
+            logger: services.logger
+        )
     }
 
     func setOnOpenUpdateForSwitchers(_ handler: @escaping () -> Void) {
