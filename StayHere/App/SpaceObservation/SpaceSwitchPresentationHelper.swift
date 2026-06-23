@@ -15,9 +15,9 @@ final class SpaceSwitchPresentationHelper {
 
     init(
         appearanceManager: AppearanceManager,
-        activateApp: @escaping () -> Void = { NSApp.activate(ignoringOtherApps: true) },
-        openURL: @escaping (URL) -> Bool = { NSWorkspace.shared.open($0) },
-        openSystemSettingsApp: @escaping () -> Void = {
+        activateApp: @MainActor @escaping () -> Void = { NSApp.activate(ignoringOtherApps: true) },
+        openURL: @MainActor @escaping (URL) -> Bool = { NSWorkspace.shared.open($0) },
+        openSystemSettingsApp: @MainActor @escaping () -> Void = {
             NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/System Settings.app"))
         }
     ) {
@@ -92,7 +92,7 @@ final class SpaceSwitchPresentationHelper {
     }
 
     private func presentMissionControlShortcutWarning(title: String, message: String) {
-        DispatchQueue.main.async {
+        Task { @MainActor in
             self.activateApp()
 
             let alert = NSAlert()
