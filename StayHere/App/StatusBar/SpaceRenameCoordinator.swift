@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 
+@MainActor
 final class SpaceRenameCoordinator: SpaceMenuRowViewCoordinating {
     private weak var editingRow: SpaceMenuRowView?
     private var editingSpaceID: Int?

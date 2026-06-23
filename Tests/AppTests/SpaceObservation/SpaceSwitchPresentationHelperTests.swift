@@ -2,6 +2,7 @@ import XCTest
 import Core
 @testable import StayHereApp
 
+@MainActor
 final class SpaceSwitchPresentationHelperTests: XCTestCase {
     func testWarningPayloadForUnsupportedDesktop() {
         let helper = SpaceSwitchPresentationHelper(

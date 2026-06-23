@@ -7,6 +7,7 @@ struct AppSetupStatusSnapshot {
     let missingDescriptionsCount: Int
 }
 
+@MainActor
 final class AppLifecycleCoordinator {
     private let applyAppearance: () -> Void
     private let setupStatusProvider: () -> AppSetupStatusSnapshot

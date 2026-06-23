@@ -1,6 +1,7 @@
 import AppKit
 import Core
 
+@MainActor
 final class SpaceSwitchPresentationHelper {
     struct WarningPayload: Equatable {
         let title: String
