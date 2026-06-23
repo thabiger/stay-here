@@ -18,6 +18,8 @@ final class AppEventTapProxy: EventTapProxying {
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     private var clients: [any CGEventTapClient] = []
+    private var consecutiveDisableCount: Int = 0
+    private var pendingReenableWork: DispatchWorkItem?
 
     init(
         eventTapFactory: @escaping EventTapFactory = AppEventTapProxy.liveEventTapFactory,
@@ -75,6 +77,8 @@ final class AppEventTapProxy: EventTapProxying {
     }
 
     private func tearDownTap() {
+        pendingReenableWork?.cancel()
+        pendingReenableWork = nil
         if let eventTap {
             tapEnableHandler(eventTap, false)
         }
@@ -87,12 +91,29 @@ final class AppEventTapProxy: EventTapProxying {
 
     internal func handle(proxy: CGEventTapProxy, type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
         switch type {
-        case .tapDisabledByTimeout, .tapDisabledByUserInput:
-            tapEnableHandler(eventTap, true)
+        case .tapDisabledByTimeout:
+            consecutiveDisableCount += 1
+            let delay = min(pow(2.0, Double(consecutiveDisableCount - 1)), 30.0)
+            logger.info("event tap disabled by timeout (#\(consecutiveDisableCount)); re-enabling in \(delay)s")
+            let work = DispatchWorkItem { [weak self] in
+                guard let self else { return }
+                self.tapEnableHandler(self.eventTap, true)
+                self.consecutiveDisableCount = 0
+                self.pendingReenableWork = nil
+            }
+            pendingReenableWork = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
             return Unmanaged.passUnretained(event)
+
+        case .tapDisabledByUserInput:
+            logger.info("event tap disabled by user input (secure input session); not re-enabling")
+            return Unmanaged.passUnretained(event)
+
         case .keyDown, .flagsChanged:
+            consecutiveDisableCount = 0
             return dispatchKeyboardEvent(proxy: proxy, event: event)
         case .leftMouseDown, .leftMouseUp:
+            consecutiveDisableCount = 0
             return dispatchMouseEvent(proxy: proxy, event: event)
         default:
             return Unmanaged.passUnretained(event)

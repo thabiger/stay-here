@@ -80,7 +80,7 @@ final class AppEventTapProxyTests: XCTestCase {
         XCTAssertEqual(removedSources, 1)
     }
 
-    func testTapDisabledReEnablesTap() {
+    func testTapDisabledReEnablesTap() throws {
         var enableCalls: [Bool] = []
         let proxy = AppEventTapProxy(
             eventTapFactory: { _, _ in self.makeDummyMachPort() },
@@ -97,11 +97,144 @@ final class AppEventTapProxyTests: XCTestCase {
         let disabledEvent = CGEvent(source: nil)!
         disabledEvent.type = .tapDisabledByTimeout
 
-        let result = proxy.handle(proxy: dummyProxy, type: CGEventType.tapDisabledByTimeout, event: disabledEvent)
+        // Send the timeout event; re-enable should be scheduled, not immediate
+        let result = proxy.handle(
+            proxy: dummyProxy,
+            type: CGEventType.tapDisabledByTimeout,
+            event: disabledEvent
+        )
 
         XCTAssertNotNil(result)
+        // Should NOT have re-enabled immediately
+        XCTAssertEqual(enableCalls, [])
+
+        // Wait for the async re-enable (first backoff = 1s, add generous tolerance)
+        let reenableExpectation = XCTestExpectation(description: "tap re-enabled")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            reenableExpectation.fulfill()
+        }
+        wait(for: [reenableExpectation], timeout: 2.0)
+
         XCTAssertEqual(enableCalls, [true])
         XCTAssertTrue(client.handledEvents.isEmpty, "tap-disabled events should not be dispatched to clients")
+    }
+
+    func testTapDisabledByUserInputDoesNotReEnable() {
+        var enableCalls: [Bool] = []
+        let proxy = AppEventTapProxy(
+            eventTapFactory: { _, _ in self.makeDummyMachPort() },
+            runLoopSourceFactory: { _ in nil },
+            tapEnableHandler: { _, enabled in enableCalls.append(enabled) },
+            addRunLoopSource: { _ in },
+            removeRunLoopSource: { _ in },
+            logger: NoOpLogger()
+        )
+        let client = FakeClient()
+        proxy.register(client)
+        enableCalls.removeAll()
+
+        let disabledEvent = CGEvent(source: nil)!
+        disabledEvent.type = .tapDisabledByUserInput
+
+        let result = proxy.handle(
+            proxy: dummyProxy,
+            type: CGEventType.tapDisabledByUserInput,
+            event: disabledEvent
+        )
+
+        XCTAssertNotNil(result)
+        // Should NOT have re-enabled
+        XCTAssertEqual(enableCalls, [])
+
+        // Wait a beat to confirm no delayed re-enable
+        let noReenableExpectation = XCTestExpectation(description: "no re-enable happened")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            noReenableExpectation.fulfill()
+        }
+        wait(for: [noReenableExpectation], timeout: 2.0)
+        XCTAssertEqual(enableCalls, [])
+    }
+
+    func testConsecutiveTimeoutsIncreaseBackoff() {
+        var enableCalls: [Bool] = []
+        let proxy = AppEventTapProxy(
+            eventTapFactory: { _, _ in self.makeDummyMachPort() },
+            runLoopSourceFactory: { _ in nil },
+            tapEnableHandler: { _, enabled in enableCalls.append(enabled) },
+            addRunLoopSource: { _ in },
+            removeRunLoopSource: { _ in },
+            logger: NoOpLogger()
+        )
+        let client = FakeClient()
+        proxy.register(client)
+        enableCalls.removeAll()
+
+        let disabledEvent = CGEvent(source: nil)!
+        disabledEvent.type = .tapDisabledByTimeout
+
+        // First timeout — backoff = 1s
+        _ = proxy.handle(proxy: dummyProxy, type: .tapDisabledByTimeout, event: disabledEvent)
+
+        // Wait for first re-enable
+        let first = XCTestExpectation(description: "first re-enable")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { first.fulfill() }
+        wait(for: [first], timeout: 2.0)
+        XCTAssertEqual(enableCalls, [true])
+        enableCalls.removeAll()
+
+        // Second timeout — backoff should now be 2s
+        _ = proxy.handle(proxy: dummyProxy, type: .tapDisabledByTimeout, event: disabledEvent)
+
+        // Verify it does NOT re-enable within 1s (would be too early for 2s backoff)
+        let tooEarly = XCTestExpectation(description: "should not re-enable too early")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            XCTAssertEqual(enableCalls, [])
+            tooEarly.fulfill()
+        }
+        wait(for: [tooEarly], timeout: 1.0)
+
+        // Wait for the actual re-enable
+        let second = XCTestExpectation(description: "second re-enable")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { second.fulfill() }
+        wait(for: [second], timeout: 2.0)
+        XCTAssertEqual(enableCalls, [true])
+    }
+
+    func testNormalEventResetsBackoffCounter() {
+        var enableCalls: [Bool] = []
+        let proxy = AppEventTapProxy(
+            eventTapFactory: { _, _ in self.makeDummyMachPort() },
+            runLoopSourceFactory: { _ in nil },
+            tapEnableHandler: { _, enabled in enableCalls.append(enabled) },
+            addRunLoopSource: { _ in },
+            removeRunLoopSource: { _ in },
+            logger: NoOpLogger()
+        )
+        let client = FakeClient()
+        proxy.register(client)
+        enableCalls.removeAll()
+
+        // First timeout — backoff = 1s
+        let disabledEvent = CGEvent(source: nil)!
+        disabledEvent.type = .tapDisabledByTimeout
+        _ = proxy.handle(proxy: dummyProxy, type: .tapDisabledByTimeout, event: disabledEvent)
+
+        // Wait for re-enable
+        let first = XCTestExpectation(description: "first re-enable")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { first.fulfill() }
+        wait(for: [first], timeout: 2.0)
+        enableCalls.removeAll()
+
+        // Simulate a normal key event — this should reset the counter to 0
+        _ = proxy.handle(proxy: dummyProxy, type: .keyDown, event: makeKeyEvent())
+
+        // Now another timeout — with reset counter, backoff should be 1s again, not 2s
+        _ = proxy.handle(proxy: dummyProxy, type: .tapDisabledByTimeout, event: disabledEvent)
+
+        let second = XCTestExpectation(description: "second re-enable should arrive in ~1s")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { second.fulfill() }
+        wait(for: [second], timeout: 2.0)
+        XCTAssertEqual(enableCalls, [true])
     }
 
     func testKeyboardEventRoutesToActiveClientExclusively() {
