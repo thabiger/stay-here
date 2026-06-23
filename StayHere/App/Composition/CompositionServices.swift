@@ -20,7 +20,7 @@ final class CompositionServices {
 
     init(
         settings: SettingsRepository = UserDefaultsSettingsRepository(),
-        cgsBridge: any CGSBridgeProtocol = CGSBridge.live,
+        cgsBridge: any CGSBridgeProtocol,
         updateService: (any UpdateService)? = nil,
         lifecycleCoordinator: AppLifecycleCoordinator? = nil,
         logger: any Logging

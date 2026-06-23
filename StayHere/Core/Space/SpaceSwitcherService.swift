@@ -23,7 +23,7 @@ public actor SpaceSwitcherService {
     private let logger: any Logging
 
     public init(
-        cgsBridge: any CGSBridgeProtocol = CGSBridge.live,
+        cgsBridge: any CGSBridgeProtocol,
         refreshRetryInterval: TimeInterval = 0.05,
         refreshRetryLimit: Int = 8,
         logger: any Logging

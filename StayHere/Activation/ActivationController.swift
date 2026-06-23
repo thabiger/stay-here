@@ -14,7 +14,7 @@ public final class ActivationController {
 
     public init(
         settings: ActivationSettings,
-        windowIndex: WindowIndex = WindowIndex(),
+        windowIndex: WindowIndex,
         policy: ActivationPolicy? = nil,
         currentSpaceID: @escaping () -> Int?,
         activeSpaceIDs: @escaping () -> Set<Int>,

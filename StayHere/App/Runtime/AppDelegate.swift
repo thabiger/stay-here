@@ -21,7 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     )
 
     override init() {
-        let compositionRoot = AppCompositionRoot()
+        let compositionRoot = AppCompositionRoot(cgsBridge: CGSBridge.live)
         self.retainedDependencyGraph = compositionRoot // keep a reference to the composition root to prevent it from being deallocated
         self.appCoordinator = compositionRoot.runtimeCoordinator
         super.init()

@@ -72,6 +72,7 @@ final class CompositionControllers {
         registry: services.registry,
         mode: .currentSpace,
         windowSwitchUseCase: currentSpaceWindowSwitchUseCase,
+        cgsBridge: services.cgsBridge,
         listProvider: currentSpaceListProvider,
         recencyTracker: windowRecencyTracker
     )
@@ -81,6 +82,7 @@ final class CompositionControllers {
         registry: services.registry,
         mode: .allSpaces,
         windowSwitchUseCase: allSpacesWindowSwitchUseCase,
+        cgsBridge: services.cgsBridge,
         listProvider: allSpacesListProvider,
         recencyTracker: windowRecencyTracker
     )

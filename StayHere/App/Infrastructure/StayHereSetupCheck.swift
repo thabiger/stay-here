@@ -16,7 +16,7 @@ struct StayHereSetupStatus: Equatable {
     static func current() -> StayHereSetupStatus {
         StayHereSetupStatus(
             permissions: MacOSPermissionCheck.currentStatus(),
-            missionControl: MissionControlShortcutCheck.check()
+            missionControl: MissionControlShortcutCheck.check(cgsBridge: CGSBridge.live)
         )
     }
 }

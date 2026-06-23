@@ -4,7 +4,7 @@ public final class SwitchSpaceUseCase {
     private let executor: SpaceSwitchExecutor
 
     public init(
-        cgsBridge: any CGSBridgeProtocol = CGSBridge.live,
+        cgsBridge: any CGSBridgeProtocol,
         repository: SpaceStateManager,
         switcherService: SpaceSwitcherService? = nil,
         refreshUseCase: RefreshSpacesUseCase,

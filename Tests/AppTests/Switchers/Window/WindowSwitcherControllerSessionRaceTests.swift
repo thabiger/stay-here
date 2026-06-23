@@ -116,6 +116,7 @@ final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
             registry: registry,
             mode: .currentSpace,
             windowSwitchUseCase: windowSwitchUseCase,
+            cgsBridge: bridge,
             listProvider: listProvider
         )
         return (controller, bridge)

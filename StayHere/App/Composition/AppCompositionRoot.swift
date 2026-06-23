@@ -13,7 +13,7 @@ final class AppCompositionRoot: NSObject {
 
     init(
         settings: SettingsRepository = UserDefaultsSettingsRepository(),
-        cgsBridge: any CGSBridgeProtocol = CGSBridge.live,
+        cgsBridge: any CGSBridgeProtocol,
         updateService: (any UpdateService)? = nil
     ) {
         let logger: any Logging = FileLogger(

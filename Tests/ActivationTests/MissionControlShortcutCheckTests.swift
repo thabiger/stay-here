@@ -8,7 +8,7 @@ final class MissionControlShortcutCheckTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
         defaults.set(makeHotKeys(enabledIDs: [118, 119, 120, 121, 122, 123, 124, 125, 126]), forKey: "AppleSymbolicHotKeys")
 
-        let result = MissionControlShortcutCheck.check(desktopCount: 9, defaults: defaults)
+        let result = MissionControlShortcutCheck.check(desktopCount: 9, defaults: defaults, cgsBridge: MockCGSBridge())
 
         XCTAssertTrue(result.isSatisfied)
         XCTAssertNil(result.warningMessage)
@@ -27,7 +27,7 @@ final class MissionControlShortcutCheckTests: XCTestCase {
             forKey: "AppleSymbolicHotKeys"
         )
 
-        let result = MissionControlShortcutCheck.check(desktopCount: 9, defaults: defaults)
+        let result = MissionControlShortcutCheck.check(desktopCount: 9, defaults: defaults, cgsBridge: MockCGSBridge())
 
         XCTAssertFalse(result.isSatisfied)
         XCTAssertEqual(
@@ -50,7 +50,7 @@ final class MissionControlShortcutCheckTests: XCTestCase {
         let data = try PropertyListSerialization.data(fromPropertyList: root, format: .xml, options: 0)
         try data.write(to: tempURL, options: .atomic)
 
-        let result = MissionControlShortcutCheck.check(desktopCount: 9, preferencesURL: tempURL)
+        let result = MissionControlShortcutCheck.check(desktopCount: 9, preferencesURL: tempURL, cgsBridge: MockCGSBridge())
 
         XCTAssertTrue(result.isSatisfied)
         XCTAssertNil(result.warningMessage)
@@ -62,7 +62,7 @@ final class MissionControlShortcutCheckTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
         defaults.set(makeHotKeys(enabledIDs: [118, 119, 120]), forKey: "AppleSymbolicHotKeys")
 
-        let result = MissionControlShortcutCheck.check(desktopCount: 3, defaults: defaults)
+        let result = MissionControlShortcutCheck.check(desktopCount: 3, defaults: defaults, cgsBridge: MockCGSBridge())
 
         XCTAssertTrue(result.isSatisfied)
         XCTAssertNil(result.warningMessage)

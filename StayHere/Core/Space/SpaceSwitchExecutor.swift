@@ -9,7 +9,7 @@ public final class SpaceSwitchExecutor {
     private let logger: any Logging
 
     public init(
-        cgsBridge: any CGSBridgeProtocol = CGSBridge.live,
+        cgsBridge: any CGSBridgeProtocol,
         repository: SpaceStateManager,
         switcherService: SpaceSwitcherService,
         refreshSpaces: @escaping @Sendable () async -> SpaceSwitchSnapshot,

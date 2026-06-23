@@ -68,6 +68,7 @@ final class SwitcherPanelReleaseTests: XCTestCase {
             registry: registry,
             mode: .currentSpace,
             windowSwitchUseCase: windowSwitchUseCase,
+            cgsBridge: bridge,
             listProvider: listProvider
         )
     }

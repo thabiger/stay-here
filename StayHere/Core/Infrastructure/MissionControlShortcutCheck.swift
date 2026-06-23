@@ -49,7 +49,7 @@ public struct MissionControlShortcutCheck {
         desktopCount: Int? = nil,
         defaults: UserDefaults = .standard,
         preferencesURL: URL? = nil,
-        cgsBridge: any CGSBridgeProtocol = CGSBridge.live
+        cgsBridge: any CGSBridgeProtocol
     ) -> Result {
         let hotKeys = loadHotKeys(
             defaults: defaults,
@@ -164,7 +164,7 @@ public struct MissionControlShortcutCheck {
 
     static func currentDesktopCount(
         snapshot: CGSBridge.ManagedSnapshot? = nil,
-        cgsBridge: any CGSBridgeProtocol = CGSBridge.live
+        cgsBridge: any CGSBridgeProtocol
     ) -> Int {
         let snapshot = snapshot ?? cgsBridge.managedSnapshot()
         let desktopIDs = Set(

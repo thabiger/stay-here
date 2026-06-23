@@ -28,7 +28,7 @@ public struct AppWindowSummary {
 public final class WindowIndex {
     private let cgsBridge: any CGSBridgeProtocol
 
-    public init(cgsBridge: any CGSBridgeProtocol = CGSBridge.live) {
+    public init(cgsBridge: any CGSBridgeProtocol) {
         self.cgsBridge = cgsBridge
     }
 

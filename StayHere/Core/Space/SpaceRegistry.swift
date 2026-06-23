@@ -22,7 +22,7 @@ public final class SpaceRegistry: ObservableObject {
 
     public convenience init(
         store: SpaceStore = SpaceStore(),
-        cgsBridge: any CGSBridgeProtocol = CGSBridge.live,
+        cgsBridge: any CGSBridgeProtocol,
         labelStore: SpaceLabelStore? = nil,
         logger: any Logging
     ) {

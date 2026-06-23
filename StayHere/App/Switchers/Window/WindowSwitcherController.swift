@@ -128,6 +128,7 @@ final class WindowSwitcherController {
         registry: SpaceRegistry,
         mode: WindowSwitcherMode,
         windowSwitchUseCase: WindowSwitchUseCase,
+        cgsBridge: any CGSBridgeProtocol,
         shortcutProvider: (() -> SpaceSwitcherShortcut)? = nil,
         listProvider: WindowListProvider? = nil,
         recencyTracker: WindowRecencyTracker? = nil,
@@ -154,7 +155,7 @@ final class WindowSwitcherController {
 
         self.listProvider = listProvider ?? WindowListProvider(
             registry: registry,
-            cgsBridge: CGSBridge.live,
+            cgsBridge: cgsBridge,
             settings: settings
         )
         self.recencyTracker = recencyTracker ?? WindowRecencyTracker()

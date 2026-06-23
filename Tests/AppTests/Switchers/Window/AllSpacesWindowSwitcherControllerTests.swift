@@ -98,6 +98,7 @@ final class AllSpacesWindowSwitcherControllerTests: XCTestCase {
             registry: registry,
             mode: .allSpaces,
             windowSwitchUseCase: windowSwitchUseCase,
+            cgsBridge: bridge,
             listProvider: listProvider
         )
         return (controller, bridge)
