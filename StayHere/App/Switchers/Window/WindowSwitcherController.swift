@@ -14,89 +14,90 @@ final class WindowSwitcherController {
     private let windowSwitchUseCase: WindowSwitchUseCase
     private let listProvider: WindowListProvider
 
-    private lazy var coordinator = SwitcherSessionController<
-        WindowSwitcherSession,
-        WindowSwitcherSnapshot,
-        Int
-    >(
-        shortcutProvider: { [weak self] in
-            self?.shortcutProvider() ?? SpaceSwitcherShortcut(keyCode: 50, modifiers: [.maskCommand])
-        },
-        movesSelectionOnNewSession: false,
-        buildSession: { [weak self] shortcut, trigger in
-            guard let self, let source = self.listBuilder.makeSessionSource() else { return nil }
-            return WindowSwitcherSession(
-                startingWindowID: source.startingWindowID,
-                selectedWindowID: source.flatEntries.first?.windowID,
-                shortcut: shortcut,
-                spaceGroups: source.spaceGroups,
-                flatEntries: source.flatEntries,
-                trigger: trigger
-            )
-        },
-        moveSelection: { session, offset in
-            let entries = session.flatEntries
-            guard !entries.isEmpty else { return }
-            let ids = entries.map(\.windowID)
-            let currentSelection = session.selectedWindowID ?? session.startingWindowID ?? ids.first
-            let nextSelection = offset > 0
-                ? WindowSwitcherSelection.nextWindowID(currentWindowID: currentSelection, orderedWindowIDs: ids)
-                : WindowSwitcherSelection.previousWindowID(currentWindowID: currentSelection, orderedWindowIDs: ids)
-            session.selectedWindowID = nextSelection
-        },
-        buildSnapshot: { [weak self] session in
-            self?.listBuilder.buildSnapshot(for: session)
-                ?? WindowSwitcherSnapshot(
-                    spaceGroups: [],
-                    title: "Window Switcher",
-                    subtitle: "0 windows",
-                    emptyMessage: "No windows",
-                    iconName: "macwindow",
-                    showSpaceLabels: false
+    private lazy var coordinator: SwitcherSessionController<WindowSwitcherSession, WindowSwitcherSnapshot, Int> = SwitcherSessionController(configuration: {
+        let panelPresenter = self.panelPresenter
+        let listBuilder = self.listBuilder
+        let recencyTracker = self.recencyTracker
+        return SwitcherConfiguration(
+            shortcutProvider: { [weak self] in
+                self?.shortcutProvider() ?? SpaceSwitcherShortcut(keyCode: 50, modifiers: [.maskCommand])
+            },
+            movesSelectionOnNewSession: false,
+            buildSession: { [weak self] shortcut, trigger in
+                guard let self, let source = self.listBuilder.makeSessionSource() else { return nil }
+                return WindowSwitcherSession(
+                    startingWindowID: source.startingWindowID,
+                    selectedWindowID: source.flatEntries.first?.windowID,
+                    shortcut: shortcut,
+                    spaceGroups: source.spaceGroups,
+                    flatEntries: source.flatEntries,
+                    trigger: trigger
                 )
-        },
-        itemAtPosition: { session, position in
-            guard let session, position > 0, position <= session.flatEntries.count else { return nil }
-            return session.flatEntries[position - 1].windowID
-        },
-        shouldCommit: { _ in true },
-        commitSelection: { [weak self] session, windowID in
-            guard let self, let session, let entry = session.flatEntries.first(where: { $0.windowID == windowID }) else {
-                return false
+            },
+            moveSelection: { session, offset in
+                let entries = session.flatEntries
+                guard !entries.isEmpty else { return }
+                let ids = entries.map(\.windowID)
+                let currentSelection = session.selectedWindowID ?? session.startingWindowID ?? ids.first
+                let nextSelection = offset > 0
+                    ? WindowSwitcherSelection.nextWindowID(currentWindowID: currentSelection, orderedWindowIDs: ids)
+                    : WindowSwitcherSelection.previousWindowID(currentWindowID: currentSelection, orderedWindowIDs: ids)
+                session.selectedWindowID = nextSelection
+            },
+            buildSnapshot: { [weak self] session in
+                self?.listBuilder.buildSnapshot(for: session)
+                    ?? WindowSwitcherSnapshot(
+                        spaceGroups: [],
+                        title: "Window Switcher",
+                        subtitle: "0 windows",
+                        emptyMessage: "No windows",
+                        iconName: "macwindow",
+                        showSpaceLabels: false
+                    )
+            },
+            itemAtPosition: { session, position in
+                guard let session, position > 0, position <= session.flatEntries.count else { return nil }
+                return session.flatEntries[position - 1].windowID
+            },
+            commitSelection: { [weak self] session, windowID in
+                guard let self, let session,
+                      let entry = session.flatEntries.first(where: { $0.windowID == windowID }) else {
+                    return false
+                }
+                self.recencyTracker.recordSelection(windowID, in: session)
+                self.commitSelectedEntry(entry)
+                return true
+            },
+            presentSnapshot: { [weak self] snapshot, actions, updateInfo in
+                self?.panelPresenter.present(
+                    snapshot: snapshot,
+                    onSelect: { entry in actions.onSelect(entry.windowID) },
+                    onFocusLost: {
+                        self?.listProvider.invalidateCache()
+                        actions.onFocusLost?()
+                    },
+                    onCommit: {
+                        self?.listProvider.invalidateCache()
+                        actions.onCommit?()
+                    },
+                    onCancel: {
+                        self?.listProvider.invalidateCache()
+                        actions.onCancel?()
+                    },
+                    onMoveUp: actions.onMoveUp,
+                    onMoveDown: actions.onMoveDown,
+                    updateInfo: updateInfo,
+                    onOpenUpdate: actions.onOpenUpdate
+                )
+            },
+            dismissPanel: { [weak self] in
+                self?.panelPresenter.dismiss()
+            },
+            releasePanel: { [weak self] in
+                self?.panelPresenter.release()
             }
-            self.recencyTracker.recordSelection(windowID, in: session)
-            self.commitSelectedEntry(entry)
-            return true
-        },
-        presentSnapshot: { [weak self] snapshot, onSelect, onFocusLost, onCommit, onCancel, onMoveUp, onMoveDown, updateInfo, onOpenUpdate in
-            self?.panelPresenter.present(
-                snapshot: snapshot,
-                onSelect: { entry in onSelect(entry.windowID) },
-                onFocusLost: {
-                    self?.listProvider.invalidateCache()
-                    onFocusLost?()
-                },
-                onCommit: {
-                    self?.listProvider.invalidateCache()
-                    onCommit?()
-                },
-                onCancel: {
-                    self?.listProvider.invalidateCache()
-                    onCancel?()
-                },
-                onMoveUp: onMoveUp,
-                onMoveDown: onMoveDown,
-                updateInfo: updateInfo,
-                onOpenUpdate: onOpenUpdate
-            )
-        },
-        dismissPanel: { [weak self] in
-            self?.panelPresenter.dismiss()
-        },
-        releasePanel: { [weak self] in
-            self?.panelPresenter.release()
-        }
-    )
+        )
+    }())
 
     var panelPair: (window: NSPanel, hosting: NSHostingController<WindowSwitcherView>)? {
         get { panelPresenter.panelPair }

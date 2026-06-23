@@ -30,42 +30,10 @@ where Session.Selection == Selection {
     private var onOpenUpdate: (() -> Void)?
 
     private lazy var eventSupport = SwitcherEventControllerSupport(handler: self)
-    private let shortcutProvider: () -> SpaceSwitcherShortcut
-    private let movesSelectionOnNewSession: Bool
-    private let buildSession: BuildSession
-    private let moveSelection: MoveSelection
-    private let buildSnapshot: BuildSnapshot
-    private let itemAtPosition: ItemAtPosition
-    private let shouldCommit: ShouldCommit
-    private let commitSelection: CommitSelection
-    private let presentSnapshot: PresentSnapshot
-    private let dismissPanel: DismissPanel
-    private let releasePanel: ReleasePanel
+    private let configuration: SwitcherConfiguration<Session, Snapshot, Selection>
 
-    init(
-        shortcutProvider: @escaping () -> SpaceSwitcherShortcut,
-        movesSelectionOnNewSession: Bool,
-        buildSession: @escaping BuildSession,
-        moveSelection: @escaping MoveSelection,
-        buildSnapshot: @escaping BuildSnapshot,
-        itemAtPosition: @escaping ItemAtPosition,
-        shouldCommit: @escaping ShouldCommit,
-        commitSelection: @escaping CommitSelection,
-        presentSnapshot: @escaping PresentSnapshot,
-        dismissPanel: @escaping DismissPanel,
-        releasePanel: @escaping ReleasePanel
-    ) {
-        self.shortcutProvider = shortcutProvider
-        self.movesSelectionOnNewSession = movesSelectionOnNewSession
-        self.buildSession = buildSession
-        self.moveSelection = moveSelection
-        self.buildSnapshot = buildSnapshot
-        self.itemAtPosition = itemAtPosition
-        self.shouldCommit = shouldCommit
-        self.commitSelection = commitSelection
-        self.presentSnapshot = presentSnapshot
-        self.dismissPanel = dismissPanel
-        self.releasePanel = releasePanel
+    init(configuration: SwitcherConfiguration<Session, Snapshot, Selection>) {
+        self.configuration = configuration
     }
 
     var hasActiveSession: Bool { session != nil }
@@ -75,7 +43,7 @@ where Session.Selection == Selection {
     func start() {}
 
     func stop() {
-        releasePanel()
+        configuration.releasePanel()
         session = nil
     }
 
@@ -124,10 +92,10 @@ where Session.Selection == Selection {
     }
 
     func commitSelection(at position: Int) {
-        guard let item = itemAtPosition(session, position) else { return }
-        let committed = commitSelection(session, item)
+        guard let item = configuration.itemAtPosition(session, position) else { return }
+        let committed = configuration.commitSelection(session, item)
         if !committed {
-            dismissPanel()
+            configuration.dismissPanel()
             session = nil
         }
     }
@@ -140,7 +108,7 @@ where Session.Selection == Selection {
         let shortcut = switcherConfiguredShortcut()
         _ = ensureSession(using: shortcut, trigger: .explicit)
         if var session = session {
-            moveSelection(&session, offset)
+            configuration.moveSelection(&session, offset)
             self.session = session
         }
         showPanel()
@@ -148,48 +116,47 @@ where Session.Selection == Selection {
 
     private func ensureSession(using shortcut: SpaceSwitcherShortcut, trigger: SwitcherSessionTrigger) -> Bool {
         guard session == nil else { return false }
-        session = buildSession(shortcut, trigger)
+        session = configuration.buildSession(shortcut, trigger)
         return session != nil
     }
 
     private func showPanel() {
         let enablePanelKeyboardHandling = session?.trigger == .explicit
-        let snapshot = buildSnapshot(session)
+        let snapshot = configuration.buildSnapshot(session)
         let updateInfo = currentUpdateInfo
         let onOpenUpdate = self.onOpenUpdate
-        presentSnapshot(
-            snapshot,
-            { [weak self] selection in
-                let committed = self?.commitSelection(self?.session, selection) ?? false
+        let actions = SwitcherPanelActions<Selection>(
+            onSelect: { [weak self] selection in
+                let committed = self?.configuration.commitSelection(self?.session, selection) ?? false
                 if !committed {
-                    self?.dismissPanel()
+                    self?.configuration.dismissPanel()
                     self?.session = nil
                 }
             },
-            { [weak self] in
+            onFocusLost: { [weak self] in
                 self?.switcherCancelActiveSession()
             },
-            enablePanelKeyboardHandling ? { [weak self] in
+            onCommit: enablePanelKeyboardHandling ? { [weak self] in
                 self?.commitSwitcherSelection()
             } : nil,
-            enablePanelKeyboardHandling ? { [weak self] in
+            onCancel: enablePanelKeyboardHandling ? { [weak self] in
                 self?.closeSwitcher()
             } : nil,
-            enablePanelKeyboardHandling ? { [weak self] in
+            onMoveUp: enablePanelKeyboardHandling ? { [weak self] in
                 self?.moveSelectionBackward()
             } : nil,
-            enablePanelKeyboardHandling ? { [weak self] in
+            onMoveDown: enablePanelKeyboardHandling ? { [weak self] in
                 self?.moveSelectionForward()
             } : nil,
-            updateInfo,
-            onOpenUpdate
+            onOpenUpdate: onOpenUpdate
         )
+        configuration.presentSnapshot(snapshot, actions, updateInfo)
     }
 }
 
 extension SwitcherSessionController: SwitcherEventSessionHandling {
     func switcherConfiguredShortcut() -> SpaceSwitcherShortcut {
-        session?.shortcut ?? shortcutProvider()
+        session?.shortcut ?? configuration.shortcutProvider()
     }
 
     func switcherHasActiveSession() -> Bool {
@@ -204,9 +171,9 @@ extension SwitcherSessionController: SwitcherEventSessionHandling {
     func switcherEnsureSessionAndMoveSelection(backward: Bool) {
         let shortcut = switcherConfiguredShortcut()
         let openedSession = ensureSession(using: shortcut, trigger: .keyboard)
-        if !openedSession || movesSelectionOnNewSession {
+        if !openedSession || configuration.movesSelectionOnNewSession {
             if var session = session {
-                moveSelection(&session, backward ? -1 : 1)
+                configuration.moveSelection(&session, backward ? -1 : 1)
                 self.session = session
             }
         }
@@ -215,20 +182,20 @@ extension SwitcherSessionController: SwitcherEventSessionHandling {
 
     func switcherCommitOrDismissActiveSession() {
         guard let activeSession = session else { return }
-        if shouldCommit(activeSession), let selectedItem = activeSession.selectedItem {
-            let committed = commitSelection(activeSession, selectedItem)
+        if configuration.shouldCommit(activeSession), let selectedItem = activeSession.selectedItem {
+            let committed = configuration.commitSelection(activeSession, selectedItem)
             if !committed {
-                dismissPanel()
+                configuration.dismissPanel()
                 session = nil
             }
         } else {
-            dismissPanel()
+            configuration.dismissPanel()
             session = nil
         }
     }
 
     func switcherCancelActiveSession() {
-        dismissPanel()
+        configuration.dismissPanel()
         session = nil
     }
 }

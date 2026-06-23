@@ -37,7 +37,7 @@ final class SwitcherSessionControllerTests: XCTestCase {
         let released = Ref(false)
         let presented = Ref<[FakeSnapshot]>([])
 
-        let controller = SwitcherSessionController<FakeSession, FakeSnapshot, Int>(
+        let config = SwitcherConfiguration<FakeSession, FakeSnapshot, Int>(
             shortcutProvider: {
                 SpaceSwitcherShortcut(keyCode: 48, modifiers: [.maskCommand])
             },
@@ -52,14 +52,16 @@ final class SwitcherSessionControllerTests: XCTestCase {
                 FakeSnapshot(selectedID: session?.selectedID)
             },
             itemAtPosition: { _, position in position },
-            shouldCommit: shouldCommit,
             commitSelection: commitSelection,
-            presentSnapshot: { snapshot, _, _, _, _, _, _, _, _ in
+            presentSnapshot: { snapshot, _, _ in
                 presented.value.append(snapshot)
             },
             dismissPanel: { dismissed.value = true },
-            releasePanel: { released.value = true }
+            releasePanel: { released.value = true },
+            shouldCommit: shouldCommit
         )
+
+        let controller = SwitcherSessionController(configuration: config)
 
         return (controller, dismissed, released, presented)
     }
