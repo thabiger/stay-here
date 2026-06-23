@@ -14,6 +14,7 @@ struct SpaceListSnapshot {
     let updateInfo: UpdateInfo?
     let diagnosticsEnabled: Bool
 
+    @MainActor
     static func build(
         from registry: SpaceRegistry,
         updateInfo: UpdateInfo?,

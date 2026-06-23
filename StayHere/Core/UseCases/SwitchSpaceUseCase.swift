@@ -1,5 +1,6 @@
 import Foundation
 
+@MainActor
 public final class SwitchSpaceUseCase {
     private let executor: SpaceSwitchExecutor
 
@@ -17,11 +18,13 @@ public final class SwitchSpaceUseCase {
             refreshSpaces: {
                 await MainActor.run {
                     refreshUseCase.execute()
+                    return repository.currentSwitchSnapshot()
                 }
-                return repository.currentSwitchSnapshot()
             },
             scheduleRefreshSoon: {
-                refreshUseCase.executeSoon()
+                Task { @MainActor in
+                    refreshUseCase.executeSoon()
+                }
             },
             logger: logger
         )

@@ -1,6 +1,7 @@
 import XCTest
 import Core
 
+@MainActor
 final class SpaceLabelStoreTests: XCTestCase {
     func testLoadsPersistedStateFromStore() throws {
         let store = makeStore()

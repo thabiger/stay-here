@@ -1,5 +1,6 @@
 import Foundation
 
+@MainActor
 public final class BuildSpaceSnapshotUseCase {
     private let repository: SpaceStateManager
 

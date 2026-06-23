@@ -1,6 +1,7 @@
 import Foundation
 import Core
 
+@MainActor
 final class WindowGrouper {
     private let orderedSpaceIDs: () -> [Int]
     private let spacesByID: () -> [Int: SpaceIdentity]

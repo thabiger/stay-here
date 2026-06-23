@@ -1,5 +1,6 @@
 import Foundation
 
+@MainActor
 public final class RenameSpaceUseCase {
     private let repository: SpaceStateManager
 

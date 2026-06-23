@@ -1,5 +1,6 @@
 import Foundation
 
+@MainActor
 public final class SpaceSwitchExecutor {
     private let cgsBridge: any CGSBridgeProtocol
     private let repository: SpaceStateManager

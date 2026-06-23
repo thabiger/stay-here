@@ -26,6 +26,7 @@ private final class LocalMockCGSBridge: CGSBridgeProtocol {
     func spacesForWindow(windowID: Int) -> [Int] { [] }
 }
 
+@MainActor
 final class SpaceSwitcherControllerSessionRaceTests: XCTestCase {
     private func makeController(
         activeSpaceID: Int = 100,

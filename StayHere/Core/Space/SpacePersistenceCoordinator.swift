@@ -3,6 +3,7 @@ import Foundation
 /// Owns the `SpaceLabelStore` and coordinates persistence operations
 /// with `SpaceStateStore`, encapsulating the label-store → sync-persistence → persist-now
 /// pattern that was duplicated across multiple methods in `SpaceStateManager`.
+@MainActor
 public final class SpacePersistenceCoordinator {
     let labelStore: SpaceLabelStore
     private let stateStore: SpaceStateStore

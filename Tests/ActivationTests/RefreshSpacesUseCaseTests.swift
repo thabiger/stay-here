@@ -1,6 +1,7 @@
 import XCTest
 import Core
 
+@MainActor
 final class RefreshSpacesUseCaseTests: XCTestCase {
     func testExecuteAppliesSnapshotImmediately() {
         let repository = SpaceStateManager(

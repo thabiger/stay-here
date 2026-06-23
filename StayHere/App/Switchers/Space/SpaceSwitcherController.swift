@@ -3,6 +3,7 @@ import CoreGraphics
 import Core
 import SwiftUI
 
+@MainActor
 final class SpaceSwitcherController {
     private let registry: SpaceRegistry
     private let switchToSpace: (Int) -> Void
@@ -104,10 +105,6 @@ final class SpaceSwitcherController {
 
     func setOnOpenUpdate(_ callback: @escaping () -> Void) {
         coordinator.setOnOpenUpdate(callback)
-    }
-
-    deinit {
-        stop()
     }
 
     func start() {

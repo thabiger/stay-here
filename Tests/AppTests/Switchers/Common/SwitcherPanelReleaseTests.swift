@@ -19,6 +19,7 @@ private final class LocalMockCGSBridge: CGSBridgeProtocol {
     func spacesForWindow(windowID: Int) -> [Int] { [] }
 }
 
+@MainActor
 final class SwitcherPanelReleaseTests: XCTestCase {
     private func makeSpaceController() -> SpaceSwitcherController {
         let fileURL = FileManager.default.temporaryDirectory

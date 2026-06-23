@@ -1,6 +1,7 @@
 import Foundation
 import Core
 
+@MainActor
 final class WindowSwitchUseCase {
     struct Dependencies {
         let cgsBridge: any CGSBridgeProtocol

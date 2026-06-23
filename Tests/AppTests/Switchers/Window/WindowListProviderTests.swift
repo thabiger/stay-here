@@ -40,6 +40,7 @@ private final class FakeWindowListSettings: WindowSwitcherSettings {
     var windowSwitcherShowHiddenWindows: Bool = false
 }
 
+@MainActor
 final class WindowListProviderTests: XCTestCase {
     private func makeRegistry(bridge: WindowListProviderMockBridge) -> SpaceRegistry {
         let fileURL = FileManager.default.temporaryDirectory

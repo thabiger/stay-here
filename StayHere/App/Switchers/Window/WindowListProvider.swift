@@ -4,6 +4,7 @@ import Core
 import CoreGraphics
 import UniformTypeIdentifiers
 
+@MainActor
 final class WindowListProvider {
     struct SpaceWindowGroup {
         let spaceID: Int

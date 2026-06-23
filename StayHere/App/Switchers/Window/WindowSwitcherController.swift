@@ -3,6 +3,7 @@ import CoreGraphics
 import Core
 import SwiftUI
 
+@MainActor
 final class WindowSwitcherController {
     let mode: WindowSwitcherMode
     let settings: WindowSwitcherSettings & AllSpacesWindowSwitcherSettings
@@ -175,10 +176,6 @@ final class WindowSwitcherController {
 
 
     var hasActiveSession: Bool { coordinator.hasActiveSession }
-
-    deinit {
-        stop()
-    }
 
     func start() {
         coordinator.start()

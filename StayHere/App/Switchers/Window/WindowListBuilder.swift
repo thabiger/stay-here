@@ -7,6 +7,7 @@ struct WindowSwitcherSessionSource {
     let startingWindowID: Int?
 }
 
+@MainActor
 final class WindowListBuilder {
     private let mode: WindowSwitcherMode
     private let listProvider: WindowListProvider

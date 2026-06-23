@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 
+@MainActor
 public final class SpaceStateManager: ObservableObject {
     public var spaces: [SpaceIdentity] { stateStore.spaces }
     public var activeSpaceID: Int? { stateStore.activeSpaceID }

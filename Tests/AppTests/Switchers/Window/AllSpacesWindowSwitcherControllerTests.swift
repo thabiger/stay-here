@@ -29,6 +29,7 @@ private final class MockCGSBridge: CGSBridgeProtocol {
     func spacesForWindow(windowID: Int) -> [Int] { spacesForWindowMap[windowID] ?? [] }
 }
 
+@MainActor
 final class AllSpacesWindowSwitcherControllerTests: XCTestCase {
     private func makeWindow(
         pid: pid_t,

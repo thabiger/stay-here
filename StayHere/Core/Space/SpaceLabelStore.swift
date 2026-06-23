@@ -1,6 +1,7 @@
 import Foundation
 
-public final class SpaceLabelStore: @unchecked Sendable {
+@MainActor
+public final class SpaceLabelStore {
     public private(set) var labels: [Int: SpaceLabel]
     public private(set) var displayOrder: [Int]
     public private(set) var usesCustomDisplayOrder: Bool
@@ -8,7 +9,6 @@ public final class SpaceLabelStore: @unchecked Sendable {
     private let store: SpaceStore
     private let logger: any Logging
     private var pendingPersistTask: Task<Void, Never>?
-    private let lock = NSLock()
 
     public init(
         store: SpaceStore = SpaceStore(),
@@ -27,9 +27,6 @@ public final class SpaceLabelStore: @unchecked Sendable {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         let normalized = trimmed.isEmpty ? SpaceDisplayNameProvider.defaultUnnamedName : trimmed
 
-        lock.lock()
-        defer { lock.unlock() }
-
         if labels[spaceID]?.name == normalized {
             return
         }
@@ -43,7 +40,6 @@ public final class SpaceLabelStore: @unchecked Sendable {
     }
 
     public func moveDisplayOrder(fromOffsets: IndexSet, toOffset: Int, currentOrderedSpaceIDs: [Int]) {
-        lock.lock()
         var ids = currentOrderedSpaceIDs
         let removed = fromOffsets.compactMap { offset in
             ids.indices.contains(offset) ? ids[offset] : nil
@@ -66,11 +62,9 @@ public final class SpaceLabelStore: @unchecked Sendable {
             labels: labels,
             usesCustomDisplayOrder: usesCustomDisplayOrder
         )
-        lock.unlock()
     }
 
     public func reconcileLabels(for spaces: [SpaceIdentity], orderedSpaceIDs: @autoclosure () -> [Int]) {
-        lock.lock()
         var updated = labels
         var changed = false
 
@@ -85,10 +79,7 @@ public final class SpaceLabelStore: @unchecked Sendable {
             changed = true
         }
 
-        guard changed else {
-            lock.unlock()
-            return
-        }
+        guard changed else { return }
 
         labels = updated
         persistDebounced(
@@ -96,23 +87,18 @@ public final class SpaceLabelStore: @unchecked Sendable {
             labels: labels,
             usesCustomDisplayOrder: usesCustomDisplayOrder
         )
-        lock.unlock()
     }
 
     public func persistNow(orderedSpaceIDs: [Int]) {
-        lock.lock()
         pendingPersistTask?.cancel()
         pendingPersistTask = nil
-        let currentLabels = labels
-        let currentUsesCustomDisplayOrder = usesCustomDisplayOrder
-        lock.unlock()
 
         do {
             try store.save(
                 PersistedSpaces(
-                    labels: currentLabels,
+                    labels: labels,
                     displayOrder: orderedSpaceIDs,
-                    usesCustomDisplayOrder: currentUsesCustomDisplayOrder
+                    usesCustomDisplayOrder: usesCustomDisplayOrder
                 )
             )
         } catch {
@@ -120,12 +106,8 @@ public final class SpaceLabelStore: @unchecked Sendable {
         }
     }
 
-    /// Returns a consistent snapshot of all persistence-related state,
-    /// acquired under the lock so callers can read without racing mutations.
     func persistenceSnapshot() -> (labels: [Int: SpaceLabel], displayOrder: [Int], usesCustomDisplayOrder: Bool) {
-        lock.lock()
-        defer { lock.unlock() }
-        return (labels, displayOrder, usesCustomDisplayOrder)
+        (labels, displayOrder, usesCustomDisplayOrder)
     }
 
     private func persistDebounced(

@@ -1,6 +1,7 @@
 import XCTest
 import Core
 
+@MainActor
 final class SpaceRegistryTests: XCTestCase {
     func testForwardsReadPropertiesToRepository() {
         let repository = SpaceStateManager(

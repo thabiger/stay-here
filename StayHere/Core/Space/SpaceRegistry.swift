@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 
+@MainActor
 public final class SpaceRegistry: ObservableObject {
     public let objectWillChange = ObservableObjectPublisher()
 

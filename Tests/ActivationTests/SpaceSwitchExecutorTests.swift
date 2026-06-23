@@ -1,6 +1,7 @@
 import XCTest
 @testable import Core
 
+@MainActor
 final class SpaceSwitchExecutorTests: XCTestCase {
     func testSwitchToSpaceDelegatesAndSchedulesRefresh() async {
         let bridge = MockCGSBridge(
@@ -158,8 +159,10 @@ final class SpaceSwitchExecutorTests: XCTestCase {
                 logger: NoOpLogger()
             ),
             refreshSpaces: {
-                repository.applyManagedSnapshot(bridge.managedSnapshot())
-                return repository.currentSwitchSnapshot()
+                await MainActor.run {
+                    repository.applyManagedSnapshot(bridge.managedSnapshot())
+                    return repository.currentSwitchSnapshot()
+                }
             },
             scheduleRefreshSoon: scheduleRefreshSoon,
             logger: NoOpLogger()

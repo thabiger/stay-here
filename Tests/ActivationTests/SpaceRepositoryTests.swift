@@ -1,6 +1,7 @@
 import XCTest
 import Core
 
+@MainActor
 final class SpaceStateManagerTests: XCTestCase {
     func testRefreshSpacesUsesInjectedBridgeSnapshot() {
         let store = makeStore()

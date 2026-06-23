@@ -68,6 +68,7 @@ private final class LocalFakeRunningApplication: RunningApplicationControlling {
     }
 }
 
+@MainActor
 final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
     private func makeController(
         windowInfo: @escaping () -> [[String: Any]]? = { [] },

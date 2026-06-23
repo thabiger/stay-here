@@ -1,5 +1,6 @@
 import Foundation
 
+@MainActor
 public final class ReorderSpacesUseCase {
     private let repository: SpaceStateManager
 

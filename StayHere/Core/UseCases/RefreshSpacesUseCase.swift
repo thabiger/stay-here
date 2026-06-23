@@ -1,12 +1,12 @@
 import Foundation
 
-public final class RefreshSpacesUseCase: @unchecked Sendable {
+@MainActor
+public final class RefreshSpacesUseCase {
     private let repository: SpaceStateManager
     private let refreshRetryInterval: TimeInterval
     private let refreshRetryLimit: Int
     private let logger: any Logging
     private var pendingRefreshTask: Task<Void, Never>?
-    private let lock = NSLock()
 
     public init(
         repository: SpaceStateManager,
@@ -38,24 +38,19 @@ public final class RefreshSpacesUseCase: @unchecked Sendable {
     }
 
     public func executeSoon() {
-        lock.lock()
         pendingRefreshTask?.cancel()
         pendingRefreshTask = nil
         let baseline = repository.activeSpaceID
-        lock.unlock()
 
         execute()
 
-        lock.lock()
         let currentBaseline = repository.activeSpaceID
-        lock.unlock()
         guard currentBaseline == baseline else { return }
 
         scheduleRefreshRetry(baseline: baseline, remainingAttempts: refreshRetryLimit)
     }
 
     private func scheduleRefreshRetry(baseline: Int?, remainingAttempts: Int) {
-        lock.lock()
         pendingRefreshTask?.cancel()
         let task = Task { [weak self] in
             guard let self else { return }
@@ -78,6 +73,5 @@ public final class RefreshSpacesUseCase: @unchecked Sendable {
             }
         }
         pendingRefreshTask = task
-        lock.unlock()
     }
 }
