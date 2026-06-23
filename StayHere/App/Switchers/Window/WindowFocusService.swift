@@ -34,31 +34,28 @@ final class WindowFocusService {
     }
 
     func focusWindow(entry: WindowEntry) {
-        let entry = entry
-        DispatchQueue.main.async {
-            self.applicationActivator()
-            guard let app = self.runningApplicationProvider(entry.pid) else {
-                return
-            }
+        applicationActivator()
+        guard let app = runningApplicationProvider(entry.pid) else {
+            return
+        }
 
-            let wasActive = app.isActive
-            _ = app.unhide()
-            let activated = app.activate(options: [.activateIgnoringOtherApps, .activateAllWindows])
-            if !activated || !app.isActive {
+        let wasActive = app.isActive
+        _ = app.unhide()
+        let activated = app.activate(options: [.activateIgnoringOtherApps, .activateAllWindows])
+        if !activated || !app.isActive {
+            raiseWindow(pid: entry.pid, title: entry.windowTitle ?? entry.appName)
+            retryScheduler {
+                guard let app = self.runningApplicationProvider(entry.pid), !app.isActive else { return }
+                _ = app.activate(options: [.activateIgnoringOtherApps, .activateAllWindows])
                 self.raiseWindow(pid: entry.pid, title: entry.windowTitle ?? entry.appName)
-                self.retryScheduler {
-                    guard let app = self.runningApplicationProvider(entry.pid), !app.isActive else { return }
-                    _ = app.activate(options: [.activateIgnoringOtherApps, .activateAllWindows])
-                    self.raiseWindow(pid: entry.pid, title: entry.windowTitle ?? entry.appName)
-                }
-                return
             }
+            return
+        }
 
-            self.raiseWindow(pid: entry.pid, title: entry.windowTitle ?? entry.appName)
-            if !wasActive {
-                self.retryScheduler {
-                    self.raiseWindow(pid: entry.pid, title: entry.windowTitle ?? entry.appName)
-                }
+        raiseWindow(pid: entry.pid, title: entry.windowTitle ?? entry.appName)
+        if !wasActive {
+            retryScheduler {
+                self.raiseWindow(pid: entry.pid, title: entry.windowTitle ?? entry.appName)
             }
         }
     }
