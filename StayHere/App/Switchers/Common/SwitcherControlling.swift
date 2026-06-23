@@ -16,8 +16,8 @@ protocol SwitcherControlling: AnyObject, CGEventTapClient {
     func cancelSession()
 }
 
-extension SpaceSwitcherController: SwitcherControlling {}
-extension WindowSwitcherController: SwitcherControlling {}
+extension SpaceSwitcherController: @preconcurrency SwitcherControlling {}
+extension WindowSwitcherController: @preconcurrency SwitcherControlling {}
 
 extension SwitcherControlling {
     func handle(proxy: CGEventTapProxy, event: CGEvent) -> Unmanaged<CGEvent>? {
