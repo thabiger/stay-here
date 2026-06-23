@@ -162,17 +162,29 @@ final class UpdateController: UpdateControlling {
             updateInfo,
             onDownload: { [weak self] in
                 guard let self else { return }
-                _ = self.openURL(updateInfo.downloadURL)
+                if isTrustedHost(updateInfo.downloadURL) {
+                    _ = self.openURL(updateInfo.downloadURL)
+                } else {
+                    logger.error("Blocked attempt to open download URL with untrusted host: \(updateInfo.downloadURL.absoluteString)")
+                }
                 self.updateWindowManager.close()
             },
             onViewReleaseNotes: { [weak self] in
                 guard let self else { return }
-                _ = self.openURL(updateInfo.releaseURL)
+                if isTrustedHost(updateInfo.releaseURL) {
+                    _ = self.openURL(updateInfo.releaseURL)
+                } else {
+                    logger.error("Blocked attempt to open release notes URL with untrusted host: \(updateInfo.releaseURL.absoluteString)")
+                }
             },
             onLater: { [weak self] in
                 self?.updateWindowManager.close()
             }
         )
+    }
+
+    private func isTrustedHost(_ url: URL) -> Bool {
+        url.host == "github.com"
     }
 
     private enum UpdateSource {
