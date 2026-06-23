@@ -10,6 +10,7 @@ final class StatusBarController: NSObject, NSMenuDelegate, StatusBarMenuActionHa
     private let appearanceManager: AppearanceManager
     private let menuBuilder = StatusBarMenuBuilder()
     private let renameCoordinator: SpaceRenameCoordinator
+    private let appearanceApplier: StatusBarAppearanceApplier
     private var updateInfo: UpdateInfo?
     private var snapshot: SpaceListSnapshot?
 
@@ -28,14 +29,14 @@ final class StatusBarController: NSObject, NSMenuDelegate, StatusBarMenuActionHa
         renameCoordinator.isEditingSpaceName
     }
 
-    var currentAppearance: NSAppearance? {
-        appearanceManager.currentAppearance
-    }
-
     init(settings: AppearanceSettings & DiagnosticsSettings, appearanceManager: AppearanceManager) {
         self.settings = settings
         self.appearanceManager = appearanceManager
         self.renameCoordinator = SpaceRenameCoordinator(appearanceManager: appearanceManager)
+        self.appearanceApplier = StatusBarAppearanceApplier(
+            settings: settings,
+            appearanceManager: appearanceManager
+        )
         if !RuntimeEnvironment.isAutomationSession {
             self.item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         } else {
@@ -88,7 +89,7 @@ final class StatusBarController: NSObject, NSMenuDelegate, StatusBarMenuActionHa
 
     func setTitle(_ text: String) {
         title = text
-        updateStatusItemTitle()
+        applyAppearance()
     }
 
     func applyCurrentAppearance() {
@@ -219,30 +220,11 @@ final class StatusBarController: NSObject, NSMenuDelegate, StatusBarMenuActionHa
     }
 
     private func applyAppearance() {
-        let appearance = appearanceManager.currentAppearance
-        menu.appearance = appearance
-        for item in menu.items {
-            item.view?.appearance = appearance
-            (item.view as? SpaceMenuRowView)?.applyAppearance(appearance)
-            item.submenu?.appearance = appearance
-        }
-        item?.button?.appearance = appearance
-        updateStatusItemTitle()
-    }
-
-    private func updateStatusItemTitle() {
-        guard let button = item?.button else { return }
-        if settings.appearanceMode == .light {
-            button.attributedTitle = NSAttributedString(
-                string: title,
-                attributes: [
-                    .foregroundColor: NSColor.white,
-                    .font: NSFont.menuBarFont(ofSize: 0)
-                ]
-            )
-        } else {
-            button.title = title
-        }
+        appearanceApplier.applyAppearance(
+            to: menu,
+            statusItemButton: item?.button,
+            title: title
+        )
     }
 
     private func performAfterMenuCloses(_ action: @escaping () -> Void) {
