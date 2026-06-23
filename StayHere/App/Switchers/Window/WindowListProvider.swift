@@ -12,11 +12,11 @@ final class WindowListProvider {
         let entries: [WindowEntry]
     }
 
-    typealias WindowInfoProvider = () -> [[String: Any]]?
-    typealias RunningApplicationProvider = (pid_t) -> (any WindowListApplication)?
-    typealias AccessibilityWindowTitlesProvider = (pid_t) -> [Int: String]
-    typealias FocusedWindowIDProvider = () -> Int?
-    typealias IconProvider = ((any WindowListApplication)?) -> NSImage
+    typealias WindowInfoProvider = @MainActor () -> [[String: Any]]?
+    typealias RunningApplicationProvider = @MainActor (pid_t) -> (any WindowListApplication)?
+    typealias AccessibilityWindowTitlesProvider = @MainActor (pid_t) -> [Int: String]
+    typealias FocusedWindowIDProvider = @MainActor () -> Int?
+    typealias IconProvider = @MainActor ((any WindowListApplication)?) -> NSImage
 
     private let enumerator: WindowEnumerator
     private let filter: WindowFilter
