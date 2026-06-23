@@ -42,7 +42,7 @@ final class WindowGrouper {
             let label = nameProvider(spaceID)
             let systemName = space?.systemName
             let displayLabel: String
-            if label != "Unnamed space" {
+            if label != SpaceDisplayNameProvider.defaultUnnamedName {
                 displayLabel = label
             } else if let systemName, !systemName.isEmpty {
                 displayLabel = systemName

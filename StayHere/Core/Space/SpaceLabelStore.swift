@@ -25,7 +25,7 @@ public final class SpaceLabelStore: @unchecked Sendable {
 
     public func rename(spaceID: Int, name: String, orderedSpaceIDs: @autoclosure () -> [Int]) {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        let normalized = trimmed.isEmpty ? "Unnamed space" : trimmed
+        let normalized = trimmed.isEmpty ? SpaceDisplayNameProvider.defaultUnnamedName : trimmed
 
         lock.lock()
         defer { lock.unlock() }
@@ -75,7 +75,7 @@ public final class SpaceLabelStore: @unchecked Sendable {
         var changed = false
 
         for id in spaces.map(\.id) where updated[id] == nil {
-            updated[id] = SpaceLabel(name: "Unnamed space")
+            updated[id] = SpaceLabel(name: SpaceDisplayNameProvider.defaultUnnamedName)
             changed = true
         }
 

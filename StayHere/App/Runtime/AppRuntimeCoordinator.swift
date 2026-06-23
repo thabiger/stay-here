@@ -179,6 +179,6 @@ final class AppRuntimeCoordinator: AppCoordinating, RuntimeCoordinating {
 
     private static func normalizedSpaceName(_ name: String) -> String {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "Unnamed space" : trimmed
+        return trimmed.isEmpty ? SpaceDisplayNameProvider.defaultUnnamedName : trimmed
     }
 }

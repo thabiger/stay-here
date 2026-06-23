@@ -1,4 +1,5 @@
 import AppKit
+import Core
 import Foundation
 
 @MainActor
@@ -203,7 +204,7 @@ final class SpaceMenuRowView: NSView, NSTextFieldDelegate {
         isFinishingEdit = true
         isEditingName = false
         let value = editor.stringValue
-        nameField.stringValue = value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Unnamed space" : value
+        nameField.stringValue = value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? SpaceDisplayNameProvider.defaultUnnamedName : value
         editor.isHidden = true
         nameField.isHidden = false
         resetVisualState()

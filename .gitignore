@@ -56,3 +56,4 @@ temp/
 .opencode/
 opencode.json
 docs/code-review*/**
+docs/fix-plans/**

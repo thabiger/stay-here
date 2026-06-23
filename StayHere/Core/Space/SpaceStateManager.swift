@@ -12,8 +12,10 @@ public final class SpaceStateManager: ObservableObject {
 
     let cgsBridge: any CGSBridgeProtocol
     let stateStore: SpaceStateStore
-    private let labelStore: SpaceLabelStore
+    private let persistenceCoordinator: SpacePersistenceCoordinator
     private let orderingService: SpaceOrderingService
+    private let nameProvider: SpaceDisplayNameProvider
+    private let snapshotBuilder: SpaceSnapshotBuilder
     private let logger: any Logging
     private var stateStoreObserver: AnyCancellable?
 
@@ -25,14 +27,23 @@ public final class SpaceStateManager: ObservableObject {
     ) {
         self.cgsBridge = cgsBridge
         self.logger = logger
-        self.labelStore = labelStore ?? SpaceLabelStore(store: store, logger: logger)
         self.stateStore = SpaceStateStore()
         self.orderingService = SpaceOrderingService()
+        self.nameProvider = SpaceDisplayNameProvider()
+        self.snapshotBuilder = SpaceSnapshotBuilder()
+        self.persistenceCoordinator = SpacePersistenceCoordinator(
+            store: store,
+            stateStore: stateStore,
+            labelStore: labelStore,
+            logger: logger
+        )
         self.stateStoreObserver = nil
         bindStateStore()
-        syncPersistenceState()
+        // Coordinator's init already called syncPersistenceState()
         refreshSpaces()
     }
+
+    // MARK: Snapshot Application
 
     public func applyManagedSnapshot(_ snapshot: CGSBridge.ManagedSnapshot) {
         apply(snapshot: snapshot)
@@ -42,17 +53,33 @@ public final class SpaceStateManager: ObservableObject {
         apply(snapshot: cgsBridge.managedSnapshot())
     }
 
+    // MARK: Name Formatting
+
     public func name(for spaceID: Int) -> String {
-        labels[spaceID]?.name ?? "Unnamed space"
+        nameProvider.name(for: spaceID, labels: stateStore.labels)
     }
 
     public func displayName(for spaceID: Int) -> String {
-        let customName = name(for: spaceID)
-        if customName != "Unnamed space" {
-            return customName
-        }
-        return space(for: spaceID)?.systemName ?? customName
+        nameProvider.displayName(for: spaceID, labels: stateStore.labels, spaces: stateStore.spaces)
     }
+
+    public func activeNameSummary() -> String {
+        nameProvider.activeNameSummary(
+            activeSpaceID: stateStore.activeSpaceID,
+            labels: stateStore.labels,
+            spaces: stateStore.spaces
+        )
+    }
+
+    public func activeName() -> String {
+        nameProvider.activeName(
+            activeSpaceID: stateStore.activeSpaceID,
+            labels: stateStore.labels,
+            spaces: stateStore.spaces
+        )
+    }
+
+    // MARK: Namespace Label
 
     public func namespaceLabel(for spaceID: Int) -> String {
         orderingService.namespaceLabel(
@@ -61,6 +88,8 @@ public final class SpaceStateManager: ObservableObject {
             desktopNumberBySpaceID: desktopNumberBySpaceID
         )
     }
+
+    // MARK: Space Lookup & Queries
 
     public func space(for spaceID: Int) -> SpaceIdentity? {
         spaces.first(where: { $0.id == spaceID })
@@ -71,21 +100,29 @@ public final class SpaceStateManager: ObservableObject {
         return space.kind == .desktop
     }
 
+    // MARK: Persistence Coordination
+
     public func rename(spaceID: Int, name: String) {
-        labelStore.rename(spaceID: spaceID, name: name, orderedSpaceIDs: orderedSpaceIDs())
-        syncPersistenceState()
-        persistNow()
+        persistenceCoordinator.rename(
+            spaceID: spaceID,
+            name: name,
+            orderedSpaceIDs: orderedSpaceIDs()
+        )
     }
 
     public func moveDisplayOrder(fromOffsets: IndexSet, toOffset: Int) {
-        labelStore.moveDisplayOrder(
+        persistenceCoordinator.moveDisplayOrder(
             fromOffsets: fromOffsets,
             toOffset: toOffset,
             currentOrderedSpaceIDs: orderedSpaceIDs()
         )
-        syncPersistenceState()
-        persistNow()
     }
+
+    public func persistNow() {
+        persistenceCoordinator.persistNow(orderedSpaceIDs: orderedSpaceIDs())
+    }
+
+    // MARK: Space Ordering
 
     public func orderedSpaceIDs() -> [Int] {
         orderingService.orderedSpaceIDs(
@@ -105,37 +142,24 @@ public final class SpaceStateManager: ObservableObject {
         )
     }
 
+    // MARK: JSON Snapshot
+
     public func snapshotJSON() -> String {
-        let snap = SpaceStateSnapshot(
-            timestampISO8601: ISO8601DateFormatter().string(from: Date()),
-            activeSpaceID: activeSpaceID,
-            spaces: spaces,
-            labels: labels,
+        snapshotBuilder.json(
+            spaces: stateStore.spaces,
+            labels: stateStore.labels,
+            activeSpaceID: stateStore.activeSpaceID,
             displayOrder: orderedSpaceIDs()
         )
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        guard let data = try? encoder.encode(snap), let string = String(data: data, encoding: .utf8) else {
-            return "{}"
-        }
-        return string
     }
 
-    public func activeNameSummary() -> String {
-        activeSpaceID.map { displayName(for: $0) } ?? "Unnamed space"
-    }
-
-    public func activeName() -> String {
-        activeNameSummary()
-    }
-
-    public func persistNow() {
-        labelStore.persistNow(orderedSpaceIDs: orderedSpaceIDs())
-    }
+    // MARK: Snapshot (for switching)
 
     public func currentSwitchSnapshot() -> SpaceSwitchSnapshot {
         stateStore.currentSwitchSnapshot()
     }
+
+    // MARK: Private
 
     private func bindStateStore() {
         stateStoreObserver = stateStore.objectWillChange.sink { [weak self] in
@@ -157,16 +181,9 @@ public final class SpaceStateManager: ObservableObject {
     }
 
     private func reconcilePersistedSpaces() {
-        labelStore.reconcileLabels(for: spaces, orderedSpaceIDs: orderedSpaceIDs())
-        syncPersistenceState()
-    }
-
-    func syncPersistenceState() {
-        let snapshot = labelStore.persistenceSnapshot()
-        stateStore.syncPersistenceState(
-            labels: snapshot.labels,
-            displayOrder: snapshot.displayOrder,
-            usesCustomDisplayOrder: snapshot.usesCustomDisplayOrder
+        persistenceCoordinator.reconcileLabels(
+            for: stateStore.spaces,
+            orderedSpaceIDs: orderedSpaceIDs()
         )
     }
 }

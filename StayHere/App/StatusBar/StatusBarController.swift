@@ -22,7 +22,7 @@ final class StatusBarController: NSObject, NSMenuDelegate, StatusBarMenuActionHa
     private var onQuit: (() -> Void)?
     private var onSelectSpace: ((Int) -> Void)?
     private var onRenameSpace: ((Int, String) -> Void)?
-    private var title = "Unnamed space"
+    private var title = SpaceDisplayNameProvider.defaultUnnamedName
 
     var isEditingSpaceName: Bool {
         renameCoordinator.isEditingSpaceName

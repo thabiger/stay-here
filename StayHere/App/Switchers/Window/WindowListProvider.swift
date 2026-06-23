@@ -64,7 +64,7 @@ final class WindowListProvider {
                 cgsBridge.spacesForWindow(windowID: windowID)
             },
             nameProvider: { [weak registry] spaceID in
-                registry?.name(for: spaceID) ?? "Unnamed space"
+                registry?.name(for: spaceID) ?? SpaceDisplayNameProvider.defaultUnnamedName
             },
             namespaceLabelProvider: { [weak registry] spaceID in
                 registry?.namespaceLabel(for: spaceID) ?? ""
