@@ -19,7 +19,7 @@ final class CompositionServices {
     let logger: any Logging
 
     init(
-        settings: SettingsRepository = UserDefaultsSettingsRepository(),
+        settings: SettingsRepository = CompositeSettingsRepository(),
         cgsBridge: any CGSBridgeProtocol,
         updateService: (any UpdateService)? = nil,
         lifecycleCoordinator: AppLifecycleCoordinator? = nil,

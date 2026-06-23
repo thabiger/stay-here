@@ -12,7 +12,7 @@ final class AppCompositionRoot: NSObject {
     let runtimeCoordinator: AppRuntimeCoordinator
 
     init(
-        settings: SettingsRepository = UserDefaultsSettingsRepository(),
+        settings: SettingsRepository = CompositeSettingsRepository(),
         cgsBridge: any CGSBridgeProtocol,
         updateService: (any UpdateService)? = nil
     ) {
