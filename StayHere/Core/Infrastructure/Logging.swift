@@ -122,8 +122,9 @@ public final class FileLogger: Logging, @unchecked Sendable {
     internal var testLogURL: URL { logURL }
 
     private func write(_ level: String, _ message: String) {
+        let timestamp = iso.string(from: Date())
         queue.async { [fileHandle] in
-            let line = "[\(self.iso.string(from: Date()))] [\(level)] \(message)\n"
+            let line = "[\(timestamp)] [\(level)] \(message)\n"
             guard let data = line.data(using: .utf8) else { return }
             try? fileHandle?.write(contentsOf: data)
         }
