@@ -2,7 +2,8 @@ import Foundation
 import Combine
 
 @MainActor
-public final class SpaceStateManager: ObservableObject {
+public final class SpaceStateManager {
+    public let objectWillChange = ObservableObjectPublisher()
     public var spaces: [SpaceIdentity] { stateStore.spaces }
     public var activeSpaceID: Int? { stateStore.activeSpaceID }
     public var labels: [Int: SpaceLabel] { stateStore.labels }

@@ -2,7 +2,7 @@ import Foundation
 import Combine
 
 @MainActor
-public final class SpaceRegistry: ObservableObject {
+public final class SpaceRegistry {
     public let objectWillChange = ObservableObjectPublisher()
 
     public var spaces: [SpaceIdentity] { repository.spaces }
