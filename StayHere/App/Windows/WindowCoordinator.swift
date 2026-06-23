@@ -39,7 +39,7 @@ final class WindowCoordinator {
 
     func showSettings() {
         settingsWindowManager.showSettings(refreshRegistry: { [weak self] in
-            self?.refreshSpaces.execute()
+            self?.refreshSpaces.refreshNow()
         })
     }
 
@@ -62,6 +62,6 @@ final class WindowCoordinator {
     }
 
     private func statusBarItemsDidClose() {
-        refreshSpaces.execute()
+        refreshSpaces.refreshNow()
     }
 }

@@ -38,7 +38,7 @@ final class WindowSwitchUseCase {
             guard let self else { return }
             let currentContext = self.dependencies.listProvider.currentContext()
             if currentContext?.spaceID != previousSpaceID {
-                self.dependencies.refreshSpaces.execute()
+                self.dependencies.refreshSpaces.refreshNow()
             }
         }
     }

@@ -20,12 +20,16 @@ public final class RefreshSpacesUseCase {
         self.logger = logger
     }
 
-    public func execute() {
+    /// Takes an immediate snapshot of the current CGS space state
+    /// and applies it to the repository. Runs synchronously on the calling actor.
+    public func refreshNow() {
         let snapshot = repository.cgsBridge.managedSnapshot()
         repository.applyManagedSnapshot(snapshot)
     }
 
-    public func executeAsync() {
+    /// Asynchronously takes a snapshot and applies it, without blocking the caller.
+    /// Uses a detached Task to avoid blocking the main actor.
+    public func refreshAsync() {
         Task.detached(priority: .userInitiated) { [weak self] in
             guard let self else { return }
             let snapshot = await MainActor.run {
@@ -37,12 +41,15 @@ public final class RefreshSpacesUseCase {
         }
     }
 
-    public func executeSoon() {
+    /// Immediately refreshes the repository snapshot, then polls until the
+    /// active space ID changes or the retry limit is reached.
+    /// Cancels any previous pending retry loop.
+    public func refreshWithRetry() {
         pendingRefreshTask?.cancel()
         pendingRefreshTask = nil
         let baseline = repository.activeSpaceID
 
-        execute()
+        refreshNow()
 
         let currentBaseline = repository.activeSpaceID
         guard currentBaseline == baseline else { return }
@@ -60,7 +67,7 @@ public final class RefreshSpacesUseCase {
                 guard !Task.isCancelled else { return }
 
                 await MainActor.run {
-                    self.execute()
+                    self.refreshNow()
                 }
 
                 guard !Task.isCancelled else { return }

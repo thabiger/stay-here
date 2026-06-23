@@ -17,7 +17,7 @@ final class RefreshSpacesUseCaseTests: XCTestCase {
         )
         let useCase = RefreshSpacesUseCase(repository: repository, logger: NoOpLogger())
 
-        useCase.execute()
+        useCase.refreshNow()
 
         XCTAssertEqual(repository.activeSpaceID, 201)
         XCTAssertEqual(repository.spaces.map(\.id), [201])
@@ -35,7 +35,7 @@ final class RefreshSpacesUseCaseTests: XCTestCase {
         let repository = SpaceStateManager(cgsBridge: bridge, logger: NoOpLogger())
         let useCase = RefreshSpacesUseCase(repository: repository, logger: NoOpLogger())
 
-        useCase.executeAsync()
+        useCase.refreshAsync()
 
         try? await Task.sleep(nanoseconds: 100_000_000)
         XCTAssertEqual(repository.activeSpaceID, 201)
@@ -57,7 +57,7 @@ final class RefreshSpacesUseCaseTests: XCTestCase {
             logger: NoOpLogger()
         )
 
-        useCase.executeSoon()
+        useCase.refreshWithRetry()
         XCTAssertEqual(repository.activeSpaceID, 101)
 
         try? await Task.sleep(nanoseconds: 150_000_000)

@@ -17,13 +17,13 @@ public final class SwitchSpaceUseCase {
             switcherService: switcherService ?? SpaceSwitcherService(cgsBridge: cgsBridge, logger: logger),
             refreshSpaces: {
                 await MainActor.run {
-                    refreshUseCase.execute()
+                    refreshUseCase.refreshNow()
                     return repository.currentSwitchSnapshot()
                 }
             },
             scheduleRefreshSoon: {
                 Task { @MainActor in
-                    refreshUseCase.executeSoon()
+                    refreshUseCase.refreshWithRetry()
                 }
             },
             logger: logger

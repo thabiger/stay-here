@@ -142,8 +142,8 @@ final class AppRuntimeCoordinator: AppCoordinating, RuntimeCoordinating {
         // Run lifecycle coordinator - sets activation policy, starts timers, checks setup requirements
         lifecycleCoordinator.applicationDidFinishLaunching(
             isSettingsOpen: { [weak self] in self?.isSettingsOpen ?? false },
-            refreshSpacesSoon: { [weak self] in self?.services.refreshSpaces.executeSoon() },
-            refreshSpacesAsync: { [weak self] in self?.services.refreshSpaces.executeAsync() },
+            refreshSpacesSoon: { [weak self] in self?.services.refreshSpaces.refreshWithRetry() },
+            refreshSpacesAsync: { [weak self] in self?.services.refreshSpaces.refreshAsync() },
             rebuildSpaceItems: { [weak self] in
                 self?.statusBarCoordinator.rebuildSpaceItems()
             },
