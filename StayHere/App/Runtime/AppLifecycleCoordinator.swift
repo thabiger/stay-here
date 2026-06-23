@@ -25,7 +25,7 @@ final class AppLifecycleCoordinator {
                 missingDescriptionsCount: status.missingDescriptions.count
             )
         },
-        setActivationPolicy: @escaping (NSApplication.ActivationPolicy) -> Void = { NSApp.setActivationPolicy($0) },
+        setActivationPolicy: @MainActor @escaping (NSApplication.ActivationPolicy) -> Void = { NSApp.setActivationPolicy($0) },
         logger: any Logging
     ) {
         self.applyAppearance = applyAppearance ?? { appearanceManager.applyCurrentMode() }
