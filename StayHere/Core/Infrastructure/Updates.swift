@@ -51,7 +51,7 @@ public struct AppVersionProvider: AppVersionProviding, Sendable {
     }
 }
 
-public final class UpdateDefaultsStore {
+public final class UpdateDefaultsStore: @unchecked Sendable {
     public static let standard = UpdateDefaultsStore(defaults: .standard)
 
     private let defaults: UserDefaults
