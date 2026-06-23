@@ -26,6 +26,9 @@ final class WindowListProvider {
     private let cgsBridge: any CGSBridgeProtocol
     private let settings: WindowSwitcherSettings
     private let focusedWindowIDProvider: FocusedWindowIDProvider
+    private var cachedEntriesContext: WindowSpaceContext?
+    private var cachedEntries: [WindowEntry]?
+    private var cachedAllSpacesEntries: [SpaceWindowGroup]?
 
     init(
         registry: SpaceRegistry,
@@ -88,13 +91,17 @@ final class WindowListProvider {
     }
 
     func entries(in context: WindowSpaceContext) -> [WindowEntry] {
+        if cachedEntriesContext == context, let cached = cachedEntries {
+            return cached
+        }
+
         let rawWindows = enumerator.enumerate()
         let filterContext = FilterContext(spaceID: context.spaceID, desktopNumber: context.desktopNumber)
         let filtered = filter.filter(rawWindows, in: filterContext)
 
         let withTitles = titleResolver.resolveTitles(for: filtered) { _ in nil }
 
-        return withTitles.map { window in
+        let entries = withTitles.map { window in
             WindowEntry(
                 windowID: window.windowID,
                 pid: window.pid,
@@ -103,6 +110,10 @@ final class WindowListProvider {
                 icon: iconProvider(filtered.first(where: { $0.windowID == window.windowID })?.application)
             )
         }
+
+        cachedEntriesContext = context
+        cachedEntries = entries
+        return entries
     }
 
     func focusedWindowID() -> Int? {
@@ -110,6 +121,10 @@ final class WindowListProvider {
     }
 
     func entriesForAllSpaces() -> [SpaceWindowGroup] {
+        if let cached = cachedAllSpacesEntries {
+            return cached
+        }
+
         let rawWindows = enumerator.enumerate()
         let currentSpaceID = cgsBridge.activeSpaceID() ?? registry.activeSpaceID ?? -1
         let filtered = filter.filterForAllSpaces(rawWindows, currentSpaceID: currentSpaceID)
@@ -126,7 +141,15 @@ final class WindowListProvider {
             )
         }
 
-        return grouper.groupWindows(entries)
+        let groups = grouper.groupWindows(entries)
+        cachedAllSpacesEntries = groups
+        return groups
+    }
+
+    func invalidateCache() {
+        cachedEntriesContext = nil
+        cachedEntries = nil
+        cachedAllSpacesEntries = nil
     }
 
     private static func liveWindowInfoProvider() -> [[String: Any]]? {

@@ -72,9 +72,18 @@ final class WindowSwitcherController {
             self?.panelPresenter.present(
                 snapshot: snapshot,
                 onSelect: { entry in onSelect(entry.windowID) },
-                onFocusLost: onFocusLost,
-                onCommit: onCommit,
-                onCancel: onCancel,
+                onFocusLost: {
+                    self?.listProvider.invalidateCache()
+                    onFocusLost?()
+                },
+                onCommit: {
+                    self?.listProvider.invalidateCache()
+                    onCommit?()
+                },
+                onCancel: {
+                    self?.listProvider.invalidateCache()
+                    onCancel?()
+                },
                 onMoveUp: onMoveUp,
                 onMoveDown: onMoveDown,
                 updateInfo: updateInfo,
@@ -190,6 +199,7 @@ final class WindowSwitcherController {
     }
 
     internal func cancelSession() {
+        listProvider.invalidateCache()
         coordinator.cancelSession()
     }
 
@@ -214,6 +224,7 @@ final class WindowSwitcherController {
     }
 
     func commitSwitcherSelection() {
+        listProvider.invalidateCache()
         coordinator.commitSwitcherSelection()
     }
 
@@ -222,14 +233,17 @@ final class WindowSwitcherController {
     }
 
     func commitSelection(at position: Int) {
+        listProvider.invalidateCache()
         coordinator.commitSelection(at: position)
     }
 
     func closeSwitcher() {
+        listProvider.invalidateCache()
         coordinator.closeSwitcher()
     }
 
     private func commitSelectedEntry(_ entry: WindowEntry) {
+        listProvider.invalidateCache()
         let previousSpaceID = listProvider.currentContext()?.spaceID
         panelPresenter.dismiss()
         coordinator.closeSwitcher()

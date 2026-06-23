@@ -8,7 +8,7 @@ struct WindowEntry {
     let icon: NSImage
 }
 
-struct WindowSpaceContext {
+struct WindowSpaceContext: Equatable {
     let spaceID: Int
     let desktopNumber: Int?
 }
