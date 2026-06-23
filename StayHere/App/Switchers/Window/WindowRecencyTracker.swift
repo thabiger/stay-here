@@ -48,21 +48,30 @@ final class WindowRecencyTracker {
         let orderedFlat = orderedIDs.compactMap { entriesByID[$0] } + unknownEntries
         recentWindowIDs = orderedFlat.map(\.windowID)
 
+        var windowSpaceLookup: [Int: Int] = [:]
+        for group in spaceGroups {
+            for entry in group.entries {
+                windowSpaceLookup[entry.windowID] = group.spaceID
+            }
+        }
+
         let recencyBySpaceID: [Int: [WindowEntry]] = Dictionary(
             grouping: orderedFlat,
             by: { entry in
-                spaceGroups.first(where: { group in
-                    group.entries.contains(where: { $0.windowID == entry.windowID })
-                })?.spaceID ?? -1
+                windowSpaceLookup[entry.windowID] ?? -1
             }
+        )
+
+        let windowIndexLookup: [Int: Int] = Dictionary(
+            uniqueKeysWithValues: orderedFlat.enumerated().map { ($0.element.windowID, $0.offset) }
         )
 
         let sortedSpaceIDs = recencyBySpaceID.keys.sorted { a, b in
             let aIndex = (recencyBySpaceID[a]?.first).flatMap { first in
-                orderedFlat.firstIndex(where: { $0.windowID == first.windowID })
+                windowIndexLookup[first.windowID]
             } ?? Int.max
             let bIndex = (recencyBySpaceID[b]?.first).flatMap { first in
-                orderedFlat.firstIndex(where: { $0.windowID == first.windowID })
+                windowIndexLookup[first.windowID]
             } ?? Int.max
             return aIndex < bIndex
         }

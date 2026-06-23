@@ -176,11 +176,18 @@ final class WindowListBuilder {
     ) -> [WindowListProvider.SpaceWindowGroup] {
         var entriesBySpace: [Int: [WindowEntry]] = [:]
         var spaceOrder: [Int] = []
+        var seenSpaces: Set<Int> = []
+
+        var windowSpaceLookup: [Int: Int] = [:]
+        for group in sortedGroups {
+            for entry in group.entries {
+                windowSpaceLookup[entry.windowID] = group.spaceID
+            }
+        }
+
         for entry in orderedEntries {
-            guard let spaceID = sortedGroups.first(where: { group in
-                group.entries.contains(where: { $0.windowID == entry.windowID })
-            })?.spaceID else { continue }
-            if !spaceOrder.contains(spaceID) { spaceOrder.append(spaceID) }
+            guard let spaceID = windowSpaceLookup[entry.windowID] else { continue }
+            if seenSpaces.insert(spaceID).inserted { spaceOrder.append(spaceID) }
             entriesBySpace[spaceID, default: []].append(entry)
         }
         return spaceOrder.compactMap { spaceID in
