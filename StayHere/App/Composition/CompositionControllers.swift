@@ -51,13 +51,13 @@ final class CompositionControllers {
         windowRecencyTracker = WindowRecencyTracker()
 
         currentSpaceListProvider = WindowListProvider(
-            registry: services.registry,
+            registry: services.repository,
             cgsBridge: services.cgsBridge,
             settings: services.settings
         )
 
         allSpacesListProvider = WindowListProvider(
-            registry: services.registry,
+            registry: services.repository,
             cgsBridge: services.cgsBridge,
             settings: services.settings
         )
@@ -80,7 +80,7 @@ final class CompositionControllers {
 
         windowSwitcherController = WindowSwitcherController(
             settings: services.settings,
-            registry: services.registry,
+            registry: services.repository,
             mode: .currentSpace,
             windowSwitchUseCase: currentSpaceWindowSwitchUseCase,
             cgsBridge: services.cgsBridge,
@@ -90,7 +90,7 @@ final class CompositionControllers {
 
         allSpacesWindowSwitcherController = WindowSwitcherController(
             settings: services.settings,
-            registry: services.registry,
+            registry: services.repository,
             mode: .allSpaces,
             windowSwitchUseCase: allSpacesWindowSwitchUseCase,
             cgsBridge: services.cgsBridge,
@@ -106,7 +106,7 @@ final class CompositionControllers {
 
         spaceSwitcherController = SpaceSwitcherController(
             settings: services.settings,
-            registry: services.registry,
+            registry: services.repository,
             switchToSpace: { [box = runtimeCoordinatorBox] spaceID in
                 Task {
                     await box.value?.performSpaceSwitch(spaceID)
@@ -134,10 +134,10 @@ final class CompositionControllers {
             settings: services.settings,
             windowIndex: WindowIndex(cgsBridge: services.cgsBridge),
             currentSpaceID: { [services] in
-                services.registry.activeSpaceID
+                services.repository.activeSpaceID
             },
             activeSpaceIDs: { [services] in
-                guard let id = services.registry.activeSpaceID else { return [] }
+                guard let id = services.repository.activeSpaceID else { return [] }
                 return Set([id])
             },
             switchToSpace: { [box = runtimeCoordinatorBox] spaceID in

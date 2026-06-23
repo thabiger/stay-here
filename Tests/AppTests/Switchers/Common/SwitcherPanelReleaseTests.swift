@@ -28,7 +28,7 @@ final class SwitcherPanelReleaseTests: XCTestCase {
             .appendingPathComponent("spaces.json")
         let store = SpaceStore(fileURL: fileURL)
         let bridge = LocalMockCGSBridge()
-        let registry = SpaceRegistry(store: store, cgsBridge: bridge, logger: NoOpLogger())
+        let registry = SpaceStateManager(store: store, cgsBridge: bridge, logger: NoOpLogger())
         return SpaceSwitcherController(
             settings: UserDefaultsSettingsRepository(),
             registry: registry,
@@ -44,11 +44,10 @@ final class SwitcherPanelReleaseTests: XCTestCase {
         let store = SpaceStore(fileURL: fileURL)
         let bridge = LocalMockCGSBridge()
         let repository = SpaceStateManager(store: store, cgsBridge: bridge, logger: NoOpLogger())
-        let registry = SpaceRegistry(repository: repository)
         let refreshSpaces = RefreshSpacesUseCase(repository: repository, logger: NoOpLogger())
         let switchSpace = SwitchSpaceUseCase(cgsBridge: bridge, repository: repository, refreshUseCase: refreshSpaces, logger: NoOpLogger())
         let listProvider = WindowListProvider(
-            registry: registry,
+            registry: repository,
             cgsBridge: bridge,
             settings: UserDefaultsSettingsRepository(),
             windowInfoProvider: { nil },
@@ -66,7 +65,7 @@ final class SwitcherPanelReleaseTests: XCTestCase {
         ))
         return WindowSwitcherController(
             settings: UserDefaultsSettingsRepository(),
-            registry: registry,
+            registry: repository,
             mode: .currentSpace,
             windowSwitchUseCase: windowSwitchUseCase,
             cgsBridge: bridge,

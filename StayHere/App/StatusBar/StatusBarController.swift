@@ -45,7 +45,7 @@ final class StatusBarController: NSObject, NSMenuDelegate, StatusBarMenuActionHa
     }
 
     func configure(
-        registry: SpaceRegistry,
+        registry: any SpaceRegistryProtocol,
         onOpenSettings: @escaping () -> Void,
         onOpenAbout: @escaping () -> Void,
         onCheckForUpdates: @escaping () -> Void,
@@ -95,7 +95,7 @@ final class StatusBarController: NSObject, NSMenuDelegate, StatusBarMenuActionHa
         applyAppearance()
     }
 
-    func rebuildSpaceItems(registry: SpaceRegistry) {
+    func rebuildSpaceItems(registry: any SpaceRegistryProtocol) {
         guard !isEditingSpaceName else { return }
         snapshot = SpaceListSnapshot.build(
             from: registry,

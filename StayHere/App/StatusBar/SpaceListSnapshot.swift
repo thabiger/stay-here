@@ -16,7 +16,7 @@ struct SpaceListSnapshot {
 
     @MainActor
     static func build(
-        from registry: SpaceRegistry,
+        from registry: any SpaceRegistryProtocol,
         updateInfo: UpdateInfo?,
         diagnosticsEnabled: Bool
     ) -> SpaceListSnapshot {

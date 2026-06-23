@@ -23,7 +23,7 @@ final class WindowListProvider {
     private let titleResolver: WindowTitleResolver
     private let iconProvider: IconProvider
     private let grouper: WindowGrouper
-    private let registry: SpaceRegistry
+    private let registry: any SpaceRegistryProtocol
     private let cgsBridge: any CGSBridgeProtocol
     private let settings: WindowSwitcherSettings
     private let focusedWindowIDProvider: FocusedWindowIDProvider
@@ -32,7 +32,7 @@ final class WindowListProvider {
     private var cachedAllSpacesEntries: [SpaceWindowGroup]?
 
     init(
-        registry: SpaceRegistry,
+        registry: any SpaceRegistryProtocol,
         cgsBridge: any CGSBridgeProtocol,
         settings: WindowSwitcherSettings,
         windowInfoProvider: @escaping WindowInfoProvider = WindowListProvider.liveWindowInfoProvider,

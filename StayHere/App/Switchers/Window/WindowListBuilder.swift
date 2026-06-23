@@ -12,14 +12,14 @@ final class WindowListBuilder {
     private let mode: WindowSwitcherMode
     private let listProvider: WindowListProvider
     private let recencyTracker: WindowRecencyTracker
-    private let registry: SpaceRegistry
+    private let registry: any SpaceRegistryProtocol
     private let settings: WindowSwitcherSettings
 
     init(
         mode: WindowSwitcherMode,
         listProvider: WindowListProvider,
         recencyTracker: WindowRecencyTracker,
-        registry: SpaceRegistry,
+        registry: any SpaceRegistryProtocol,
         settings: WindowSwitcherSettings
     ) {
         self.mode = mode

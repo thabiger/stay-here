@@ -10,7 +10,7 @@ protocol RuntimeCoordinating: AnyObject {
 @MainActor
 final class AppRuntimeCoordinator: AppCoordinating, RuntimeCoordinating {
     private let services: CompositionServices
-    private let registry: SpaceRegistry
+    private let registry: any SpaceRegistryProtocol
     private let lifecycleCoordinator: AppLifecycleCoordinator
     private let controllers: CompositionControllers
     private let windowManagers: CompositionWindowManagers
@@ -31,7 +31,7 @@ final class AppRuntimeCoordinator: AppCoordinating, RuntimeCoordinating {
         setupRequirementsPresenter: SetupRequirementsPresenter
     ) {
         self.services = services
-        self.registry = services.registry
+        self.registry = services.repository
         self.lifecycleCoordinator = services.lifecycleCoordinator
         self.controllers = controllers
         self.windowManagers = windowManagers
@@ -40,10 +40,10 @@ final class AppRuntimeCoordinator: AppCoordinating, RuntimeCoordinating {
 
         self.statusBarCoordinator = StatusBarCoordinator(
             statusController: controllers.statusController,
-            registry: services.registry
+            registry: services.repository
         )
         self.spaceObservationCoordinator = SpaceObservationCoordinator(
-            registry: services.registry,
+            registry: services.repository,
             switchSpace: services.switchSpace,
             buildSpaceSnapshot: services.buildSpaceSnapshot,
             hudController: controllers.hudController,
@@ -53,7 +53,7 @@ final class AppRuntimeCoordinator: AppCoordinating, RuntimeCoordinating {
             settingsWindowManager: windowManagers.settingsWindowManager,
             aboutWindowManager: windowManagers.aboutWindowManager,
             appearanceManager: services.appearanceManager,
-            registry: services.registry,
+            registry: services.repository,
             refreshSpaces: services.refreshSpaces
         )
         let eventTapProxy = AppEventTapProxy(logger: services.logger)

@@ -7,7 +7,7 @@ import SwiftUI
 final class WindowSwitcherController {
     let mode: WindowSwitcherMode
     let settings: WindowSwitcherSettings & AllSpacesWindowSwitcherSettings
-    let registry: SpaceRegistry
+    let registry: any SpaceRegistryProtocol
     let shortcutProvider: () -> SpaceSwitcherShortcut
     let recencyTracker: WindowRecencyTracker
     let listBuilder: WindowListBuilder
@@ -127,7 +127,7 @@ final class WindowSwitcherController {
 
     init(
         settings: WindowSwitcherSettings & AllSpacesWindowSwitcherSettings,
-        registry: SpaceRegistry,
+        registry: any SpaceRegistryProtocol,
         mode: WindowSwitcherMode,
         windowSwitchUseCase: WindowSwitchUseCase,
         cgsBridge: any CGSBridgeProtocol,

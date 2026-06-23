@@ -15,7 +15,7 @@ final class SpaceRegistryTests: XCTestCase {
             ),
             logger: NoOpLogger()
         )
-        let registry = SpaceRegistry(repository: repository)
+        let registry: any SpaceRegistryProtocol = repository
 
         XCTAssertEqual(registry.activeSpaceID, repository.activeSpaceID)
         XCTAssertEqual(registry.spaces.map(\.id), repository.spaces.map(\.id))
@@ -35,7 +35,7 @@ final class SpaceRegistryTests: XCTestCase {
             ),
             logger: NoOpLogger()
         )
-        let registry = SpaceRegistry(repository: repository)
+        let registry: any SpaceRegistryProtocol = repository
 
         XCTAssertEqual(registry.name(for: 101), repository.name(for: 101))
         XCTAssertEqual(registry.displayName(for: 101), repository.displayName(for: 101))

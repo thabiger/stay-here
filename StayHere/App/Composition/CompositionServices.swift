@@ -10,7 +10,6 @@ final class CompositionServices {
     let lifecycleCoordinator: AppLifecycleCoordinator
     let updateService: any UpdateService
     let repository: SpaceStateManager
-    let registry: SpaceRegistry
     let refreshSpaces: RefreshSpacesUseCase
     let renameSpace: RenameSpaceUseCase
     let reorderSpaces: ReorderSpacesUseCase
@@ -48,6 +47,5 @@ final class CompositionServices {
             logger: logger
         )
         self.buildSpaceSnapshot = BuildSpaceSnapshotUseCase(repository: self.repository)
-        self.registry = SpaceRegistry(repository: self.repository)
     }
 }

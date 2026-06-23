@@ -4,7 +4,7 @@ import Core
 
 @MainActor
 final class SpaceObservationCoordinator {
-    private let registry: SpaceRegistry
+    private let registry: any SpaceRegistryProtocol
     private let switchSpace: SwitchSpaceUseCase
     private let buildSpaceSnapshot: BuildSpaceSnapshotUseCase
     private let hudController: HUDController
@@ -18,7 +18,7 @@ final class SpaceObservationCoordinator {
     private var onScheduleMenuRebuild: (() -> Void)?
 
     init(
-        registry: SpaceRegistry,
+        registry: any SpaceRegistryProtocol,
         switchSpace: SwitchSpaceUseCase,
         buildSpaceSnapshot: BuildSpaceSnapshotUseCase,
         hudController: HUDController,

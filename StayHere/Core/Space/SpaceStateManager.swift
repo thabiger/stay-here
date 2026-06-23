@@ -189,3 +189,5 @@ public final class SpaceStateManager {
         )
     }
 }
+
+extension SpaceStateManager: SpaceRegistryProtocol {}

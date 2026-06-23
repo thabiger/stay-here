@@ -6,7 +6,7 @@ final class WindowCoordinator {
     private let settingsWindowManager: SettingsWindowManager
     private let aboutWindowManager: AboutWindowManager
     private let appearanceManager: AppearanceManager
-    private let registry: SpaceRegistry
+    private let registry: any SpaceRegistryProtocol
     private let refreshSpaces: RefreshSpacesUseCase
 
     var onSettingsWillOpen: (() -> Void)?
@@ -16,7 +16,7 @@ final class WindowCoordinator {
         settingsWindowManager: SettingsWindowManager,
         aboutWindowManager: AboutWindowManager,
         appearanceManager: AppearanceManager,
-        registry: SpaceRegistry,
+        registry: any SpaceRegistryProtocol,
         refreshSpaces: RefreshSpacesUseCase
     ) {
         self.settingsWindowManager = settingsWindowManager

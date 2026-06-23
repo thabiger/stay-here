@@ -42,13 +42,13 @@ private final class FakeWindowListSettings: WindowSwitcherSettings {
 
 @MainActor
 final class WindowListProviderTests: XCTestCase {
-    private func makeRegistry(bridge: WindowListProviderMockBridge) -> SpaceRegistry {
+    private func makeRegistry(bridge: WindowListProviderMockBridge) -> SpaceStateManager {
         let fileURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("WindowListProviderTests")
             .appendingPathComponent(UUID().uuidString)
             .appendingPathComponent("spaces.json")
         let store = SpaceStore(fileURL: fileURL)
-        return SpaceRegistry(store: store, cgsBridge: bridge, logger: NoOpLogger())
+        return SpaceStateManager(store: store, cgsBridge: bridge, logger: NoOpLogger())
     }
 
     private func makeSnapshot() -> CGSBridge.ManagedSnapshot {

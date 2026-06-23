@@ -73,11 +73,10 @@ final class AllSpacesWindowSwitcherControllerTests: XCTestCase {
             .appendingPathComponent("spaces.json")
         let store = SpaceStore(fileURL: fileURL)
         let repository = SpaceStateManager(store: store, cgsBridge: bridge, logger: NoOpLogger())
-        let registry = SpaceRegistry(repository: repository)
         let refreshSpaces = RefreshSpacesUseCase(repository: repository, logger: NoOpLogger())
         let switchSpace = SwitchSpaceUseCase(cgsBridge: bridge, repository: repository, refreshUseCase: refreshSpaces, logger: NoOpLogger())
         let listProvider = WindowListProvider(
-            registry: registry,
+            registry: repository,
             cgsBridge: bridge,
             settings: UserDefaultsSettingsRepository(),
             windowInfoProvider: windowInfo,
@@ -96,7 +95,7 @@ final class AllSpacesWindowSwitcherControllerTests: XCTestCase {
         ))
         let controller = WindowSwitcherController(
             settings: UserDefaultsSettingsRepository(),
-            registry: registry,
+            registry: repository,
             mode: .allSpaces,
             windowSwitchUseCase: windowSwitchUseCase,
             cgsBridge: bridge,

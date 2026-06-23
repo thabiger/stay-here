@@ -5,7 +5,7 @@ import SwiftUI
 
 @MainActor
 final class SpaceSwitcherController {
-    private let registry: SpaceRegistry
+    private let registry: any SpaceRegistryProtocol
     private let switchToSpace: (Int) -> Void
     private let shortcutProvider: () -> SpaceSwitcherShortcut
     private let panelManager = SpaceSwitcherPanelManager()
@@ -86,7 +86,7 @@ final class SpaceSwitcherController {
 
     init(
         settings: SpaceSwitcherSettings,
-        registry: SpaceRegistry,
+        registry: any SpaceRegistryProtocol,
         switchToSpace: @escaping (Int) -> Void,
         shortcutProvider: (() -> SpaceSwitcherShortcut)? = nil
     ) {

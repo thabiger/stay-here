@@ -5,7 +5,7 @@ import Core
 @MainActor
 final class StatusBarCoordinator {
     private let statusController: StatusBarController
-    private let registry: SpaceRegistry
+    private let registry: any SpaceRegistryProtocol
 
     private var cancellables: Set<AnyCancellable> = []
     private var menuRebuildWorkItem: DispatchWorkItem?
@@ -13,7 +13,7 @@ final class StatusBarCoordinator {
 
     init(
         statusController: StatusBarController,
-        registry: SpaceRegistry
+        registry: any SpaceRegistryProtocol
     ) {
         self.statusController = statusController
         self.registry = registry
