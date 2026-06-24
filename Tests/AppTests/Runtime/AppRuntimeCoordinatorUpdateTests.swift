@@ -27,17 +27,17 @@ final class AppRuntimeCoordinatorUpdateTests: XCTestCase {
             lifecycleCoordinator: lifecycleCoordinator,
             logger: logger
         )
-        let controllers = CompositionControllers(services: services)
-        let windowManagers = CompositionWindowManagers(services: services)
+
+        let aboutWindowManager = AboutWindowManager(appearanceManager: services.appearanceManager)
+        let updateWindowManager = UpdateWindowManager(appearanceManager: services.appearanceManager)
 
         let updateController = UpdateControllerSpy()
         let coordinator = AppRuntimeCoordinator(
             services: services,
-            controllers: controllers,
-            windowManagers: windowManagers,
-            updateController: updateController,
-            setupRequirementsPresenter: controllers.setupRequirementsPresenter
+            aboutWindowManager: aboutWindowManager,
+            updateWindowManager: updateWindowManager
         )
+        coordinator.setUpdateController(updateController)
 
         coordinator.applicationDidFinishLaunching()
 

@@ -4,10 +4,8 @@ import Activation
 
 @MainActor
 final class AppCompositionRoot: NSObject {
-    private let services:       CompositionServices
-    private let controllers:    CompositionControllers
-    private let windowManagers: CompositionWindowManagers
-    private let updateController: UpdateController
+    private let services:           CompositionServices
+    private let updateController:   UpdateController
 
     let runtimeCoordinator: AppRuntimeCoordinator
 
@@ -25,8 +23,23 @@ final class AppCompositionRoot: NSObject {
             updateService: updateService,
             logger: logger
         )
-        self.controllers = CompositionControllers(services: services)
-        self.windowManagers = CompositionWindowManagers(services: services)
+
+        let aboutWindowManager = AboutWindowManager(
+            appearanceManager: services.appearanceManager
+        )
+        let updateWindowManager = UpdateWindowManager(
+            appearanceManager: services.appearanceManager
+        )
+
+        self.runtimeCoordinator = AppRuntimeCoordinator(
+            services: services,
+            aboutWindowManager: aboutWindowManager,
+            updateWindowManager: updateWindowManager
+        )
+
+        let controllers = runtimeCoordinator.controllers
+        let windowManagers = runtimeCoordinator.windowManagers
+
         self.updateController = UpdateController(
             settings: services.settings,
             updateService: services.updateService,
@@ -40,14 +53,11 @@ final class AppCompositionRoot: NSObject {
             },
             logger: logger
         )
-        self.runtimeCoordinator = AppRuntimeCoordinator(
-            services: services,
-            controllers: controllers,
-            windowManagers: windowManagers,
-            updateController: updateController,
-            setupRequirementsPresenter: controllers.setupRequirementsPresenter
-        )
+
+        runtimeCoordinator.setUpdateController(updateController)
+
         super.init()
+
         controllers.setOnOpenUpdateForSwitchers { [weak updateController] in
             updateController?.presentAvailableUpdate()
         }

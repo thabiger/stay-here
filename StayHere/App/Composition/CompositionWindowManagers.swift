@@ -4,13 +4,13 @@ import Core
 @MainActor
 final class CompositionWindowManagers {
     let services: CompositionServices
-    weak var runtimeCoordinator: (any RuntimeCoordinating)?
+    private let onAppearanceChange: () -> Void
 
     lazy var settingsWindowManager = SettingsWindowManager(
         settings: services.settings,
         appearanceManager: services.appearanceManager,
         onAppearanceChange: { [weak self] in
-            self?.runtimeCoordinator?.applyAppearanceImmediately()
+            self?.onAppearanceChange()
         },
         onOpenLogs: { [logger = services.logger] in openLogsInFinder(logger: logger) }
     )
@@ -23,7 +23,8 @@ final class CompositionWindowManagers {
         appearanceManager: services.appearanceManager
     )
 
-    init(services: CompositionServices) {
+    init(services: CompositionServices, onAppearanceChange: @escaping () -> Void) {
         self.services = services
+        self.onAppearanceChange = onAppearanceChange
     }
 }

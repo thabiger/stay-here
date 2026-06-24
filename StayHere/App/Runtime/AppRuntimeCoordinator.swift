@@ -2,19 +2,21 @@ import AppKit
 import Core
 
 @MainActor
-protocol RuntimeCoordinating: AnyObject {
-    func applyAppearanceImmediately()
-    func performSpaceSwitch(_ spaceID: Int) async
-}
+final class AppRuntimeCoordinator: AppCoordinating {
+    /// Local weak-reference holder, used to break the init-cycle:
+    /// `controllers` and `windowManagers` need closures that call back to `self`,
+    /// but `self` is not fully initialised until all stored properties are set.
+    /// We create the holder first, pass captures of it, then wire it up immediately.
+    private final class WeakSelf {
+        weak var value: AppRuntimeCoordinator?
+    }
 
-@MainActor
-final class AppRuntimeCoordinator: AppCoordinating, RuntimeCoordinating {
     private let services: CompositionServices
     private let registry: any SpaceRegistryProtocol
     private let lifecycleCoordinator: AppLifecycleCoordinator
-    private let controllers: CompositionControllers
-    private let windowManagers: CompositionWindowManagers
-    private let updateController: any UpdateControlling
+    let controllers: CompositionControllers
+    let windowManagers: CompositionWindowManagers
+    private(set) var updateController: (any UpdateControlling)?
     private let setupRequirementsPresenter: SetupRequirementsPresenter
 
     private let statusBarCoordinator: StatusBarCoordinator
@@ -26,18 +28,33 @@ final class AppRuntimeCoordinator: AppCoordinating, RuntimeCoordinating {
 
     init(
         services: CompositionServices,
-        controllers: CompositionControllers,
-        windowManagers: CompositionWindowManagers,
-        updateController: any UpdateControlling,
-        setupRequirementsPresenter: SetupRequirementsPresenter
+        aboutWindowManager: AboutWindowManager,
+        updateWindowManager: any UpdateWindowManaging
     ) {
+        let weakSelf = WeakSelf()
+
         self.services = services
         self.registry = services.repository
         self.lifecycleCoordinator = services.lifecycleCoordinator
-        self.controllers = controllers
-        self.windowManagers = windowManagers
-        self.updateController = updateController
-        self.setupRequirementsPresenter = setupRequirementsPresenter
+        self.updateController = nil
+
+        self.controllers = CompositionControllers(
+            services: services,
+            switchToSpace: { [weakSelf] spaceID in
+                Task { [weakSelf] in
+                    await weakSelf.value?.spaceObservationCoordinator.performSpaceSwitch(spaceID)
+                }
+            }
+        )
+
+        self.windowManagers = CompositionWindowManagers(
+            services: services,
+            onAppearanceChange: { [weakSelf] in
+                weakSelf.value?.applyAppearanceImmediately()
+            }
+        )
+
+        self.setupRequirementsPresenter = controllers.setupRequirementsPresenter
 
         self.statusBarCoordinator = StatusBarCoordinator(
             statusController: controllers.statusController,
@@ -51,7 +68,7 @@ final class AppRuntimeCoordinator: AppCoordinating, RuntimeCoordinating {
         )
         self.windowCoordinator = WindowCoordinator(
             settingsWindowManager: windowManagers.settingsWindowManager,
-            aboutWindowManager: windowManagers.aboutWindowManager,
+            aboutWindowManager: aboutWindowManager,
             appearanceManager: services.appearanceManager,
             registry: services.repository,
             refreshSpaces: services.refreshSpaces
@@ -71,8 +88,8 @@ final class AppRuntimeCoordinator: AppCoordinating, RuntimeCoordinating {
             eventTapProxy: eventTapProxy
         )
 
-        controllers.runtimeCoordinator = self
-        windowManagers.runtimeCoordinator = self
+        // Wire up the weak reference now that all stored properties are initialised.
+        weakSelf.value = self
 
         windowCoordinator.onSettingsWillOpen = { [weak self] in
             self?.statusBarCoordinator.rebuildSpaceItems()
@@ -85,19 +102,23 @@ final class AppRuntimeCoordinator: AppCoordinating, RuntimeCoordinating {
         }
     }
 
+    func setUpdateController(_ controller: any UpdateControlling) {
+        self.updateController = controller
+    }
+
     var isSettingsOpen: Bool {
         windowCoordinator.isSettingsOpen
     }
 
     func applicationDidFinishLaunching() {
-        updateController.restoreCachedState()
+        updateController?.restoreCachedState()
 
         // Configure status bar with all menu actions
         statusBarCoordinator.configure(
             onOpenSettings: { [weak self] in self?.windowCoordinator.showSettings() },
             onOpenAbout: { [weak self] in self?.windowCoordinator.showAbout() },
-            onCheckForUpdates: { [weak self] in self?.updateController.performManualCheck() },
-            onOpenAvailableUpdate: { [weak self] in self?.updateController.presentAvailableUpdate() },
+            onCheckForUpdates: { [weak self] in self?.updateController?.performManualCheck() },
+            onOpenAvailableUpdate: { [weak self] in self?.updateController?.presentAvailableUpdate() },
             onCopyState: { [weak self] in self?.spaceObservationCoordinator.copySpaceState() },
             onOpenLogs: { [logger = services.logger] in openLogsInFinder(logger: logger) },
             onQuit: { NSApp.terminate(nil) },
@@ -165,7 +186,7 @@ final class AppRuntimeCoordinator: AppCoordinating, RuntimeCoordinating {
                 self?.setupRequirementsPresenter.presentSetupRequirementsWarning()
             }
         )
-        updateController.scheduleAutomaticCheck()
+        updateController?.scheduleAutomaticCheck()
     }
 
     func applicationWillTerminate() {

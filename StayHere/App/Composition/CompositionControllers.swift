@@ -3,17 +3,8 @@ import Core
 import Activation
 
 @MainActor
-final class RuntimeCoordinatorBox {
-    weak var value: (any RuntimeCoordinating)?
-}
-
-@MainActor
 final class CompositionControllers {
     let services: CompositionServices
-    let runtimeCoordinatorBox = RuntimeCoordinatorBox()
-    weak var runtimeCoordinator: (any RuntimeCoordinating)? {
-        didSet { runtimeCoordinatorBox.value = runtimeCoordinator }
-    }
 
     let statusController: StatusBarController
     let hudController: HUDController
@@ -31,7 +22,7 @@ final class CompositionControllers {
     private let currentSpaceWindowSwitchUseCase: WindowSwitchUseCase
     private let allSpacesWindowSwitchUseCase: WindowSwitchUseCase
 
-    init(services: CompositionServices) {
+    init(services: CompositionServices, switchToSpace: @escaping (Int) -> Void) {
         self.services = services
 
         statusController = StatusBarController(
@@ -107,11 +98,7 @@ final class CompositionControllers {
         spaceSwitcherController = SpaceSwitcherController(
             settings: services.settings,
             registry: services.repository,
-            switchToSpace: { [box = runtimeCoordinatorBox] spaceID in
-                Task {
-                    await box.value?.performSpaceSwitch(spaceID)
-                }
-            }
+            switchToSpace: switchToSpace
         )
 
         hotCornerController = HotCornerController(
@@ -140,11 +127,7 @@ final class CompositionControllers {
                 guard let id = services.repository.activeSpaceID else { return [] }
                 return Set([id])
             },
-            switchToSpace: { [box = runtimeCoordinatorBox] spaceID in
-                Task {
-                    await box.value?.performSpaceSwitch(spaceID)
-                }
-            },
+            switchToSpace: switchToSpace,
             onShowSingleWindowHint: { [hud = hudController] message in
                 hud.show(message: message)
             },
