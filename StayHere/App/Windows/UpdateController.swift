@@ -16,8 +16,7 @@ final class UpdateController: UpdateControlling {
     private let updateWindowManager: any UpdateWindowManaging
     private let setAvailableUpdate: (UpdateInfo?) -> Void
     private let openURL: (URL) -> Bool
-    private let presentUpToDateMessage: () -> Void
-    private let presentUpdateErrorMessage: (String) -> Void
+    private let alertPresenter: any UpdateAlertPresenting
     private let logger: any Logging
 
     private var currentUpdateInfo: UpdateInfo?
@@ -28,48 +27,17 @@ final class UpdateController: UpdateControlling {
         settings: UpdateSettings,
         updateService: any UpdateService,
         updateWindowManager: any UpdateWindowManaging,
-        appearanceManager: AppearanceManager,
+        alertPresenter: any UpdateAlertPresenting,
         setAvailableUpdate: @escaping (UpdateInfo?) -> Void,
         openURL: ((URL) -> Bool)? = nil,
-        activateApp: (() -> Void)? = nil,
-        setActivationPolicy: ((NSApplication.ActivationPolicy) -> Void)? = nil,
-        presentUpToDateMessage: (() -> Void)? = nil,
-        presentUpdateErrorMessage: ((String) -> Void)? = nil,
         logger: any Logging
     ) {
         self.settings = settings
         self.updateService = updateService
         self.updateWindowManager = updateWindowManager
+        self.alertPresenter = alertPresenter
         self.setAvailableUpdate = setAvailableUpdate
         self.openURL = openURL ?? { NSWorkspace.shared.open($0) }
-        let activateApp = activateApp ?? { NSApp.activate(ignoringOtherApps: true) }
-        let setActivationPolicy = setActivationPolicy ?? { NSApp.setActivationPolicy($0) }
-        self.presentUpToDateMessage = presentUpToDateMessage ?? { [weak appearanceManager] in
-            guard let appearanceManager else { return }
-            setActivationPolicy(.regular)
-            activateApp()
-
-            let alert = NSAlert()
-            alert.alertStyle = .informational
-            alert.messageText = "You’re up to date"
-            alert.informativeText = "StayHere is already running the latest available version."
-            alert.addButton(withTitle: "OK")
-            appearanceManager.applyCurrentMode(to: [alert.window])
-            _ = alert.runModal()
-        }
-        self.presentUpdateErrorMessage = presentUpdateErrorMessage ?? { [weak appearanceManager] message in
-            guard let appearanceManager else { return }
-            setActivationPolicy(.regular)
-            activateApp()
-
-            let alert = NSAlert()
-            alert.alertStyle = .warning
-            alert.messageText = "Update Check Failed"
-            alert.informativeText = message
-            alert.addButton(withTitle: "OK")
-            appearanceManager.applyCurrentMode(to: [alert.window])
-            _ = alert.runModal()
-        }
         self.logger = logger
     }
 
@@ -113,7 +81,7 @@ final class UpdateController: UpdateControlling {
             } catch {
                 logger.info("manual update check failed: \(error.localizedDescription)")
                 await MainActor.run {
-                    self.presentUpdateErrorMessage(error.localizedDescription)
+                    self.alertPresenter.presentErrorAlert(message: error.localizedDescription)
                 }
             }
         }
@@ -132,7 +100,7 @@ final class UpdateController: UpdateControlling {
         case .noUpdate:
             applyUpdateInfo(nil)
             if source == .manual {
-                presentUpToDateMessage()
+                alertPresenter.presentUpToDateAlert()
             }
         case .updateAvailable(let updateInfo):
             applyUpdateInfo(updateInfo)

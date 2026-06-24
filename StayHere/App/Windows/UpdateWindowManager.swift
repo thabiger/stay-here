@@ -14,7 +14,13 @@ protocol UpdateWindowManaging: AnyObject {
 }
 
 @MainActor
-final class UpdateWindowManager: NSObject, NSWindowDelegate, UpdateWindowManaging {
+protocol UpdateAlertPresenting: AnyObject {
+    func presentUpToDateAlert()
+    func presentErrorAlert(message: String)
+}
+
+@MainActor
+final class UpdateWindowManager: NSObject, NSWindowDelegate, UpdateWindowManaging, UpdateAlertPresenting {
     private let appearanceManager: AppearanceManager
     private let setActivationPolicy: (NSApplication.ActivationPolicy) -> Void
     private let activateApp: () -> Void
@@ -99,5 +105,33 @@ final class UpdateWindowManager: NSObject, NSWindowDelegate, UpdateWindowManagin
         if !hasVisibleOwnedWindow() {
             setActivationPolicy(.accessory)
         }
+    }
+
+    // MARK: - UpdateAlertPresenting
+
+    func presentUpToDateAlert() {
+        setActivationPolicy(.regular)
+        activateApp()
+
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = "You're up to date"
+        alert.informativeText = "StayHere is already running the latest available version."
+        alert.addButton(withTitle: "OK")
+        appearanceManager.applyCurrentMode(to: [alert.window])
+        _ = alert.runModal()
+    }
+
+    func presentErrorAlert(message: String) {
+        setActivationPolicy(.regular)
+        activateApp()
+
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Update Check Failed"
+        alert.informativeText = message
+        alert.addButton(withTitle: "OK")
+        appearanceManager.applyCurrentMode(to: [alert.window])
+        _ = alert.runModal()
     }
 }

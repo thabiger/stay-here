@@ -9,25 +9,21 @@ final class UpdateControllerTests: XCTestCase {
         service.nextResult = .noUpdate
         let windowManager = UpdateWindowManagerSpy()
         let settings = UserDefaultsSettingsRepository()
-        var upToDateMessageCount = 0
+        let alertPresenter = UpdateAlertPresenterSpy()
         let controller = UpdateController(
             settings: settings,
             updateService: service,
             updateWindowManager: windowManager,
-            appearanceManager: AppearanceManager(settings: settings),
+            alertPresenter: alertPresenter,
             setAvailableUpdate: { _ in },
             openURL: { _ in true },
-            activateApp: {},
-            setActivationPolicy: { _ in },
-            presentUpToDateMessage: { upToDateMessageCount += 1 },
-            presentUpdateErrorMessage: { _ in },
             logger: NoOpLogger()
         )
 
         controller.performManualCheck()
         await waitForAsyncWork()
 
-        XCTAssertEqual(upToDateMessageCount, 1)
+        XCTAssertEqual(alertPresenter.upToDateCallCount, 1)
         XCTAssertEqual(windowManager.showCount, 0)
     }
 
@@ -37,17 +33,14 @@ final class UpdateControllerTests: XCTestCase {
         service.nextResult = .updateAvailable(updateInfo)
         let windowManager = UpdateWindowManagerSpy()
         let settings = UserDefaultsSettingsRepository()
+        let alertPresenter = UpdateAlertPresenterSpy()
         let controller = UpdateController(
             settings: settings,
             updateService: service,
             updateWindowManager: windowManager,
-            appearanceManager: AppearanceManager(settings: settings),
+            alertPresenter: alertPresenter,
             setAvailableUpdate: { _ in },
             openURL: { _ in true },
-            activateApp: {},
-            setActivationPolicy: { _ in },
-            presentUpToDateMessage: {},
-            presentUpdateErrorMessage: { _ in },
             logger: NoOpLogger()
         )
 
@@ -64,17 +57,14 @@ final class UpdateControllerTests: XCTestCase {
         service.nextResult = .updateAvailable(updateInfo)
         let windowManager = UpdateWindowManagerSpy()
         let settings = UserDefaultsSettingsRepository()
+        let alertPresenter = UpdateAlertPresenterSpy()
         let controller = UpdateController(
             settings: settings,
             updateService: service,
             updateWindowManager: windowManager,
-            appearanceManager: AppearanceManager(settings: settings),
+            alertPresenter: alertPresenter,
             setAvailableUpdate: { _ in },
             openURL: { _ in true },
-            activateApp: {},
-            setActivationPolicy: { _ in },
-            presentUpToDateMessage: {},
-            presentUpdateErrorMessage: { _ in },
             logger: NoOpLogger()
         )
 
@@ -91,26 +81,22 @@ final class UpdateControllerTests: XCTestCase {
         service.nextError = UpdateCheckError.unexpectedStatusCode(404, "Not Found")
         let windowManager = UpdateWindowManagerSpy()
         let settings = UserDefaultsSettingsRepository()
-        var shownError: String?
+        let alertPresenter = UpdateAlertPresenterSpy()
         let controller = UpdateController(
             settings: settings,
             updateService: service,
             updateWindowManager: windowManager,
-            appearanceManager: AppearanceManager(settings: settings),
+            alertPresenter: alertPresenter,
             setAvailableUpdate: { _ in },
             openURL: { _ in true },
-            activateApp: {},
-            setActivationPolicy: { _ in },
-            presentUpToDateMessage: {},
-            presentUpdateErrorMessage: { shownError = $0 },
             logger: NoOpLogger()
         )
 
         controller.performManualCheck()
         await waitForAsyncWork()
 
-        XCTAssertNotNil(shownError)
-        XCTAssertTrue(shownError?.contains("404") == true)
+        XCTAssertEqual(alertPresenter.errorMessages.count, 1)
+        XCTAssertTrue(alertPresenter.errorMessages.first?.contains("404") == true)
     }
 
     private func waitForAsyncWork() async {
@@ -164,4 +150,18 @@ private final class UpdateWindowManagerSpy: UpdateWindowManaging {
     }
 
     func close() {}
+}
+
+@MainActor
+private final class UpdateAlertPresenterSpy: UpdateAlertPresenting {
+    private(set) var upToDateCallCount = 0
+    private(set) var errorMessages: [String] = []
+
+    func presentUpToDateAlert() {
+        upToDateCallCount += 1
+    }
+
+    func presentErrorAlert(message: String) {
+        errorMessages.append(message)
+    }
 }

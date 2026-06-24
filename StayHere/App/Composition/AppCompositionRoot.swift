@@ -31,7 +31,7 @@ final class AppCompositionRoot: NSObject {
             settings: services.settings,
             updateService: services.updateService,
             updateWindowManager: windowManagers.updateWindowManager,
-            appearanceManager: services.appearanceManager,
+            alertPresenter: windowManagers.updateWindowManager,
             setAvailableUpdate: { [controllers] updateInfo in
                 controllers.statusController.setAvailableUpdate(updateInfo)
                 controllers.spaceSwitcherController.setAvailableUpdate(updateInfo)
