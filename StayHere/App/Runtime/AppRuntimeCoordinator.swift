@@ -22,8 +22,7 @@ final class AppRuntimeCoordinator: AppCoordinating {
     private let statusBarCoordinator: StatusBarCoordinator
     private let spaceObservationCoordinator: SpaceObservationCoordinator
     private let windowCoordinator: WindowCoordinator
-    private let switcherDirector: SwitcherDirector
-    private let eventOrchestrationCoordinator: EventOrchestrationCoordinator
+    private(set) var eventOrchestrator: (any EventOrchestrating)?
     private var lastObservedActiveSpaceID: Int?
 
     init(
@@ -73,20 +72,7 @@ final class AppRuntimeCoordinator: AppCoordinating {
             registry: services.repository,
             refreshSpaces: services.refreshSpaces
         )
-        let eventTapProxy = AppEventTapProxy(logger: services.logger)
-        self.switcherDirector = SwitcherDirector(
-            spaceSwitcherController: controllers.spaceSwitcherController,
-            windowSwitcherController: controllers.windowSwitcherController,
-            allSpacesWindowSwitcherController: controllers.allSpacesWindowSwitcherController,
-            settings: services.settings,
-            eventTapProxy: eventTapProxy
-        )
-        self.eventOrchestrationCoordinator = EventOrchestrationCoordinator(
-            hotCornerController: controllers.hotCornerController,
-            activationController: controllers.activationController,
-            switcherDirector: switcherDirector,
-            eventTapProxy: eventTapProxy
-        )
+
 
         // Wire up the weak reference now that all stored properties are initialised.
         weakSelf.value = self
@@ -96,7 +82,7 @@ final class AppRuntimeCoordinator: AppCoordinating {
         }
         windowCoordinator.onSettingsDidClose = { [weak self] in
             guard let self else { return }
-            self.eventOrchestrationCoordinator.syncEventDrivenControllers()
+            self.eventOrchestrator?.syncEventDrivenControllers()
             self.statusBarCoordinator.setTitle(self.registry.activeNameSummary())
             self.statusBarCoordinator.rebuildSpaceItems()
         }
@@ -104,6 +90,10 @@ final class AppRuntimeCoordinator: AppCoordinating {
 
     func setUpdateController(_ controller: any UpdateControlling) {
         self.updateController = controller
+    }
+
+    func setEventOrchestrator(_ orchestrator: any EventOrchestrating) {
+        self.eventOrchestrator = orchestrator
     }
 
     var isSettingsOpen: Bool {
@@ -180,7 +170,7 @@ final class AppRuntimeCoordinator: AppCoordinating {
                 self?.statusBarCoordinator.rebuildSpaceItems()
             },
             startEventDrivenControllers: { [weak self] in
-                self?.eventOrchestrationCoordinator.startEventDrivenControllers()
+                self?.eventOrchestrator?.startEventDrivenControllers()
             },
             presentSetupRequirementsWarning: { [weak self] in
                 self?.setupRequirementsPresenter.presentSetupRequirementsWarning()
@@ -191,13 +181,13 @@ final class AppRuntimeCoordinator: AppCoordinating {
 
     func applicationWillTerminate() {
         lifecycleCoordinator.applicationWillTerminate { [weak self] in
-            self?.eventOrchestrationCoordinator.stopEventDrivenControllers()
+            self?.eventOrchestrator?.stopEventDrivenControllers()
         }
         spaceObservationCoordinator.stopObserving()
     }
 
     func handleIncomingURL(_ url: URL) {
-        eventOrchestrationCoordinator.handleIncomingURL(url)
+        eventOrchestrator?.handleIncomingURL(url)
     }
 
     func applyAppearanceImmediately() {

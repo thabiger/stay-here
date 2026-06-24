@@ -56,6 +56,22 @@ final class AppCompositionRoot: NSObject {
 
         runtimeCoordinator.setUpdateController(updateController)
 
+        let eventTapProxy = AppEventTapProxy(logger: services.logger)
+        let switcherDirector = SwitcherDirector(
+            spaceSwitcherController: controllers.spaceSwitcherController,
+            windowSwitcherController: controllers.windowSwitcherController,
+            allSpacesWindowSwitcherController: controllers.allSpacesWindowSwitcherController,
+            settings: services.settings,
+            eventTapProxy: eventTapProxy
+        )
+        let eventOrchestrator = EventOrchestrationCoordinator(
+            hotCornerController: controllers.hotCornerController,
+            activationController: controllers.activationController,
+            switcherDirector: switcherDirector,
+            eventTapProxy: eventTapProxy
+        )
+        runtimeCoordinator.setEventOrchestrator(eventOrchestrator)
+
         super.init()
 
         controllers.setOnOpenUpdateForSwitchers { [weak updateController] in
