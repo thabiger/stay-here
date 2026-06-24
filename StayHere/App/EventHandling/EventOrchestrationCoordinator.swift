@@ -22,18 +22,15 @@ final class EventOrchestrationCoordinator {
     }
 
     func startEventDrivenControllers() {
-        activationController.start()
-        if let client = activationController.eventTapClient {
-            eventTapProxy.register(client)
-        }
+        activationController.start(using: eventTapProxy)
         switcherDirector.start()
         syncEventDrivenControllers()
     }
 
     func stopEventDrivenControllers() {
+        activationController.stop(using: eventTapProxy)
         eventTapProxy.removeAllClients()
         switcherDirector.stop()
-        activationController.stop()
         hotCornerController.stop()
     }
 

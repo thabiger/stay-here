@@ -38,7 +38,7 @@ final class EventOrchestrationCoordinatorTests: XCTestCase {
     }
 
     func testStartRegistersActivationClientAndStartsSwitcherDirector() {
-        let activationController = ActivationControllingSpy(eventTapClient: FakeEventTapClient())
+        let activationController = ActivationControllingSpy()
         let switcherDirector = SwitcherDirectingSpy()
         let proxy = AppEventTapProxySpy()
         let coordinator = EventOrchestrationCoordinator(
@@ -51,29 +51,12 @@ final class EventOrchestrationCoordinatorTests: XCTestCase {
         coordinator.startEventDrivenControllers()
 
         XCTAssertEqual(activationController.startCallCount, 1)
-        XCTAssertEqual(proxy.registeredClients.count, 1)
-        XCTAssertIdentical(proxy.registeredClients.first as? FakeEventTapClient, activationController.eventTapClient as? FakeEventTapClient)
         XCTAssertEqual(switcherDirector.startCallCount, 1)
         XCTAssertEqual(switcherDirector.syncControllersCallCount, 1)
     }
 
-    func testStartWithoutActivationClientDoesNotRegisterNil() {
-        let switcherDirector = SwitcherDirectingSpy()
-        let proxy = AppEventTapProxySpy()
-        let coordinator = EventOrchestrationCoordinator(
-            hotCornerController: HotCornerControllingSpy(),
-            activationController: ActivationControllingSpy(),
-            switcherDirector: switcherDirector,
-            eventTapProxy: proxy
-        )
-
-        coordinator.startEventDrivenControllers()
-
-        XCTAssertTrue(proxy.registeredClients.isEmpty)
-    }
-
     func testStopRemovesAllClientsAndStopsSubordinates() {
-        let activationController = ActivationControllingSpy(eventTapClient: FakeEventTapClient())
+        let activationController = ActivationControllingSpy()
         let switcherDirector = SwitcherDirectingSpy()
         let hotCornerController = HotCornerControllingSpy()
         let proxy = AppEventTapProxySpy()
@@ -149,24 +132,9 @@ private final class HotCornerControllingSpy: HotCornerControlling {
 private final class ActivationControllingSpy: ActivationControlling {
     private(set) var startCallCount = 0
     private(set) var stopCallCount = 0
-    let eventTapClient: (any CGEventTapClient)?
 
-    init(eventTapClient: (any CGEventTapClient)? = nil) {
-        self.eventTapClient = eventTapClient
-    }
-
-    func start() { startCallCount += 1 }
-    func stop() { stopCallCount += 1 }
-}
-
-private final class FakeEventTapClient: CGEventTapClient {
-    var hasActiveSession: Bool = false
-    var handlesKeyboardEvents: Bool = false
-    var handlesMouseEvents: Bool = false
-
-    func handle(proxy: CGEventTapProxy, event: CGEvent) -> Unmanaged<CGEvent>? {
-        Unmanaged.passUnretained(event)
-    }
+    func start(using proxy: any EventTapProxying) { startCallCount += 1 }
+    func stop(using proxy: any EventTapProxying) { stopCallCount += 1 }
 }
 
 private final class AppEventTapProxySpy: EventTapProxying {

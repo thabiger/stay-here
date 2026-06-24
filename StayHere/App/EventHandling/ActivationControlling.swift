@@ -4,9 +4,8 @@ import Core
 
 @MainActor
 protocol ActivationControlling: AnyObject {
-    func start()
-    func stop()
-    var eventTapClient: (any CGEventTapClient)? { get }
+    func start(using proxy: any EventTapProxying)
+    func stop(using proxy: any EventTapProxying)
 }
 
 extension ActivationController: ActivationControlling {}

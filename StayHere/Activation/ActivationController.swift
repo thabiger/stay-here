@@ -8,7 +8,6 @@ public final class ActivationController {
     private let settings: ActivationSettings
     private let logger: any Logging
     private var interceptor: DockClickInterceptor?
-    public private(set) var eventTapClient: (any CGEventTapClient)?
     private let currentSpaceID: () -> Int?
     private let activeSpaceIDs: () -> Set<Int>
 
@@ -35,7 +34,7 @@ public final class ActivationController {
         )
     }
 
-    public func start() {
+    public func start(using proxy: any EventTapProxying) {
         let interceptor = DockClickInterceptor(
             settings: settings,
             shouldIntercept: { [weak self] bundleID, optionHeld in
@@ -47,12 +46,14 @@ public final class ActivationController {
             logger: logger
         )
         self.interceptor = interceptor
-        self.eventTapClient = interceptor
+        proxy.register(interceptor)
     }
 
-    public func stop() {
+    public func stop(using proxy: any EventTapProxying) {
+        if let interceptor {
+            proxy.unregister(interceptor)
+        }
         interceptor = nil
-        eventTapClient = nil
     }
 
     private func shouldInterceptDockClick(bundleID: String, optionHeld: Bool) -> Bool {
