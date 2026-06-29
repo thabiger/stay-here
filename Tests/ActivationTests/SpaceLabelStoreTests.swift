@@ -1,6 +1,7 @@
 import XCTest
 import Core
 
+@MainActor
 final class SpaceLabelStoreTests: XCTestCase {
     func testLoadsPersistedStateFromStore() throws {
         let store = makeStore()
@@ -12,7 +13,7 @@ final class SpaceLabelStoreTests: XCTestCase {
             )
         )
 
-        let labelStore = SpaceLabelStore(store: store)
+        let labelStore = SpaceLabelStore(store: store, logger: NoOpLogger())
 
         XCTAssertEqual(labelStore.labels[101]?.name, "Inbox")
         XCTAssertEqual(labelStore.displayOrder, [101, 102])
@@ -21,12 +22,12 @@ final class SpaceLabelStoreTests: XCTestCase {
 
     func testReconcileAddsMissingLabelsAndRemovesUnknownSpaces() {
         let store = makeStore()
-        let labelStore = SpaceLabelStore(store: store)
+        let labelStore = SpaceLabelStore(store: store, logger: NoOpLogger())
 
         labelStore.rename(spaceID: 999, name: "Old", orderedSpaceIDs: [999])
         labelStore.persistNow(orderedSpaceIDs: [999])
 
-        let reloaded = SpaceLabelStore(store: store)
+        let reloaded = SpaceLabelStore(store: store, logger: NoOpLogger())
         reloaded.reconcileLabels(
             for: [
                 SpaceIdentity(id: 101, display: "display-a", kind: .desktop),
@@ -42,7 +43,7 @@ final class SpaceLabelStoreTests: XCTestCase {
 
     func testMoveDisplayOrderPersistsCustomOrdering() {
         let store = makeStore()
-        let labelStore = SpaceLabelStore(store: store)
+        let labelStore = SpaceLabelStore(store: store, logger: NoOpLogger())
 
         labelStore.moveDisplayOrder(
             fromOffsets: IndexSet(integer: 2),
@@ -51,7 +52,7 @@ final class SpaceLabelStoreTests: XCTestCase {
         )
         labelStore.persistNow(orderedSpaceIDs: labelStore.displayOrder)
 
-        let reloaded = SpaceLabelStore(store: store)
+        let reloaded = SpaceLabelStore(store: store, logger: NoOpLogger())
 
         XCTAssertTrue(reloaded.usesCustomDisplayOrder)
         XCTAssertEqual(reloaded.displayOrder, [103, 101, 102])

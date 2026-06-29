@@ -1,0 +1,139 @@
+import Foundation
+
+@MainActor
+public final class SpaceLabelStore {
+    public private(set) var labels: [Int: SpaceLabel]
+    public private(set) var displayOrder: [Int]
+    public private(set) var usesCustomDisplayOrder: Bool
+
+    private let store: SpaceStore
+    private let logger: any Logging
+    private var pendingPersistTask: Task<Void, Never>?
+
+    public init(
+        store: SpaceStore = SpaceStore(),
+        logger: any Logging
+    ) {
+        self.store = store
+        self.logger = logger
+
+        let persisted = store.load()
+        self.labels = persisted.labels
+        self.displayOrder = persisted.displayOrder
+        self.usesCustomDisplayOrder = persisted.usesCustomDisplayOrder
+    }
+
+    public func rename(spaceID: Int, name: String, orderedSpaceIDs: @autoclosure () -> [Int]) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalized = trimmed.isEmpty ? SpaceDisplayNameProvider.defaultUnnamedName : trimmed
+
+        if labels[spaceID]?.name == normalized {
+            return
+        }
+
+        labels[spaceID] = SpaceLabel(name: normalized)
+        persistDebounced(
+            orderedSpaceIDs: orderedSpaceIDs(),
+            labels: labels,
+            usesCustomDisplayOrder: usesCustomDisplayOrder
+        )
+    }
+
+    public func moveDisplayOrder(fromOffsets: IndexSet, toOffset: Int, currentOrderedSpaceIDs: [Int]) {
+        var ids = currentOrderedSpaceIDs
+        let removed = fromOffsets.compactMap { offset in
+            ids.indices.contains(offset) ? ids[offset] : nil
+        }
+        for offset in fromOffsets.sorted(by: >) where ids.indices.contains(offset) {
+            ids.remove(at: offset)
+        }
+
+        var insertionIndex = toOffset
+        for offset in fromOffsets where offset < toOffset {
+            insertionIndex -= 1
+        }
+        insertionIndex = max(0, min(insertionIndex, ids.count))
+        ids.insert(contentsOf: removed, at: insertionIndex)
+
+        displayOrder = ids
+        usesCustomDisplayOrder = true
+        persistDebounced(
+            orderedSpaceIDs: ids,
+            labels: labels,
+            usesCustomDisplayOrder: usesCustomDisplayOrder
+        )
+    }
+
+    public func reconcileLabels(for spaces: [SpaceIdentity], orderedSpaceIDs: @autoclosure () -> [Int]) {
+        var updated = labels
+        var changed = false
+
+        for id in spaces.map(\.id) where updated[id] == nil {
+            updated[id] = SpaceLabel(name: SpaceDisplayNameProvider.defaultUnnamedName)
+            changed = true
+        }
+
+        let validIDs = Set(spaces.map(\.id))
+        for key in updated.keys where !validIDs.contains(key) {
+            updated.removeValue(forKey: key)
+            changed = true
+        }
+
+        guard changed else { return }
+
+        labels = updated
+        persistDebounced(
+            orderedSpaceIDs: orderedSpaceIDs(),
+            labels: labels,
+            usesCustomDisplayOrder: usesCustomDisplayOrder
+        )
+    }
+
+    public func persistNow(orderedSpaceIDs: [Int]) {
+        pendingPersistTask?.cancel()
+        pendingPersistTask = nil
+
+        do {
+            try store.save(
+                PersistedSpaces(
+                    labels: labels,
+                    displayOrder: orderedSpaceIDs,
+                    usesCustomDisplayOrder: usesCustomDisplayOrder
+                )
+            )
+        } catch {
+            logger.error("persist-failed")
+        }
+    }
+
+    func persistenceSnapshot() -> (labels: [Int: SpaceLabel], displayOrder: [Int], usesCustomDisplayOrder: Bool) {
+        (labels, displayOrder, usesCustomDisplayOrder)
+    }
+
+    private func persistDebounced(
+        orderedSpaceIDs: [Int],
+        labels labelsSnapshot: [Int: SpaceLabel],
+        usesCustomDisplayOrder usesCustomSnapshot: Bool
+    ) {
+        pendingPersistTask?.cancel()
+
+        let task = Task { [weak self] in
+            guard let self else { return }
+            try? await Task.sleep(nanoseconds: 200_000_000) // 0.2s debounce
+            guard !Task.isCancelled else { return }
+
+            do {
+                try self.store.save(
+                    PersistedSpaces(
+                        labels: labelsSnapshot,
+                        displayOrder: orderedSpaceIDs,
+                        usesCustomDisplayOrder: usesCustomSnapshot
+                    )
+                )
+            } catch {
+                self.logger.error("persist-failed")
+            }
+        }
+        pendingPersistTask = task
+    }
+}

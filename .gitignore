@@ -52,7 +52,10 @@ Icon
 tmp/
 temp/
 
+graphify-out/
+
 .private/
 .opencode/
 opencode.json
 docs/code-review*/**
+docs/fix-plans/**

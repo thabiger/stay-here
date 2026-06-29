@@ -4,12 +4,11 @@ import ApplicationServices
 import AppKit
 import Core
 
-public final class DockClickInterceptor {
-    private var eventTap: CFMachPort?
-    private var runLoopSource: CFRunLoopSource?
+public final class DockClickInterceptor: CGEventTapClient {
     private let isDockClickInterceptionEnabled: () -> Bool
     private let shouldIntercept: (String, Bool) -> Bool
     private let handler: (String, Bool) -> Bool
+    private let logger: any Logging
     private var pendingDockClick: PendingDockClick?
 
     struct PendingDockClick {
@@ -24,73 +23,23 @@ public final class DockClickInterceptor {
 
     var testDockBundleIDResolver: ((CGPoint) -> String?)?
 
+    public var hasActiveSession: Bool { false }
+    public var handlesKeyboardEvents: Bool { false }
+    public var handlesMouseEvents: Bool { isDockClickInterceptionEnabled() }
+
     public init(
-        settings: SettingsRepository,
+        settings: ActivationSettings,
         shouldIntercept: @escaping (String, Bool) -> Bool,
-        handler: @escaping (String, Bool) -> Bool
+        handler: @escaping (String, Bool) -> Bool,
+        logger: any Logging
     ) {
         self.isDockClickInterceptionEnabled = { settings.activationDockClickInterceptionEnabled }
         self.shouldIntercept = shouldIntercept
         self.handler = handler
+        self.logger = logger
     }
 
-    deinit {
-        stop()
-    }
-
-    public func start() {
-        guard eventTap == nil else { return }
-        guard !RuntimeEnvironment.isAutomationSession else { return }
-
-        let mask = (1 << CGEventType.leftMouseDown.rawValue) | (1 << CGEventType.leftMouseUp.rawValue)
-        let callback: CGEventTapCallBack = { proxy, type, event, refcon in
-            guard let refcon else { return Unmanaged.passUnretained(event) }
-
-            let interceptor = Unmanaged<DockClickInterceptor>.fromOpaque(refcon).takeUnretainedValue()
-            return interceptor.handle(proxy: proxy, event: event)
-        }
-
-        let ref = UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
-        guard let tap = CGEvent.tapCreate(
-            tap: .cgSessionEventTap,
-            place: .headInsertEventTap,
-            options: .defaultTap,
-            eventsOfInterest: CGEventMask(mask),
-            callback: callback,
-            userInfo: ref
-        ) else {
-            Logger.shared.error("activation intercept tap-create-failed")
-            return
-        }
-
-        let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
-        CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
-        CGEvent.tapEnable(tap: tap, enable: true)
-
-        eventTap = tap
-        runLoopSource = source
-        Logger.shared.info("activation intercept started")
-    }
-
-    public func stop() {
-        if let tap = eventTap {
-            CGEvent.tapEnable(tap: tap, enable: false)
-        }
-        if let source = runLoopSource {
-            CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
-        }
-        runLoopSource = nil
-        eventTap = nil
-    }
-
-    func handle(proxy: CGEventTapProxy, event: CGEvent) -> Unmanaged<CGEvent>? {
-        if event.type == .tapDisabledByTimeout || event.type == .tapDisabledByUserInput {
-            if let tap = eventTap {
-                CGEvent.tapEnable(tap: tap, enable: true)
-            }
-            return Unmanaged.passUnretained(event)
-        }
-
+    public func handle(proxy: CGEventTapProxy, event: CGEvent) -> Unmanaged<CGEvent>? {
         let dockClickEnabled = isDockClickInterceptionEnabled()
         if !dockClickEnabled {
             pendingDockClick = nil
@@ -107,12 +56,12 @@ public final class DockClickInterceptor {
             }
 
             guard shouldIntercept(bundleID, optionHeld) else {
-                Logger.shared.info("activation dock-down passthrough=true option=\(optionHeld)")
+                logger.info("activation dock-down passthrough=true option=\(optionHeld)")
                 return Unmanaged.passUnretained(event)
             }
 
             pendingDockClick = PendingDockClick(bundleID: bundleID, optionHeld: optionHeld)
-            Logger.shared.info("activation dock-down option=\(optionHeld)")
+            logger.info("activation dock-down option=\(optionHeld)")
             return nil
 
         case .leftMouseUp:
@@ -131,7 +80,7 @@ public final class DockClickInterceptor {
             }
 
             let resolvedOptionHeld = pending?.optionHeld ?? optionHeld
-            Logger.shared.info("activation dock-up option=\(resolvedOptionHeld)")
+            logger.info("activation dock-up option=\(resolvedOptionHeld)")
             if handler(bundleID, resolvedOptionHeld) {
                 return nil
             }

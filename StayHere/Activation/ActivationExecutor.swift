@@ -9,15 +9,25 @@ public final class ActivationExecutor {
     private let appActivator: AppActivator
     private let shortcutPoster: ShortcutPoster
 
-    /// Tracks a pending work item so a newer `switchToAppSpace` can
-    /// short-circuit the old polling chain instead of running N
-    /// concurrent uncancellable chains (R2/C13/M4).
     private final class CancellationFlag {
-        var isCancelled = false
+        private let _lock = NSLock()
+        private var _cancelled = false
+
+        var isCancelled: Bool {
+            _lock.lock()
+            defer { _lock.unlock() }
+            return _cancelled
+        }
+
+        func cancel() {
+            _lock.lock()
+            defer { _lock.unlock() }
+            _cancelled = true
+        }
     }
 
     private var pendingWaitFlag: CancellationFlag?
-    private var pendingRetryFlag: CancellationFlag?
+    private var pendingRetryTask: Task<Void, Never>?
 
     /// Test seam — counts how many times the `then` callback of
     /// `waitForActiveSpace` has been invoked. A chain that was
@@ -66,12 +76,15 @@ public final class ActivationExecutor {
         guard let spaceID = context.singleWindowSpaceID ?? preferredSpaceID(for: context.appWindowSummary) else {
             return false
         }
-        // Cancel any in-flight polling chain and pending retry before
-        // starting a new one. Rapid Option+clicks on Dock icons would
-        // otherwise stack N uncancellable `RunLoop`-style chains.
         cancelAllPendingWork()
         switchToSpace(spaceID)
-        focusAfterSpaceSwitch(bundleID: context.bundleID, spaceID: spaceID)
+
+        waitForActiveSpace(spaceID, timeout: 1.0) { [weak self] in
+            guard let self else { return }
+            self.appActivator.focus(bundleID: context.bundleID)
+            self.scheduleRetryFocus(bundleID: context.bundleID)
+        }
+
         return true
     }
 
@@ -80,10 +93,10 @@ public final class ActivationExecutor {
     /// exercised from unit tests; production callers reach it via
     /// `switchToAppSpace`.
     internal func cancelAllPendingWork() {
-        pendingWaitFlag?.isCancelled = true
+        pendingWaitFlag?.cancel()
         pendingWaitFlag = nil
-        pendingRetryFlag?.isCancelled = true
-        pendingRetryFlag = nil
+        pendingRetryTask?.cancel()
+        pendingRetryTask = nil
     }
 
     private func preferredSpaceID(for summary: AppWindowSummary?) -> Int? {
@@ -95,22 +108,18 @@ public final class ActivationExecutor {
         return "\(appName) was clicked. It is configured as a single-window app. Use Option+Click to switch to the space where it is running."
     }
 
-    private func focusAfterSpaceSwitch(bundleID: String, spaceID: Int) {
-        waitForActiveSpace(spaceID, timeout: 1.0) { [weak self] in
-            guard let self else { return }
-            self.appActivator.focus(bundleID: bundleID)
-            self.pendingRetryFlag = CancellationFlag()
-            let flag = self.pendingRetryFlag
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in
-                guard let self,
-                      let flag, !flag.isCancelled,
-                      !self.appActivator.isAppActive(bundleID: bundleID) else { return }
+    private func scheduleRetryFocus(bundleID: String) {
+        pendingRetryTask?.cancel()
+        pendingRetryTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 120_000_000) // 0.12s
+            guard let self, !Task.isCancelled else { return }
+            if !self.appActivator.isAppActive(bundleID: bundleID) {
                 self.appActivator.focus(bundleID: bundleID)
             }
         }
     }
 
-    internal func waitForActiveSpace(_ spaceID: Int, timeout: TimeInterval, then: @escaping () -> Void) {
+    internal func waitForActiveSpace(_ spaceID: Int, timeout: TimeInterval, then: @escaping @Sendable () -> Void) {
         let flag = CancellationFlag()
         pendingWaitFlag = flag
         let started = Date()

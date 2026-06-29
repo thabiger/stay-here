@@ -36,7 +36,8 @@ For the full story behind the app, see [Your macOS Spaces Don't Respect Your Foc
 - make Dock clicks more predictable by preventing them from teleporting you to another Space where the selected app is already running,
 - open a new application window in the current Space whenever possible,
 - use window switchers scoped to the current Space, making navigation simpler and less distracting,
-- control switching apps and spaces using built-in macOS Voice Control feature: [read more](docs/voice-control.md).
+- control switching apps and spaces using built-in macOS Voice Control feature: [read more](docs/voice-control.md),
+- use call and app switchers in multiple ways: with the classic keyboard shortcut hold-and-release method, hot corners, arrow keys, and more.
 
 ## Automation URLs
 

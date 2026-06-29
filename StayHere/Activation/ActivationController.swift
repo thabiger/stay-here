@@ -5,23 +5,26 @@ public final class ActivationController {
     private let windowIndex: WindowIndex
     private let policy: ActivationPolicy
     private let executor: ActivationExecutor
-    private let settings: SettingsRepository
+    private let settings: ActivationSettings
+    private let logger: any Logging
     private var interceptor: DockClickInterceptor?
     private let currentSpaceID: () -> Int?
     private let activeSpaceIDs: () -> Set<Int>
 
     public init(
-        settings: SettingsRepository,
-        windowIndex: WindowIndex = WindowIndex(),
+        settings: ActivationSettings,
+        windowIndex: WindowIndex,
         policy: ActivationPolicy? = nil,
         currentSpaceID: @escaping () -> Int?,
         activeSpaceIDs: @escaping () -> Set<Int>,
         switchToSpace: @escaping (Int) -> Void = { _ in },
-        onShowSingleWindowHint: @escaping (String) -> Void = { _ in }
+        onShowSingleWindowHint: @escaping (String) -> Void = { _ in },
+        logger: any Logging
     ) {
         self.windowIndex = windowIndex
         self.policy = policy ?? ActivationPolicy(settings: settings)
         self.settings = settings
+        self.logger = logger
         self.currentSpaceID = currentSpaceID
         self.activeSpaceIDs = activeSpaceIDs
         self.executor = ActivationExecutor(
@@ -31,7 +34,7 @@ public final class ActivationController {
         )
     }
 
-    public func start() {
+    public func start(using proxy: any EventTapProxying) {
         let interceptor = DockClickInterceptor(
             settings: settings,
             shouldIntercept: { [weak self] bundleID, optionHeld in
@@ -39,14 +42,17 @@ public final class ActivationController {
             },
             handler: { [weak self] bundleID, optionHeld in
                 self?.handleDockClick(bundleID: bundleID, optionHeld: optionHeld) ?? false
-            }
+            },
+            logger: logger
         )
         self.interceptor = interceptor
-        interceptor.start()
+        proxy.register(interceptor)
     }
 
-    public func stop() {
-        interceptor?.stop()
+    public func stop(using proxy: any EventTapProxying) {
+        if let interceptor {
+            proxy.unregister(interceptor)
+        }
         interceptor = nil
     }
 
@@ -66,7 +72,7 @@ public final class ActivationController {
         let context = makeContext(bundleID: bundleID, optionHeld: optionHeld)
         let decision = policy.decide(context)
         if log {
-            Logger.shared.info(
+            logger.info(
                 "activation decision=\(decision.rawValue) enabled=\(settings.activationDockClickInterceptionEnabled) option=\(optionHeld) target=\(context.targetSpaceID ?? -1) current_space_count=\(context.activeSpaceIDs.count) window_count=\(context.appWindowSummary?.totalWindowCount ?? 0)"
             )
         }
