@@ -52,6 +52,8 @@ Icon
 tmp/
 temp/
 
+graphify-out/
+
 .private/
 .opencode/
 opencode.json
