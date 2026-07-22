@@ -14,7 +14,7 @@ final class RefreshSpacesUseCaseTests: XCTestCase {
         )
         let stateStore = SpaceStateStore()
         let persistenceCoordinator = SpacePersistenceCoordinator(
-            store: SpaceStore(),
+            store: makeIsolatedStore(),
             stateStore: stateStore,
             labelStore: nil,
             logger: NoOpLogger()
@@ -47,7 +47,7 @@ final class RefreshSpacesUseCaseTests: XCTestCase {
         )
         let stateStore = SpaceStateStore()
         let persistenceCoordinator = SpacePersistenceCoordinator(
-            store: SpaceStore(),
+            store: makeIsolatedStore(),
             stateStore: stateStore,
             labelStore: nil,
             logger: NoOpLogger()
@@ -80,7 +80,7 @@ final class RefreshSpacesUseCaseTests: XCTestCase {
         )
         let stateStore = SpaceStateStore()
         let persistenceCoordinator = SpacePersistenceCoordinator(
-            store: SpaceStore(),
+            store: makeIsolatedStore(),
             stateStore: stateStore,
             labelStore: nil,
             logger: NoOpLogger()
@@ -115,5 +115,13 @@ final class RefreshSpacesUseCaseTests: XCTestCase {
 
         try? await Task.sleep(nanoseconds: 150_000_000)
         XCTAssertEqual(repository.activeSpaceID, 102)
+    }
+
+    private func makeIsolatedStore() -> SpaceStore {
+        let fileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("RefreshSpacesUseCaseTests")
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathComponent("spaces.json")
+        return SpaceStore(fileURL: fileURL)
     }
 }

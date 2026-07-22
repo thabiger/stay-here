@@ -6,7 +6,7 @@ final class SpaceRegistryTests: XCTestCase {
     func testForwardsReadPropertiesToRepository() {
         let stateStore = SpaceStateStore()
         let persistenceCoordinator = SpacePersistenceCoordinator(
-            store: SpaceStore(),
+            store: makeIsolatedStore(),
             stateStore: stateStore,
             labelStore: nil,
             logger: NoOpLogger()
@@ -38,7 +38,7 @@ final class SpaceRegistryTests: XCTestCase {
     func testForwardsReadMethodsToRepository() {
         let stateStore = SpaceStateStore()
         let persistenceCoordinator = SpacePersistenceCoordinator(
-            store: SpaceStore(),
+            store: makeIsolatedStore(),
             stateStore: stateStore,
             labelStore: nil,
             logger: NoOpLogger()
@@ -66,5 +66,13 @@ final class SpaceRegistryTests: XCTestCase {
         XCTAssertEqual(registry.namespaceLabel(for: 101), repository.namespaceLabel(for: 101))
         XCTAssertEqual(registry.orderedSpaceIDs(), repository.orderedSpaceIDs())
         XCTAssertEqual(registry.activeNameSummary(), repository.activeNameSummary())
+    }
+
+    private func makeIsolatedStore() -> SpaceStore {
+        let fileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("SpaceRegistryTests")
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathComponent("spaces.json")
+        return SpaceStore(fileURL: fileURL)
     }
 }

@@ -36,7 +36,7 @@ final class StatusBarControllerTests: XCTestCase {
                 orderedIDsByDisplay: ["Main": [1]]
             )
         )
-        let store = SpaceStore()
+        let store = makeIsolatedStore()
         let stateStore = SpaceStateStore()
         let persistenceCoordinator = SpacePersistenceCoordinator(
             store: store,
@@ -111,5 +111,13 @@ final class StatusBarControllerTests: XCTestCase {
         )
 
         XCTAssertTrue(controller.debugMenuItemTitles.contains("Update Available…"))
+    }
+
+    private func makeIsolatedStore() -> SpaceStore {
+        let fileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("StatusBarControllerTests")
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathComponent("spaces.json")
+        return SpaceStore(fileURL: fileURL)
     }
 }

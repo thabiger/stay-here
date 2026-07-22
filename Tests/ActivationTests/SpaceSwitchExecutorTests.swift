@@ -151,7 +151,7 @@ final class SpaceSwitchExecutorTests: XCTestCase {
     ) -> (SpaceStateManager, SpaceSwitchExecutor) {
         let stateStore = SpaceStateStore()
         let persistenceCoordinator = SpacePersistenceCoordinator(
-            store: SpaceStore(),
+            store: makeIsolatedStore(),
             stateStore: stateStore,
             labelStore: nil,
             logger: NoOpLogger()
@@ -183,5 +183,13 @@ final class SpaceSwitchExecutorTests: XCTestCase {
             logger: NoOpLogger()
         )
         return (repository, executor)
+    }
+
+    private func makeIsolatedStore() -> SpaceStore {
+        let fileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("SpaceSwitchExecutorTests")
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathComponent("spaces.json")
+        return SpaceStore(fileURL: fileURL)
     }
 }
