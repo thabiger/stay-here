@@ -1,0 +1,11 @@
+diff --git a/StayHere/Core/UseCases/RefreshSpacesUseCase.swift b/StayHere/Core/UseCases/RefreshSpacesUseCase.swift
+index 1dc7a69..f9e7667 100644
+--- a/StayHere/Core/UseCases/RefreshSpacesUseCase.swift
++++ b/StayHere/Core/UseCases/RefreshSpacesUseCase.swift
+@@ -63,6 +63,7 @@ public final class RefreshSpacesUseCase {
+                 guard !Task.isCancelled else { return }
+ 
+                 await MainActor.run {
++                    guard !Task.isCancelled else { return }
+                     self.refreshNow()
+                 }

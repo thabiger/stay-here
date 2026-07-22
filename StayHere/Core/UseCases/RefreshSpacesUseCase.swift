@@ -63,6 +63,7 @@ public final class RefreshSpacesUseCase {
                 guard !Task.isCancelled else { return }
 
                 await MainActor.run {
+                    guard !Task.isCancelled else { return }
                     self.refreshNow()
                 }
 
