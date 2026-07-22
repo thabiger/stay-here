@@ -30,7 +30,6 @@ public enum SpaceStateManagerFactory {
         }
         let persistenceCoordinator = SpacePersistenceCoordinator(
             store: resolvedStore,
-            stateStore: stateStore,
             labelStore: nil,
             logger: logger
         )

@@ -39,7 +39,6 @@ final class CompositionServices {
         let snapshotBuilder = SpaceSnapshotBuilder()
         let persistenceCoordinator = SpacePersistenceCoordinator(
             store: SpaceStore(),
-            stateStore: stateStore,
             labelStore: nil,
             logger: logger
         )
