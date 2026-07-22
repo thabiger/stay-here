@@ -47,7 +47,22 @@ final class SpaceSwitcherControllerSessionRaceTests: XCTestCase {
             .appendingPathComponent(UUID().uuidString)
             .appendingPathComponent("spaces.json")
         let store = SpaceStore(fileURL: fileURL)
-        let registry = SpaceStateManager(store: store, cgsBridge: bridge, logger: NoOpLogger())
+        let stateStore = SpaceStateStore()
+        let persistenceCoordinator = SpacePersistenceCoordinator(
+            store: store,
+            stateStore: stateStore,
+            labelStore: nil,
+            logger: NoOpLogger()
+        )
+        let registry = SpaceStateManager(
+            cgsBridge: bridge,
+            stateStore: stateStore,
+            persistenceCoordinator: persistenceCoordinator,
+            orderingService: SpaceOrderingService(),
+            nameProvider: SpaceDisplayNameProvider(),
+            snapshotBuilder: SpaceSnapshotBuilder(),
+            logger: NoOpLogger()
+        )
         let controller = SpaceSwitcherController(
             settings: UserDefaultsSettingsRepository(),
             registry: registry,
@@ -230,7 +245,22 @@ final class SpaceSwitcherControllerSessionRaceTests: XCTestCase {
             .appendingPathComponent(UUID().uuidString)
             .appendingPathComponent("spaces.json")
         let store = SpaceStore(fileURL: fileURL)
-        let registry = SpaceStateManager(store: store, cgsBridge: bridge, logger: NoOpLogger())
+        let stateStore = SpaceStateStore()
+        let persistenceCoordinator = SpacePersistenceCoordinator(
+            store: store,
+            stateStore: stateStore,
+            labelStore: nil,
+            logger: NoOpLogger()
+        )
+        let registry = SpaceStateManager(
+            cgsBridge: bridge,
+            stateStore: stateStore,
+            persistenceCoordinator: persistenceCoordinator,
+            orderingService: SpaceOrderingService(),
+            nameProvider: SpaceDisplayNameProvider(),
+            snapshotBuilder: SpaceSnapshotBuilder(),
+            logger: NoOpLogger()
+        )
         let controller = SpaceSwitcherController(
             settings: UserDefaultsSettingsRepository(),
             registry: registry,
@@ -262,7 +292,22 @@ final class SpaceSwitcherControllerSessionRaceTests: XCTestCase {
             .appendingPathComponent(UUID().uuidString)
             .appendingPathComponent("spaces.json")
         let store = SpaceStore(fileURL: fileURL)
-        let registry = SpaceStateManager(store: store, cgsBridge: bridge, logger: NoOpLogger())
+        let stateStore = SpaceStateStore()
+        let persistenceCoordinator = SpacePersistenceCoordinator(
+            store: store,
+            stateStore: stateStore,
+            labelStore: nil,
+            logger: NoOpLogger()
+        )
+        let registry = SpaceStateManager(
+            cgsBridge: bridge,
+            stateStore: stateStore,
+            persistenceCoordinator: persistenceCoordinator,
+            orderingService: SpaceOrderingService(),
+            nameProvider: SpaceDisplayNameProvider(),
+            snapshotBuilder: SpaceSnapshotBuilder(),
+            logger: NoOpLogger()
+        )
         let controller = SpaceSwitcherController(
             settings: UserDefaultsSettingsRepository(),
             registry: registry,

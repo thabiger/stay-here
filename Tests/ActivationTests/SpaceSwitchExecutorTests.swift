@@ -149,7 +149,22 @@ final class SpaceSwitchExecutorTests: XCTestCase {
         switcherService: SpaceSwitcherService? = nil,
         scheduleRefreshSoon: @escaping () -> Void = {}
     ) -> (SpaceStateManager, SpaceSwitchExecutor) {
-        let repository = SpaceStateManager(cgsBridge: bridge, logger: NoOpLogger())
+        let stateStore = SpaceStateStore()
+        let persistenceCoordinator = SpacePersistenceCoordinator(
+            store: SpaceStore(),
+            stateStore: stateStore,
+            labelStore: nil,
+            logger: NoOpLogger()
+        )
+        let repository = SpaceStateManager(
+            cgsBridge: bridge,
+            stateStore: stateStore,
+            persistenceCoordinator: persistenceCoordinator,
+            orderingService: SpaceOrderingService(),
+            nameProvider: SpaceDisplayNameProvider(),
+            snapshotBuilder: SpaceSnapshotBuilder(),
+            logger: NoOpLogger()
+        )
         let executor = SpaceSwitchExecutor(
             cgsBridge: bridge,
             repository: repository,

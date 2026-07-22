@@ -2,14 +2,14 @@ import Foundation
 
 @MainActor
 public final class RefreshSpacesUseCase {
-    private let repository: SpaceStateManager
+    private let repository: any SpaceSnapshotRefreshable
     private let refreshRetryInterval: TimeInterval
     private let refreshRetryLimit: Int
     private let logger: any Logging
     private var pendingRefreshTask: Task<Void, Never>?
 
     public init(
-        repository: SpaceStateManager,
+        repository: any SpaceSnapshotRefreshable,
         refreshRetryInterval: TimeInterval = 0.05,
         refreshRetryLimit: Int = 8,
         logger: any Logging
@@ -23,8 +23,7 @@ public final class RefreshSpacesUseCase {
     /// Takes an immediate snapshot of the current CGS space state
     /// and applies it to the repository. Runs synchronously on the calling actor.
     public func refreshNow() {
-        let snapshot = repository.cgsBridge.managedSnapshot()
-        repository.applyManagedSnapshot(snapshot)
+        repository.refreshSpaces()
     }
 
     /// Asynchronously takes a snapshot and applies it, without blocking the caller.
@@ -32,11 +31,8 @@ public final class RefreshSpacesUseCase {
     public func refreshAsync() {
         Task.detached(priority: .userInitiated) { [weak self] in
             guard let self else { return }
-            let snapshot = await MainActor.run {
-                self.repository.cgsBridge.managedSnapshot()
-            }
             await MainActor.run {
-                self.repository.applyManagedSnapshot(snapshot)
+                self.repository.refreshSpaces()
             }
         }
     }

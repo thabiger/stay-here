@@ -33,19 +33,37 @@ final class CompositionServices {
             appearanceManager: self.appearanceManager,
             logger: logger
         )
-        self.repository = SpaceStateManager(cgsBridge: cgsBridge, logger: logger)
+        let stateStore = SpaceStateStore()
+        let orderingService = SpaceOrderingService()
+        let nameProvider = SpaceDisplayNameProvider()
+        let snapshotBuilder = SpaceSnapshotBuilder()
+        let persistenceCoordinator = SpacePersistenceCoordinator(
+            store: SpaceStore(),
+            stateStore: stateStore,
+            labelStore: nil,
+            logger: logger
+        )
+        self.repository = SpaceStateManager(
+            cgsBridge: cgsBridge,
+            stateStore: stateStore,
+            persistenceCoordinator: persistenceCoordinator,
+            orderingService: orderingService,
+            nameProvider: nameProvider,
+            snapshotBuilder: snapshotBuilder,
+            logger: logger
+        )
         self.refreshSpaces = RefreshSpacesUseCase(
             repository: self.repository,
             logger: logger
         )
-        self.renameSpace = RenameSpaceUseCase(repository: self.repository)
-        self.reorderSpaces = ReorderSpacesUseCase(repository: self.repository)
+        self.renameSpace = RenameSpaceUseCase(renamer: self.repository)
+        self.reorderSpaces = ReorderSpacesUseCase(reorderer: self.repository)
         self.switchSpace = SwitchSpaceUseCase(
             cgsBridge: cgsBridge,
             repository: self.repository,
             refreshUseCase: self.refreshSpaces,
             logger: logger
         )
-        self.buildSpaceSnapshot = BuildSpaceSnapshotUseCase(repository: self.repository)
+        self.buildSpaceSnapshot = BuildSpaceSnapshotUseCase(builder: self.repository)
     }
 }

@@ -28,7 +28,22 @@ final class SwitcherPanelReleaseTests: XCTestCase {
             .appendingPathComponent("spaces.json")
         let store = SpaceStore(fileURL: fileURL)
         let bridge = LocalMockCGSBridge()
-        let registry = SpaceStateManager(store: store, cgsBridge: bridge, logger: NoOpLogger())
+        let stateStore = SpaceStateStore()
+        let persistenceCoordinator = SpacePersistenceCoordinator(
+            store: store,
+            stateStore: stateStore,
+            labelStore: nil,
+            logger: NoOpLogger()
+        )
+        let registry = SpaceStateManager(
+            cgsBridge: bridge,
+            stateStore: stateStore,
+            persistenceCoordinator: persistenceCoordinator,
+            orderingService: SpaceOrderingService(),
+            nameProvider: SpaceDisplayNameProvider(),
+            snapshotBuilder: SpaceSnapshotBuilder(),
+            logger: NoOpLogger()
+        )
         return SpaceSwitcherController(
             settings: UserDefaultsSettingsRepository(),
             registry: registry,
@@ -43,7 +58,22 @@ final class SwitcherPanelReleaseTests: XCTestCase {
             .appendingPathComponent("spaces.json")
         let store = SpaceStore(fileURL: fileURL)
         let bridge = LocalMockCGSBridge()
-        let repository = SpaceStateManager(store: store, cgsBridge: bridge, logger: NoOpLogger())
+        let stateStore = SpaceStateStore()
+        let persistenceCoordinator = SpacePersistenceCoordinator(
+            store: store,
+            stateStore: stateStore,
+            labelStore: nil,
+            logger: NoOpLogger()
+        )
+        let repository = SpaceStateManager(
+            cgsBridge: bridge,
+            stateStore: stateStore,
+            persistenceCoordinator: persistenceCoordinator,
+            orderingService: SpaceOrderingService(),
+            nameProvider: SpaceDisplayNameProvider(),
+            snapshotBuilder: SpaceSnapshotBuilder(),
+            logger: NoOpLogger()
+        )
         let refreshSpaces = RefreshSpacesUseCase(repository: repository, logger: NoOpLogger())
         let switchSpace = SwitchSpaceUseCase(cgsBridge: bridge, repository: repository, refreshUseCase: refreshSpaces, logger: NoOpLogger())
         let listProvider = WindowListProvider(

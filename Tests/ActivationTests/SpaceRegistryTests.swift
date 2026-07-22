@@ -4,6 +4,13 @@ import Core
 @MainActor
 final class SpaceRegistryTests: XCTestCase {
     func testForwardsReadPropertiesToRepository() {
+        let stateStore = SpaceStateStore()
+        let persistenceCoordinator = SpacePersistenceCoordinator(
+            store: SpaceStore(),
+            stateStore: stateStore,
+            labelStore: nil,
+            logger: NoOpLogger()
+        )
         let repository = SpaceStateManager(
             cgsBridge: MockCGSBridge(
                 activeSpaceIDValue: 101,
@@ -13,6 +20,11 @@ final class SpaceRegistryTests: XCTestCase {
                     orderedIDsByDisplay: ["display-a": [101]]
                 )
             ),
+            stateStore: stateStore,
+            persistenceCoordinator: persistenceCoordinator,
+            orderingService: SpaceOrderingService(),
+            nameProvider: SpaceDisplayNameProvider(),
+            snapshotBuilder: SpaceSnapshotBuilder(),
             logger: NoOpLogger()
         )
         let registry: any SpaceRegistryProtocol = repository
@@ -24,6 +36,13 @@ final class SpaceRegistryTests: XCTestCase {
     }
 
     func testForwardsReadMethodsToRepository() {
+        let stateStore = SpaceStateStore()
+        let persistenceCoordinator = SpacePersistenceCoordinator(
+            store: SpaceStore(),
+            stateStore: stateStore,
+            labelStore: nil,
+            logger: NoOpLogger()
+        )
         let repository = SpaceStateManager(
             cgsBridge: MockCGSBridge(
                 activeSpaceIDValue: 101,
@@ -33,6 +52,11 @@ final class SpaceRegistryTests: XCTestCase {
                     orderedIDsByDisplay: ["display-a": [101]]
                 )
             ),
+            stateStore: stateStore,
+            persistenceCoordinator: persistenceCoordinator,
+            orderingService: SpaceOrderingService(),
+            nameProvider: SpaceDisplayNameProvider(),
+            snapshotBuilder: SpaceSnapshotBuilder(),
             logger: NoOpLogger()
         )
         let registry: any SpaceRegistryProtocol = repository

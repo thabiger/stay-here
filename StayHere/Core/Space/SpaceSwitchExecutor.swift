@@ -3,7 +3,7 @@ import Foundation
 @MainActor
 public final class SpaceSwitchExecutor {
     private let cgsBridge: any CGSBridgeProtocol
-    private let repository: SpaceStateManager
+    private let repository: any SpaceSwitchSnapshotProviding
     private let switcherService: SpaceSwitcherService
     private let refreshSpaces: @Sendable () async -> SpaceSwitchSnapshot
     private let scheduleRefreshSoon: @Sendable () -> Void
@@ -11,7 +11,7 @@ public final class SpaceSwitchExecutor {
 
     public init(
         cgsBridge: any CGSBridgeProtocol,
-        repository: SpaceStateManager,
+        repository: any SpaceSwitchSnapshotProviding,
         switcherService: SpaceSwitcherService,
         refreshSpaces: @escaping @Sendable () async -> SpaceSwitchSnapshot,
         scheduleRefreshSoon: @escaping @Sendable () -> Void,

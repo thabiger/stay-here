@@ -48,7 +48,22 @@ final class WindowListProviderTests: XCTestCase {
             .appendingPathComponent(UUID().uuidString)
             .appendingPathComponent("spaces.json")
         let store = SpaceStore(fileURL: fileURL)
-        return SpaceStateManager(store: store, cgsBridge: bridge, logger: NoOpLogger())
+        let stateStore = SpaceStateStore()
+        let persistenceCoordinator = SpacePersistenceCoordinator(
+            store: store,
+            stateStore: stateStore,
+            labelStore: nil,
+            logger: NoOpLogger()
+        )
+        return SpaceStateManager(
+            cgsBridge: bridge,
+            stateStore: stateStore,
+            persistenceCoordinator: persistenceCoordinator,
+            orderingService: SpaceOrderingService(),
+            nameProvider: SpaceDisplayNameProvider(),
+            snapshotBuilder: SpaceSnapshotBuilder(),
+            logger: NoOpLogger()
+        )
     }
 
     private func makeSnapshot() -> CGSBridge.ManagedSnapshot {

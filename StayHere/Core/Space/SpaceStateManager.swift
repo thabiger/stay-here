@@ -22,26 +22,23 @@ public final class SpaceStateManager {
     private var stateStoreObserver: AnyCancellable?
 
     public init(
-        store: SpaceStore = SpaceStore(),
         cgsBridge: any CGSBridgeProtocol,
-        labelStore: SpaceLabelStore? = nil,
+        stateStore: SpaceStateStore,
+        persistenceCoordinator: SpacePersistenceCoordinator,
+        orderingService: SpaceOrderingService,
+        nameProvider: SpaceDisplayNameProvider,
+        snapshotBuilder: SpaceSnapshotBuilder,
         logger: any Logging
     ) {
         self.cgsBridge = cgsBridge
         self.logger = logger
-        self.stateStore = SpaceStateStore()
-        self.orderingService = SpaceOrderingService()
-        self.nameProvider = SpaceDisplayNameProvider()
-        self.snapshotBuilder = SpaceSnapshotBuilder()
-        self.persistenceCoordinator = SpacePersistenceCoordinator(
-            store: store,
-            stateStore: stateStore,
-            labelStore: labelStore,
-            logger: logger
-        )
+        self.stateStore = stateStore
+        self.orderingService = orderingService
+        self.nameProvider = nameProvider
+        self.snapshotBuilder = snapshotBuilder
+        self.persistenceCoordinator = persistenceCoordinator
         self.stateStoreObserver = nil
         bindStateStore()
-        // Coordinator's init already called syncPersistenceState()
         refreshSpaces()
     }
 
@@ -191,3 +188,8 @@ public final class SpaceStateManager {
 }
 
 extension SpaceStateManager: SpaceRegistryProtocol {}
+extension SpaceStateManager: SpaceRenaming {}
+extension SpaceStateManager: SpaceReordering {}
+extension SpaceStateManager: SpaceSnapshotBuilding {}
+extension SpaceStateManager: SpaceSnapshotRefreshable {}
+extension SpaceStateManager: SpaceSwitchSnapshotProviding {}

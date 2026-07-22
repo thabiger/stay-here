@@ -2,13 +2,13 @@ import Foundation
 
 @MainActor
 public final class ReorderSpacesUseCase {
-    private let repository: SpaceStateManager
+    private let reorderer: any SpaceReordering
 
-    public init(repository: SpaceStateManager) {
-        self.repository = repository
+    public init(reorderer: any SpaceReordering) {
+        self.reorderer = reorderer
     }
 
     public func execute(fromOffsets: IndexSet, toOffset: Int) {
-        repository.moveDisplayOrder(fromOffsets: fromOffsets, toOffset: toOffset)
+        reorderer.moveDisplayOrder(fromOffsets: fromOffsets, toOffset: toOffset)
     }
 }
