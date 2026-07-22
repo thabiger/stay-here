@@ -1,17 +1,11 @@
 import XCTest
 import Core
+import TestHelpers
 
 @MainActor
 final class SpaceRegistryTests: XCTestCase {
     func testForwardsReadPropertiesToRepository() {
-        let stateStore = SpaceStateStore()
-        let persistenceCoordinator = SpacePersistenceCoordinator(
-            store: makeIsolatedStore(),
-            stateStore: stateStore,
-            labelStore: nil,
-            logger: NoOpLogger()
-        )
-        let repository = SpaceStateManager(
+        let repository = SpaceStateManagerFactory.make(
             cgsBridge: MockCGSBridge(
                 activeSpaceIDValue: 101,
                 managedSnapshotValue: CGSBridge.ManagedSnapshot(
@@ -19,13 +13,7 @@ final class SpaceRegistryTests: XCTestCase {
                     activeByDisplay: ["display-a": 101],
                     orderedIDsByDisplay: ["display-a": [101]]
                 )
-            ),
-            stateStore: stateStore,
-            persistenceCoordinator: persistenceCoordinator,
-            orderingService: SpaceOrderingService(),
-            nameProvider: SpaceDisplayNameProvider(),
-            snapshotBuilder: SpaceSnapshotBuilder(),
-            logger: NoOpLogger()
+            )
         )
         let registry: any SpaceRegistryProtocol = repository
 
@@ -36,14 +24,7 @@ final class SpaceRegistryTests: XCTestCase {
     }
 
     func testForwardsReadMethodsToRepository() {
-        let stateStore = SpaceStateStore()
-        let persistenceCoordinator = SpacePersistenceCoordinator(
-            store: makeIsolatedStore(),
-            stateStore: stateStore,
-            labelStore: nil,
-            logger: NoOpLogger()
-        )
-        let repository = SpaceStateManager(
+        let repository = SpaceStateManagerFactory.make(
             cgsBridge: MockCGSBridge(
                 activeSpaceIDValue: 101,
                 managedSnapshotValue: CGSBridge.ManagedSnapshot(
@@ -51,13 +32,7 @@ final class SpaceRegistryTests: XCTestCase {
                     activeByDisplay: ["display-a": 101],
                     orderedIDsByDisplay: ["display-a": [101]]
                 )
-            ),
-            stateStore: stateStore,
-            persistenceCoordinator: persistenceCoordinator,
-            orderingService: SpaceOrderingService(),
-            nameProvider: SpaceDisplayNameProvider(),
-            snapshotBuilder: SpaceSnapshotBuilder(),
-            logger: NoOpLogger()
+            )
         )
         let registry: any SpaceRegistryProtocol = repository
 
@@ -66,13 +41,5 @@ final class SpaceRegistryTests: XCTestCase {
         XCTAssertEqual(registry.namespaceLabel(for: 101), repository.namespaceLabel(for: 101))
         XCTAssertEqual(registry.orderedSpaceIDs(), repository.orderedSpaceIDs())
         XCTAssertEqual(registry.activeNameSummary(), repository.activeNameSummary())
-    }
-
-    private func makeIsolatedStore() -> SpaceStore {
-        let fileURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("SpaceRegistryTests")
-            .appendingPathComponent(UUID().uuidString)
-            .appendingPathComponent("spaces.json")
-        return SpaceStore(fileURL: fileURL)
     }
 }

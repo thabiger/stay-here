@@ -1,5 +1,6 @@
 import XCTest
 import Core
+import TestHelpers
 
 @MainActor
 final class SpaceStateManagerTests: XCTestCase {
@@ -20,22 +21,7 @@ final class SpaceStateManagerTests: XCTestCase {
             managedSnapshotValue: snapshot
         )
 
-        let stateStore = SpaceStateStore()
-        let persistenceCoordinator = SpacePersistenceCoordinator(
-            store: store,
-            stateStore: stateStore,
-            labelStore: nil,
-            logger: NoOpLogger()
-        )
-        let repository = SpaceStateManager(
-            cgsBridge: bridge,
-            stateStore: stateStore,
-            persistenceCoordinator: persistenceCoordinator,
-            orderingService: SpaceOrderingService(),
-            nameProvider: SpaceDisplayNameProvider(),
-            snapshotBuilder: SpaceSnapshotBuilder(),
-            logger: NoOpLogger()
-        )
+        let repository = SpaceStateManagerFactory.make(cgsBridge: bridge, store: store)
 
         XCTAssertEqual(repository.activeSpaceID, 201)
         XCTAssertEqual(repository.spaces.map(\.id), [201, 202])
@@ -72,22 +58,7 @@ final class SpaceStateManagerTests: XCTestCase {
             return true
         }
 
-        let stateStore = SpaceStateStore()
-        let persistenceCoordinator = SpacePersistenceCoordinator(
-            store: store,
-            stateStore: stateStore,
-            labelStore: nil,
-            logger: NoOpLogger()
-        )
-        let repository = SpaceStateManager(
-            cgsBridge: bridge,
-            stateStore: stateStore,
-            persistenceCoordinator: persistenceCoordinator,
-            orderingService: SpaceOrderingService(),
-            nameProvider: SpaceDisplayNameProvider(),
-            snapshotBuilder: SpaceSnapshotBuilder(),
-            logger: NoOpLogger()
-        )
+        let repository = SpaceStateManagerFactory.make(cgsBridge: bridge, store: store)
         let refreshSpaces = RefreshSpacesUseCase(repository: repository, logger: NoOpLogger())
         let switchSpace = SwitchSpaceUseCase(
             cgsBridge: bridge,
@@ -110,40 +81,16 @@ final class SpaceStateManagerTests: XCTestCase {
             orderedIDsByDisplay: ["display-a": [101]]
         )
 
-        let writerStateStore = SpaceStateStore()
-        let writerPersistenceCoordinator = SpacePersistenceCoordinator(
-            store: store,
-            stateStore: writerStateStore,
-            labelStore: nil,
-            logger: NoOpLogger()
-        )
-        let writer = SpaceStateManager(
+        let writer = SpaceStateManagerFactory.make(
             cgsBridge: MockCGSBridge(activeSpaceIDValue: 101, managedSnapshotValue: snapshot),
-            stateStore: writerStateStore,
-            persistenceCoordinator: writerPersistenceCoordinator,
-            orderingService: SpaceOrderingService(),
-            nameProvider: SpaceDisplayNameProvider(),
-            snapshotBuilder: SpaceSnapshotBuilder(),
-            logger: NoOpLogger()
+            store: store
         )
         writer.rename(spaceID: 101, name: "Inbox")
         writer.persistNow()
 
-        let readerStateStore = SpaceStateStore()
-        let readerPersistenceCoordinator = SpacePersistenceCoordinator(
-            store: store,
-            stateStore: readerStateStore,
-            labelStore: nil,
-            logger: NoOpLogger()
-        )
-        let reader = SpaceStateManager(
+        let reader = SpaceStateManagerFactory.make(
             cgsBridge: MockCGSBridge(activeSpaceIDValue: 101, managedSnapshotValue: snapshot),
-            stateStore: readerStateStore,
-            persistenceCoordinator: readerPersistenceCoordinator,
-            orderingService: SpaceOrderingService(),
-            nameProvider: SpaceDisplayNameProvider(),
-            snapshotBuilder: SpaceSnapshotBuilder(),
-            logger: NoOpLogger()
+            store: store
         )
 
         XCTAssertEqual(reader.name(for: 101), "Inbox")
@@ -161,40 +108,16 @@ final class SpaceStateManagerTests: XCTestCase {
             orderedIDsByDisplay: ["display-a": [101, 102, 103]]
         )
 
-        let writerStateStore = SpaceStateStore()
-        let writerPersistenceCoordinator = SpacePersistenceCoordinator(
-            store: store,
-            stateStore: writerStateStore,
-            labelStore: nil,
-            logger: NoOpLogger()
-        )
-        let writer = SpaceStateManager(
+        let writer = SpaceStateManagerFactory.make(
             cgsBridge: MockCGSBridge(activeSpaceIDValue: 101, managedSnapshotValue: snapshot),
-            stateStore: writerStateStore,
-            persistenceCoordinator: writerPersistenceCoordinator,
-            orderingService: SpaceOrderingService(),
-            nameProvider: SpaceDisplayNameProvider(),
-            snapshotBuilder: SpaceSnapshotBuilder(),
-            logger: NoOpLogger()
+            store: store
         )
         writer.moveDisplayOrder(fromOffsets: IndexSet(integer: 2), toOffset: 0)
         writer.persistNow()
 
-        let readerStateStore = SpaceStateStore()
-        let readerPersistenceCoordinator = SpacePersistenceCoordinator(
-            store: store,
-            stateStore: readerStateStore,
-            labelStore: nil,
-            logger: NoOpLogger()
-        )
-        let reader = SpaceStateManager(
+        let reader = SpaceStateManagerFactory.make(
             cgsBridge: MockCGSBridge(activeSpaceIDValue: 101, managedSnapshotValue: snapshot),
-            stateStore: readerStateStore,
-            persistenceCoordinator: readerPersistenceCoordinator,
-            orderingService: SpaceOrderingService(),
-            nameProvider: SpaceDisplayNameProvider(),
-            snapshotBuilder: SpaceSnapshotBuilder(),
-            logger: NoOpLogger()
+            store: store
         )
 
         XCTAssertTrue(reader.usesCustomDisplayOrder)
@@ -211,24 +134,12 @@ final class SpaceStateManagerTests: XCTestCase {
             )
         )
 
-        let stateStore = SpaceStateStore()
-        let persistenceCoordinator = SpacePersistenceCoordinator(
-            store: store,
-            stateStore: stateStore,
-            labelStore: nil,
-            logger: NoOpLogger()
-        )
-        let repository = SpaceStateManager(
+        let repository = SpaceStateManagerFactory.make(
             cgsBridge: MockCGSBridge(
                 activeSpaceIDValue: nil,
                 managedSnapshotValue: .init(spaces: [], activeByDisplay: [:], orderedIDsByDisplay: [:])
             ),
-            stateStore: stateStore,
-            persistenceCoordinator: persistenceCoordinator,
-            orderingService: SpaceOrderingService(),
-            nameProvider: SpaceDisplayNameProvider(),
-            snapshotBuilder: SpaceSnapshotBuilder(),
-            logger: NoOpLogger()
+            store: store
         )
 
         XCTAssertEqual(repository.name(for: 101), "Inbox")
@@ -253,22 +164,7 @@ final class SpaceStateManagerTests: XCTestCase {
             )
         )
 
-        let stateStore = SpaceStateStore()
-        let persistenceCoordinator = SpacePersistenceCoordinator(
-            store: store,
-            stateStore: stateStore,
-            labelStore: nil,
-            logger: NoOpLogger()
-        )
-        let repository = SpaceStateManager(
-            cgsBridge: bridge,
-            stateStore: stateStore,
-            persistenceCoordinator: persistenceCoordinator,
-            orderingService: SpaceOrderingService(),
-            nameProvider: SpaceDisplayNameProvider(),
-            snapshotBuilder: SpaceSnapshotBuilder(),
-            logger: NoOpLogger()
-        )
+        let repository = SpaceStateManagerFactory.make(cgsBridge: bridge, store: store)
 
         bridge.activeSpaceIDValue = 101
         bridge.managedSnapshotValue = .init(

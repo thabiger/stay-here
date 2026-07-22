@@ -1,5 +1,6 @@
 import XCTest
 import Core
+import TestHelpers
 @testable import StayHereApp
 
 @MainActor
@@ -36,23 +37,7 @@ final class StatusBarControllerTests: XCTestCase {
                 orderedIDsByDisplay: ["Main": [1]]
             )
         )
-        let store = makeIsolatedStore()
-        let stateStore = SpaceStateStore()
-        let persistenceCoordinator = SpacePersistenceCoordinator(
-            store: store,
-            stateStore: stateStore,
-            labelStore: nil,
-            logger: NoOpLogger()
-        )
-        return SpaceStateManager(
-            cgsBridge: bridge,
-            stateStore: stateStore,
-            persistenceCoordinator: persistenceCoordinator,
-            orderingService: SpaceOrderingService(),
-            nameProvider: SpaceDisplayNameProvider(),
-            snapshotBuilder: SpaceSnapshotBuilder(),
-            logger: NoOpLogger()
-        )
+        return SpaceStateManagerFactory.make(cgsBridge: bridge)
     }
 
     func testMenuContainsCheckForUpdatesByDefault() {
@@ -111,13 +96,5 @@ final class StatusBarControllerTests: XCTestCase {
         )
 
         XCTAssertTrue(controller.debugMenuItemTitles.contains("Update Available…"))
-    }
-
-    private func makeIsolatedStore() -> SpaceStore {
-        let fileURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("StatusBarControllerTests")
-            .appendingPathComponent(UUID().uuidString)
-            .appendingPathComponent("spaces.json")
-        return SpaceStore(fileURL: fileURL)
     }
 }

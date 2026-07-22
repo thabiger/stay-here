@@ -1,5 +1,6 @@
 import XCTest
 import Core
+import TestHelpers
 
 @MainActor
 final class RefreshSpacesUseCaseTests: XCTestCase {
@@ -12,22 +13,7 @@ final class RefreshSpacesUseCaseTests: XCTestCase {
                 orderedIDsByDisplay: ["display-b": [201]]
             )
         )
-        let stateStore = SpaceStateStore()
-        let persistenceCoordinator = SpacePersistenceCoordinator(
-            store: makeIsolatedStore(),
-            stateStore: stateStore,
-            labelStore: nil,
-            logger: NoOpLogger()
-        )
-        let repository = SpaceStateManager(
-            cgsBridge: bridge,
-            stateStore: stateStore,
-            persistenceCoordinator: persistenceCoordinator,
-            orderingService: SpaceOrderingService(),
-            nameProvider: SpaceDisplayNameProvider(),
-            snapshotBuilder: SpaceSnapshotBuilder(),
-            logger: NoOpLogger()
-        )
+        let repository = SpaceStateManagerFactory.make(cgsBridge: bridge)
         let useCase = RefreshSpacesUseCase(repository: repository, logger: NoOpLogger())
 
         useCase.refreshNow()
@@ -45,22 +31,7 @@ final class RefreshSpacesUseCaseTests: XCTestCase {
                 orderedIDsByDisplay: ["display-b": [201]]
             )
         )
-        let stateStore = SpaceStateStore()
-        let persistenceCoordinator = SpacePersistenceCoordinator(
-            store: makeIsolatedStore(),
-            stateStore: stateStore,
-            labelStore: nil,
-            logger: NoOpLogger()
-        )
-        let repository = SpaceStateManager(
-            cgsBridge: bridge,
-            stateStore: stateStore,
-            persistenceCoordinator: persistenceCoordinator,
-            orderingService: SpaceOrderingService(),
-            nameProvider: SpaceDisplayNameProvider(),
-            snapshotBuilder: SpaceSnapshotBuilder(),
-            logger: NoOpLogger()
-        )
+        let repository = SpaceStateManagerFactory.make(cgsBridge: bridge)
         let useCase = RefreshSpacesUseCase(repository: repository, logger: NoOpLogger())
 
         useCase.refreshAsync()
@@ -78,22 +49,7 @@ final class RefreshSpacesUseCaseTests: XCTestCase {
                 orderedIDsByDisplay: ["display-a": [101]]
             )
         )
-        let stateStore = SpaceStateStore()
-        let persistenceCoordinator = SpacePersistenceCoordinator(
-            store: makeIsolatedStore(),
-            stateStore: stateStore,
-            labelStore: nil,
-            logger: NoOpLogger()
-        )
-        let repository = SpaceStateManager(
-            cgsBridge: bridge,
-            stateStore: stateStore,
-            persistenceCoordinator: persistenceCoordinator,
-            orderingService: SpaceOrderingService(),
-            nameProvider: SpaceDisplayNameProvider(),
-            snapshotBuilder: SpaceSnapshotBuilder(),
-            logger: NoOpLogger()
-        )
+        let repository = SpaceStateManagerFactory.make(cgsBridge: bridge)
         let useCase = RefreshSpacesUseCase(
             repository: repository,
             refreshRetryLimit: 3,
@@ -115,13 +71,5 @@ final class RefreshSpacesUseCaseTests: XCTestCase {
 
         try? await Task.sleep(nanoseconds: 150_000_000)
         XCTAssertEqual(repository.activeSpaceID, 102)
-    }
-
-    private func makeIsolatedStore() -> SpaceStore {
-        let fileURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("RefreshSpacesUseCaseTests")
-            .appendingPathComponent(UUID().uuidString)
-            .appendingPathComponent("spaces.json")
-        return SpaceStore(fileURL: fileURL)
     }
 }

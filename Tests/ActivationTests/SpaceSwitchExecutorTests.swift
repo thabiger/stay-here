@@ -1,5 +1,6 @@
 import XCTest
 @testable import Core
+import TestHelpers
 
 @MainActor
 final class SpaceSwitchExecutorTests: XCTestCase {
@@ -149,22 +150,7 @@ final class SpaceSwitchExecutorTests: XCTestCase {
         switcherService: SpaceSwitcherService? = nil,
         scheduleRefreshSoon: @escaping () -> Void = {}
     ) -> (SpaceStateManager, SpaceSwitchExecutor) {
-        let stateStore = SpaceStateStore()
-        let persistenceCoordinator = SpacePersistenceCoordinator(
-            store: makeIsolatedStore(),
-            stateStore: stateStore,
-            labelStore: nil,
-            logger: NoOpLogger()
-        )
-        let repository = SpaceStateManager(
-            cgsBridge: bridge,
-            stateStore: stateStore,
-            persistenceCoordinator: persistenceCoordinator,
-            orderingService: SpaceOrderingService(),
-            nameProvider: SpaceDisplayNameProvider(),
-            snapshotBuilder: SpaceSnapshotBuilder(),
-            logger: NoOpLogger()
-        )
+        let repository = SpaceStateManagerFactory.make(cgsBridge: bridge)
         let executor = SpaceSwitchExecutor(
             cgsBridge: bridge,
             repository: repository,
@@ -183,13 +169,5 @@ final class SpaceSwitchExecutorTests: XCTestCase {
             logger: NoOpLogger()
         )
         return (repository, executor)
-    }
-
-    private func makeIsolatedStore() -> SpaceStore {
-        let fileURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("SpaceSwitchExecutorTests")
-            .appendingPathComponent(UUID().uuidString)
-            .appendingPathComponent("spaces.json")
-        return SpaceStore(fileURL: fileURL)
     }
 }

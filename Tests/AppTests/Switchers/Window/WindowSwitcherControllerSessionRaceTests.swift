@@ -3,6 +3,7 @@ import CoreGraphics
 import AppKit
 import Activation
 import Core
+import TestHelpers
 @testable import StayHereApp
 
 private final class LocalMockCGSBridge: CGSBridgeProtocol {
@@ -86,27 +87,7 @@ final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
             activeSpaceIDValue: 100,
             managedSnapshotValue: snapshot
         )
-        let fileURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("WindowSwitcherControllerSessionRaceTests")
-            .appendingPathComponent(UUID().uuidString)
-            .appendingPathComponent("spaces.json")
-        let store = SpaceStore(fileURL: fileURL)
-        let stateStore = SpaceStateStore()
-        let persistenceCoordinator = SpacePersistenceCoordinator(
-            store: store,
-            stateStore: stateStore,
-            labelStore: nil,
-            logger: NoOpLogger()
-        )
-        let repository = SpaceStateManager(
-            cgsBridge: bridge,
-            stateStore: stateStore,
-            persistenceCoordinator: persistenceCoordinator,
-            orderingService: SpaceOrderingService(),
-            nameProvider: SpaceDisplayNameProvider(),
-            snapshotBuilder: SpaceSnapshotBuilder(),
-            logger: NoOpLogger()
-        )
+        let repository = SpaceStateManagerFactory.make(cgsBridge: bridge)
         let refreshSpaces = RefreshSpacesUseCase(repository: repository, logger: NoOpLogger())
         let switchSpace = SwitchSpaceUseCase(cgsBridge: bridge, repository: repository, refreshUseCase: refreshSpaces, logger: NoOpLogger())
         let listProvider = WindowListProvider(

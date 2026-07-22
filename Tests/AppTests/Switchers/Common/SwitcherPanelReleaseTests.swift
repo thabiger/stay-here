@@ -2,6 +2,7 @@ import XCTest
 import AppKit
 import SwiftUI
 import Core
+import TestHelpers
 @testable import StayHereApp
 
 private final class LocalMockCGSBridge: CGSBridgeProtocol {
@@ -22,28 +23,8 @@ private final class LocalMockCGSBridge: CGSBridgeProtocol {
 @MainActor
 final class SwitcherPanelReleaseTests: XCTestCase {
     private func makeSpaceController() -> SpaceSwitcherController {
-        let fileURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("SwitcherPanelReleaseTests-Space")
-            .appendingPathComponent(UUID().uuidString)
-            .appendingPathComponent("spaces.json")
-        let store = SpaceStore(fileURL: fileURL)
         let bridge = LocalMockCGSBridge()
-        let stateStore = SpaceStateStore()
-        let persistenceCoordinator = SpacePersistenceCoordinator(
-            store: store,
-            stateStore: stateStore,
-            labelStore: nil,
-            logger: NoOpLogger()
-        )
-        let registry = SpaceStateManager(
-            cgsBridge: bridge,
-            stateStore: stateStore,
-            persistenceCoordinator: persistenceCoordinator,
-            orderingService: SpaceOrderingService(),
-            nameProvider: SpaceDisplayNameProvider(),
-            snapshotBuilder: SpaceSnapshotBuilder(),
-            logger: NoOpLogger()
-        )
+        let registry = SpaceStateManagerFactory.make(cgsBridge: bridge)
         return SpaceSwitcherController(
             settings: UserDefaultsSettingsRepository(),
             registry: registry,
@@ -52,28 +33,8 @@ final class SwitcherPanelReleaseTests: XCTestCase {
     }
 
     private func makeWindowController() -> WindowSwitcherController {
-        let fileURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("SwitcherPanelReleaseTests-Window")
-            .appendingPathComponent(UUID().uuidString)
-            .appendingPathComponent("spaces.json")
-        let store = SpaceStore(fileURL: fileURL)
         let bridge = LocalMockCGSBridge()
-        let stateStore = SpaceStateStore()
-        let persistenceCoordinator = SpacePersistenceCoordinator(
-            store: store,
-            stateStore: stateStore,
-            labelStore: nil,
-            logger: NoOpLogger()
-        )
-        let repository = SpaceStateManager(
-            cgsBridge: bridge,
-            stateStore: stateStore,
-            persistenceCoordinator: persistenceCoordinator,
-            orderingService: SpaceOrderingService(),
-            nameProvider: SpaceDisplayNameProvider(),
-            snapshotBuilder: SpaceSnapshotBuilder(),
-            logger: NoOpLogger()
-        )
+        let repository = SpaceStateManagerFactory.make(cgsBridge: bridge)
         let refreshSpaces = RefreshSpacesUseCase(repository: repository, logger: NoOpLogger())
         let switchSpace = SwitchSpaceUseCase(cgsBridge: bridge, repository: repository, refreshUseCase: refreshSpaces, logger: NoOpLogger())
         let listProvider = WindowListProvider(

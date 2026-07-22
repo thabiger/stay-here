@@ -2,6 +2,7 @@ import AppKit
 import Core
 import CoreGraphics
 import XCTest
+import TestHelpers
 @testable import StayHereApp
 
 private final class WindowListProviderMockBridge: CGSBridgeProtocol {
@@ -43,27 +44,7 @@ private final class FakeWindowListSettings: WindowSwitcherSettings {
 @MainActor
 final class WindowListProviderTests: XCTestCase {
     private func makeRegistry(bridge: WindowListProviderMockBridge) -> SpaceStateManager {
-        let fileURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("WindowListProviderTests")
-            .appendingPathComponent(UUID().uuidString)
-            .appendingPathComponent("spaces.json")
-        let store = SpaceStore(fileURL: fileURL)
-        let stateStore = SpaceStateStore()
-        let persistenceCoordinator = SpacePersistenceCoordinator(
-            store: store,
-            stateStore: stateStore,
-            labelStore: nil,
-            logger: NoOpLogger()
-        )
-        return SpaceStateManager(
-            cgsBridge: bridge,
-            stateStore: stateStore,
-            persistenceCoordinator: persistenceCoordinator,
-            orderingService: SpaceOrderingService(),
-            nameProvider: SpaceDisplayNameProvider(),
-            snapshotBuilder: SpaceSnapshotBuilder(),
-            logger: NoOpLogger()
-        )
+        SpaceStateManagerFactory.make(cgsBridge: bridge)
     }
 
     private func makeSnapshot() -> CGSBridge.ManagedSnapshot {
