@@ -140,10 +140,6 @@ final class AppRuntimeCoordinator: AppCoordinating {
         spaceObservationCoordinator.bindActiveSpaceChangedHandler { [weak self] in
             guard let self else { return }
 
-            // Refresh the registry so we read up-to-date space data
-            // (the NSWorkspace notification may fire before the poll timer refreshes)
-            self.services.refreshSpaces.refreshNow()
-
             self.statusBarCoordinator.setTitle(self.registry.activeNameSummary())
 
             let activeSpaceID = self.registry.activeSpaceID

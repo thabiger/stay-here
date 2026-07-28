@@ -15,90 +15,14 @@ final class WindowSwitcherController {
     private let windowSwitchUseCase: WindowSwitchUseCase
     private let listProvider: WindowListProvider
 
-    private lazy var coordinator: SwitcherSessionController<WindowSwitcherSession, WindowSwitcherSnapshot, Int> = SwitcherSessionController(configuration: {
-        let panelPresenter = self.panelPresenter
-        let listBuilder = self.listBuilder
-        let recencyTracker = self.recencyTracker
-        return SwitcherConfiguration(
-            shortcutProvider: { [weak self] in
-                self?.shortcutProvider() ?? SpaceSwitcherShortcut(keyCode: 50, modifiers: [.maskCommand])
-            },
-            movesSelectionOnNewSession: false,
-            buildSession: { [weak self] shortcut, trigger in
-                guard let self, let source = self.listBuilder.makeSessionSource() else { return nil }
-                return WindowSwitcherSession(
-                    startingWindowID: source.startingWindowID,
-                    selectedWindowID: source.flatEntries.first?.windowID,
-                    shortcut: shortcut,
-                    spaceGroups: source.spaceGroups,
-                    flatEntries: source.flatEntries,
-                    trigger: trigger
-                )
-            },
-            moveSelection: { session, offset in
-                let entries = session.flatEntries
-                guard !entries.isEmpty else { return }
-                let ids = entries.map(\.windowID)
-                let currentSelection = session.selectedWindowID ?? session.startingWindowID ?? ids.first
-                let nextSelection = offset > 0
-                    ? WindowSwitcherSelection.nextWindowID(currentWindowID: currentSelection, orderedWindowIDs: ids)
-                    : WindowSwitcherSelection.previousWindowID(currentWindowID: currentSelection, orderedWindowIDs: ids)
-                session.selectedWindowID = nextSelection
-            },
-            buildSnapshot: { [weak self] session in
-                self?.listBuilder.buildSnapshot(for: session)
-                    ?? WindowSwitcherSnapshot(
-                        spaceGroups: [],
-                        title: "Window Switcher",
-                        subtitle: "0 windows",
-                        emptyMessage: "No windows",
-                        iconName: "macwindow",
-                        showSpaceLabels: false
-                    )
-            },
-            itemAtPosition: { session, position in
-                guard let session, position > 0, position <= session.flatEntries.count else { return nil }
-                return session.flatEntries[position - 1].windowID
-            },
-            commitSelection: { [weak self] session, windowID in
-                guard let self, let session,
-                      let entry = session.flatEntries.first(where: { $0.windowID == windowID }) else {
-                    return false
-                }
-                self.recencyTracker.recordSelection(windowID, in: session)
-                self.commitSelectedEntry(entry)
-                return true
-            },
-            presentSnapshot: { [weak self] snapshot, actions, updateInfo in
-                self?.panelPresenter.present(
-                    snapshot: snapshot,
-                    onSelect: { entry in actions.onSelect(entry.windowID) },
-                    onFocusLost: {
-                        self?.listProvider.invalidateCache()
-                        actions.onFocusLost?()
-                    },
-                    onCommit: {
-                        self?.listProvider.invalidateCache()
-                        actions.onCommit?()
-                    },
-                    onCancel: {
-                        self?.listProvider.invalidateCache()
-                        actions.onCancel?()
-                    },
-                    onMoveUp: actions.onMoveUp,
-                    onMoveDown: actions.onMoveDown,
-                    updateInfo: updateInfo,
-                    onOpenUpdate: actions.onOpenUpdate
-                )
-            },
-            dismissPanel: { [weak self] in
-                self?.panelPresenter.dismiss()
-            },
-            releasePanel: { [weak self] in
-                self?.panelPresenter.release()
-            }
-        )
-    }())
+    private lazy var coordinator: SwitcherSessionController<WindowSwitcherSession, WindowSwitcherSnapshot, Int> = SwitcherSessionController(
+        delegate: self,
+        panelPresenter: panelPresenter
+    )
+
+    private var pendingCacheRefresh: DispatchWorkItem?
+    private var launchObserver: NSObjectProtocol?
+    private var terminateObserver: NSObjectProtocol?
 
     var panelPair: (window: NSPanel, hosting: NSHostingController<WindowSwitcherView>)? {
         get { panelPresenter.panelPair }
@@ -175,14 +99,57 @@ final class WindowSwitcherController {
     }
 
 
+    deinit {
+        pendingCacheRefresh?.cancel()
+        if let launchObserver { NSWorkspace.shared.notificationCenter.removeObserver(launchObserver) }
+        if let terminateObserver { NSWorkspace.shared.notificationCenter.removeObserver(terminateObserver) }
+    }
+
     var hasActiveSession: Bool { coordinator.hasActiveSession }
 
     func start() {
         coordinator.start()
+        guard mode == .allSpaces else { return }
+        // Warm the all-spaces cache off the critical path so the first menu
+        // open is instant instead of paying the AX/CGS enumeration cost.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            guard let self else { return }
+            _ = listProvider.entriesForAllSpaces()
+        }
+        // Refresh the cache when apps launch or terminate — the most common
+        // window-set changes. Intra-app window open/close is not observable
+        // via public APIs; the sessionDidEnd rebuild catches those.
+        let center = NSWorkspace.shared.notificationCenter
+        launchObserver = center.addObserver(
+            forName: NSWorkspace.didLaunchApplicationNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in self?.scheduleCacheRefresh() }
+        terminateObserver = center.addObserver(
+            forName: NSWorkspace.didTerminateApplicationNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in self?.scheduleCacheRefresh() }
     }
 
     func stop() {
+        pendingCacheRefresh?.cancel()
+        pendingCacheRefresh = nil
+        if let launchObserver { NSWorkspace.shared.notificationCenter.removeObserver(launchObserver); self.launchObserver = nil }
+        if let terminateObserver { NSWorkspace.shared.notificationCenter.removeObserver(terminateObserver); self.terminateObserver = nil }
         coordinator.stop()
+    }
+
+    /// Debounced cache refresh: waiting 2s after the last notification batches
+    /// rapid sequences (e.g. launching a suite of apps at login) into a single
+    /// rebuild.
+    private func scheduleCacheRefresh() {
+        pendingCacheRefresh?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            listProvider.invalidateCache()
+            _ = listProvider.entriesForAllSpaces()
+        }
+        pendingCacheRefresh = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0, execute: work)
     }
 
     internal func handle(event: CGEvent) -> Unmanaged<CGEvent>? {
@@ -197,8 +164,23 @@ final class WindowSwitcherController {
         coordinator.handleFlagsChanged(event: event)
     }
 
-    internal func cancelSession() {
+    /// Invalidate the window-list cache.
+    ///
+    /// The current-space controller clears its cache on every session lifecycle
+    /// event (open/commit/cancel/close) so the next interaction reflects an
+    /// up-to-date per-space listing, which can change as windows switch spaces
+    /// or as the user focuses different apps.
+    ///
+    /// The all-spaces controller also invalidates at session end, but then
+    /// immediately rebuilds the cache in the background so the next menu open
+    /// is fast while still picking up newly created/closed windows.
+    private func invalidateListCache() {
+        guard mode == .currentSpace else { return }
         listProvider.invalidateCache()
+    }
+
+    internal func cancelSession() {
+        invalidateListCache()
         coordinator.cancelSession()
     }
 
@@ -223,7 +205,7 @@ final class WindowSwitcherController {
     }
 
     func commitSwitcherSelection() {
-        listProvider.invalidateCache()
+        invalidateListCache()
         coordinator.commitSwitcherSelection()
     }
 
@@ -232,23 +214,95 @@ final class WindowSwitcherController {
     }
 
     func commitSelection(at position: Int) {
-        listProvider.invalidateCache()
+        invalidateListCache()
         coordinator.commitSelection(at: position)
     }
 
     func closeSwitcher() {
-        listProvider.invalidateCache()
+        invalidateListCache()
         coordinator.closeSwitcher()
     }
 
     private func commitSelectedEntry(_ entry: WindowEntry) {
-        listProvider.invalidateCache()
+        invalidateListCache()
         let previousSpaceID = listProvider.currentContext()?.spaceID
         panelPresenter.dismiss()
         coordinator.closeSwitcher()
 
         Task { @MainActor [weak self] in
             await self?.windowSwitchUseCase.execute(entry: entry, previousSpaceID: previousSpaceID)
+        }
+    }
+}
+
+@MainActor
+extension WindowSwitcherController: @preconcurrency SwitcherSessionDelegate {
+    var movesSelectionOnNewSession: Bool { false }
+
+    func provideShortcut() -> SpaceSwitcherShortcut {
+        shortcutProvider()
+    }
+
+    func buildSession(shortcut: SpaceSwitcherShortcut, trigger: SwitcherSessionTrigger) -> WindowSwitcherSession? {
+        guard let source = listBuilder.makeSessionSource() else { return nil }
+        return WindowSwitcherSession(
+            startingWindowID: source.startingWindowID,
+            selectedWindowID: source.flatEntries.first?.windowID,
+            shortcut: shortcut,
+            spaceGroups: source.spaceGroups,
+            flatEntries: source.flatEntries,
+            trigger: trigger
+        )
+    }
+
+    func moveSelection(in session: inout WindowSwitcherSession, offset: Int) {
+        let entries = session.flatEntries
+        guard !entries.isEmpty else { return }
+        let ids = entries.map(\.windowID)
+        let currentSelection = session.selectedWindowID ?? session.startingWindowID ?? ids.first
+        let nextSelection = offset > 0
+            ? WindowSwitcherSelection.nextWindowID(currentWindowID: currentSelection, orderedWindowIDs: ids)
+            : WindowSwitcherSelection.previousWindowID(currentWindowID: currentSelection, orderedWindowIDs: ids)
+        session.selectedWindowID = nextSelection
+    }
+
+    func buildSnapshot(for session: WindowSwitcherSession?) -> WindowSwitcherSnapshot {
+        listBuilder.buildSnapshot(for: session)
+    }
+
+    func item(at position: Int, in session: WindowSwitcherSession?) -> Int? {
+        guard let session, position > 0, position <= session.flatEntries.count else { return nil }
+        return session.flatEntries[position - 1].windowID
+    }
+
+    func shouldCommit(_ session: WindowSwitcherSession) -> Bool {
+        true
+    }
+
+    func commit(selection windowID: Int, in session: WindowSwitcherSession?) -> Bool {
+        guard let session,
+              let entry = session.flatEntries.first(where: { $0.windowID == windowID }) else {
+            return false
+        }
+        recencyTracker.recordSelection(windowID, in: session)
+        commitSelectedEntry(entry)
+        return true
+    }
+
+    func sessionDidEnd() {
+        // For the current-space controller: cache is cold until the next open,
+        // which is fast anyway (single-space enumeration).
+        if mode == .currentSpace {
+            listProvider.invalidateCache()
+            return
+        }
+        // For the all-spaces controller: invalidate the (now-stale) cache and
+        // immediately rebuild in the background so the next open is instant
+        // while still picking up new/closed windows.
+        listProvider.invalidateCache()
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            _ = listProvider.entriesForAllSpaces()
         }
     }
 }
