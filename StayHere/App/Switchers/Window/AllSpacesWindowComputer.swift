@@ -26,7 +26,7 @@ struct AllSpacesWindowComputer {
     let enumerator: WindowEnumerator
     let filter: WindowFilter
     let titleResolver: WindowTitleResolver
-    let iconProvider: WindowListProvider.IconProvider
+    let iconProvider: WindowListProviderTypes.IconProvider
     let spacesForWindow: (Int) -> [Int]
     let context: AllSpacesWindowComputeContext
 

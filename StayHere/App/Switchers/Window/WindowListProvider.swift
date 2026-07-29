@@ -1,59 +1,81 @@
 import AppKit
-import ApplicationServices
 import Core
 import CoreGraphics
-import UniformTypeIdentifiers
 
 @MainActor
 final class WindowListProvider {
-    // NOTE: these providers are intentionally NOT @MainActor-isolated. Their live
-    // implementations (CGWindowList, AXUIElement, NSRunningApplication, NSWorkspace,
-    // CGS) are all thread-safe, and the all-spaces background refresh path calls
-    // them off the main thread (see refreshAllSpacesCacheInBackground()).
-    typealias WindowInfoProvider = () -> [[String: Any]]?
-    typealias RunningApplicationProvider = (pid_t) -> (any WindowListApplication)?
-    typealias AccessibilityWindowTitlesProvider = (pid_t) -> [Int: String]
-    typealias FocusedWindowIDProvider = () -> Int?
-    typealias IconProvider = ((any WindowListApplication)?) -> NSImage
-
-    private let enumerator: WindowEnumerator
-    private let filter: WindowFilter
-    private let titleResolver: WindowTitleResolver
-    private let iconProvider: IconProvider
+    private let pipeline: WindowListPipeline
+    private let cache: WindowListCache
+    private let refresher: AllSpacesCacheRefresher
     private let grouper: WindowGrouper
     private let registry: any SpaceRegistryProtocol
     private let cgsBridge: any CGSBridgeProtocol
-    private let settings: WindowSwitcherSettings
-    private let focusedWindowIDProvider: FocusedWindowIDProvider
-    private var cachedEntriesContext: WindowSpaceContext?
-    private var cachedEntries: [WindowEntry]?
-    private var cachedAllSpacesEntries: [SpaceWindowGroup]?
+    private let focusedWindowIDProvider: WindowListProviderTypes.FocusedWindowIDProvider
 
     init(
         registry: any SpaceRegistryProtocol,
         cgsBridge: any CGSBridgeProtocol,
         settings: WindowSwitcherSettings,
-        windowInfoProvider: @escaping WindowInfoProvider = WindowListProvider.liveWindowInfoProvider,
-        runningApplicationProvider: @escaping RunningApplicationProvider = WindowListProvider.liveRunningApplicationProvider,
-        accessibilityWindowTitlesProvider: @escaping AccessibilityWindowTitlesProvider = WindowListProvider.liveAccessibilityWindowTitlesProvider,
-        focusedWindowIDProvider: @escaping FocusedWindowIDProvider = WindowListProvider.liveFocusedWindowIDProvider,
-        iconProvider: @escaping IconProvider = WindowListProvider.liveIconProvider
+        windowInfoProvider: @escaping WindowListProviderTypes.WindowInfoProvider = WindowListProviderTypes.liveWindowInfoProvider,
+        runningApplicationProvider: @escaping WindowListProviderTypes.RunningApplicationProvider = WindowListProviderTypes.liveRunningApplicationProvider,
+        accessibilityWindowTitlesProvider: @escaping WindowListProviderTypes.AccessibilityWindowTitlesProvider = WindowListProviderTypes.liveAccessibilityWindowTitlesProvider,
+        focusedWindowIDProvider: @escaping WindowListProviderTypes.FocusedWindowIDProvider = WindowListProviderTypes.liveFocusedWindowIDProvider,
+        iconProvider: @escaping WindowListProviderTypes.IconProvider = WindowListProviderTypes.liveIconProvider
     ) {
         self.registry = registry
         self.cgsBridge = cgsBridge
-        self.settings = settings
         self.focusedWindowIDProvider = focusedWindowIDProvider
 
-        self.enumerator = WindowEnumerator(provider: windowInfoProvider)
-        self.filter = WindowFilter(
+        let enumerator = WindowEnumerator(provider: windowInfoProvider)
+        let filter = WindowFilter(
             settings: settings,
             runningApplicationProvider: runningApplicationProvider,
             spacesForWindow: { windowID in
                 cgsBridge.spacesForWindow(windowID: windowID)
             }
         )
-        self.titleResolver = WindowTitleResolver(titleProvider: accessibilityWindowTitlesProvider)
-        self.iconProvider = iconProvider
+        let titleResolver = WindowTitleResolver(titleProvider: accessibilityWindowTitlesProvider)
+
+        self.pipeline = WindowListPipeline(
+            enumerator: enumerator,
+            filter: filter,
+            titleResolver: titleResolver,
+            iconProvider: iconProvider
+        )
+
+        self.cache = WindowListCache()
+
+        self.refresher = AllSpacesCacheRefresher(
+            computerFactory: { [weak registry, cgsBridge, enumerator, filter, titleResolver, iconProvider] in
+                let orderedIDs = registry?.orderedSpaceIDs() ?? []
+                let spaces = registry?.spaces ?? []
+                var names: [Int: String] = [:]
+                var labels: [Int: String] = [:]
+                for spaceID in orderedIDs {
+                    names[spaceID] = registry?.name(for: spaceID) ?? SpaceDisplayNameProvider.defaultUnnamedName
+                    labels[spaceID] = registry?.namespaceLabel(for: spaceID) ?? ""
+                }
+                let context = AllSpacesWindowComputeContext(
+                    currentSpaceID: cgsBridge.activeSpaceID() ?? registry?.activeSpaceID ?? -1,
+                    orderedSpaceIDs: orderedIDs,
+                    spacesByID: Dictionary(uniqueKeysWithValues: spaces.map { ($0.id, $0) }),
+                    spaceNames: names,
+                    namespaceLabels: labels
+                )
+                return AllSpacesWindowComputer(
+                    enumerator: enumerator,
+                    filter: filter,
+                    titleResolver: titleResolver,
+                    iconProvider: iconProvider,
+                    spacesForWindow: { windowID in cgsBridge.spacesForWindow(windowID: windowID) },
+                    context: context
+                )
+            },
+            onCompletion: { [weak cache] groups in
+                cache?.updateAllSpaces(with: groups)
+            }
+        )
+
         self.grouper = WindowGrouper(
             orderedSpaceIDs: { [weak registry] in registry?.orderedSpaceIDs() ?? [] },
             spacesByID: { [weak registry] in
@@ -90,28 +112,15 @@ final class WindowListProvider {
     }
 
     func entries(in context: WindowSpaceContext) -> [WindowEntry] {
-        if cachedEntriesContext == context, let cached = cachedEntries {
+        if let cached = cache.perSpaceHit(for: context) {
             return cached
         }
 
-        let rawWindows = enumerator.enumerate()
+        let rawWindows = pipeline.enumerator.enumerate()
         let filterContext = FilterContext(spaceID: context.spaceID, desktopNumber: context.desktopNumber)
-        let filtered = filter.filter(rawWindows, in: filterContext)
+        let entries = pipeline.buildEntries(from: rawWindows, in: filterContext)
 
-        let withTitles = titleResolver.resolveTitles(for: filtered) { _ in nil }
-
-        let entries = withTitles.map { window in
-            WindowEntry(
-                windowID: window.windowID,
-                pid: window.pid,
-                appName: window.appName,
-                windowTitle: window.windowTitle,
-                icon: iconProvider(filtered.first(where: { $0.windowID == window.windowID })?.application)
-            )
-        }
-
-        cachedEntriesContext = context
-        cachedEntries = entries
+        cache.updatePerSpace(with: entries, context: context)
         return entries
     }
 
@@ -120,134 +129,24 @@ final class WindowListProvider {
     }
 
     func entriesForAllSpaces() -> [SpaceWindowGroup] {
-        if let cached = cachedAllSpacesEntries {
+        if let cached = cache.allSpacesHit() {
             return cached
         }
 
-        let rawWindows = enumerator.enumerate()
+        let rawWindows = pipeline.enumerator.enumerate()
         let currentSpaceID = cgsBridge.activeSpaceID() ?? registry.activeSpaceID ?? -1
-        let filtered = filter.filterForAllSpaces(rawWindows, currentSpaceID: currentSpaceID)
-
-        let withTitles = titleResolver.resolveTitles(for: filtered) { _ in nil }
-
-        let entries = withTitles.map { window in
-            WindowEntry(
-                windowID: window.windowID,
-                pid: window.pid,
-                appName: window.appName,
-                windowTitle: window.windowTitle,
-                icon: iconProvider(filtered.first(where: { $0.windowID == window.windowID })?.application)
-            )
-        }
+        let entries = pipeline.buildEntriesForAllSpaces(from: rawWindows, currentSpaceID: currentSpaceID)
 
         let groups = grouper.groupWindows(entries)
-        cachedAllSpacesEntries = groups
+        cache.updateAllSpaces(with: groups)
         return groups
     }
 
     func invalidateCache() {
-        cachedEntriesContext = nil
-        cachedEntries = nil
-        cachedAllSpacesEntries = nil
+        cache.invalidate()
     }
 
-    // MARK: - All-spaces background refresh
-
-    private var allSpacesRefreshInFlight = false
-    private var allSpacesRefreshPending = false
-
-    /// Rebuilds `cachedAllSpacesEntries` on a background queue and swaps it in
-    /// on completion. The previous (last-good) snapshot keeps serving
-    /// `entriesForAllSpaces()` reads while the refresh runs, so the switcher
-    /// menu never blocks on the 2–4s AX/CGS enumeration. Concurrent requests
-    /// are coalesced via the pending flag.
     func refreshAllSpacesCacheInBackground() {
-        if allSpacesRefreshInFlight {
-            allSpacesRefreshPending = true
-            return
-        }
-        allSpacesRefreshInFlight = true
-
-        let computer = AllSpacesWindowComputer(
-            enumerator: enumerator,
-            filter: filter,
-            titleResolver: titleResolver,
-            iconProvider: iconProvider,
-            spacesForWindow: { [cgsBridge] windowID in cgsBridge.spacesForWindow(windowID: windowID) },
-            context: makeAllSpacesComputeContext()
-        )
-
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let groups = computer.compute()
-            DispatchQueue.main.async { [weak self] in
-                MainActor.assumeIsolated {
-                    guard let self else { return }
-                    self.cachedAllSpacesEntries = groups
-                    self.allSpacesRefreshInFlight = false
-                    if self.allSpacesRefreshPending {
-                        self.allSpacesRefreshPending = false
-                        self.refreshAllSpacesCacheInBackground()
-                    }
-                }
-            }
-        }
-    }
-
-    private func makeAllSpacesComputeContext() -> AllSpacesWindowComputeContext {
-        let orderedIDs = registry.orderedSpaceIDs()
-        let spaces = registry.spaces
-        var names: [Int: String] = [:]
-        var labels: [Int: String] = [:]
-        for spaceID in orderedIDs {
-            names[spaceID] = registry.name(for: spaceID)
-            labels[spaceID] = registry.namespaceLabel(for: spaceID)
-        }
-        return AllSpacesWindowComputeContext(
-            currentSpaceID: cgsBridge.activeSpaceID() ?? registry.activeSpaceID ?? -1,
-            orderedSpaceIDs: orderedIDs,
-            spacesByID: Dictionary(uniqueKeysWithValues: spaces.map { ($0.id, $0) }),
-            spaceNames: names,
-            namespaceLabels: labels
-        )
-    }
-
-    private nonisolated static func liveWindowInfoProvider() -> [[String: Any]]? {
-        CGWindowListCopyWindowInfo(.optionAll, kCGNullWindowID) as? [[String: Any]]
-    }
-
-    private nonisolated static func liveRunningApplicationProvider(pid: pid_t) -> (any WindowListApplication)? {
-        NSRunningApplication(processIdentifier: pid)
-    }
-
-    private nonisolated static func liveAccessibilityWindowTitlesProvider(pid: pid_t) -> [Int: String] {
-        WindowTitleResolver.live(pid: pid)
-    }
-
-    private nonisolated static func liveFocusedWindowIDProvider() -> Int? {
-        let systemWideElement = AXUIElementCreateSystemWide()
-        var windowRef: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(
-            systemWideElement,
-            kAXFocusedWindowAttribute as CFString,
-            &windowRef
-        ) == .success,
-              let window = windowRef else {
-            return nil
-        }
-
-        var numberRef: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(
-            window as! AXUIElement,
-            "AXWindowNumber" as CFString,
-            &numberRef
-        ) == .success,
-              let number = numberRef as? NSNumber else {
-            return nil
-        }
-        return number.intValue
-    }
-
-    private nonisolated static func liveIconProvider(application: (any WindowListApplication)?) -> NSImage {
-        WindowIconProvider().icon(for: application)
+        refresher.refresh()
     }
 }
