@@ -11,7 +11,7 @@ enum WindowSpaceGrouping {
         spacesForWindow: (Int) -> [Int],
         nameProvider: (Int) -> String,
         namespaceLabelProvider: (Int) -> String
-    ) -> [WindowListProvider.SpaceWindowGroup] {
+    ) -> [SpaceWindowGroup] {
         var windowsBySpace: [Int: [WindowEntry]] = [:]
 
         for window in windows {
@@ -22,7 +22,7 @@ enum WindowSpaceGrouping {
             }
         }
 
-        var groups: [WindowListProvider.SpaceWindowGroup] = []
+        var groups: [SpaceWindowGroup] = []
         for spaceID in orderedSpaceIDs {
             guard let entries = windowsBySpace[spaceID], !entries.isEmpty else { continue }
             let space = spacesByID[spaceID]
@@ -36,7 +36,7 @@ enum WindowSpaceGrouping {
             } else {
                 displayLabel = namespaceLabelProvider(spaceID)
             }
-            groups.append(WindowListProvider.SpaceWindowGroup(
+            groups.append(SpaceWindowGroup(
                 spaceID: spaceID,
                 spaceLabel: displayLabel,
                 entries: entries
@@ -69,7 +69,7 @@ final class WindowGrouper {
         self.namespaceLabelProvider = namespaceLabelProvider
     }
 
-    func groupWindows(_ windows: [WindowEntry]) -> [WindowListProvider.SpaceWindowGroup] {
+    func groupWindows(_ windows: [WindowEntry]) -> [SpaceWindowGroup] {
         WindowSpaceGrouping.groupWindows(
             windows,
             orderedSpaceIDs: orderedSpaceIDs(),

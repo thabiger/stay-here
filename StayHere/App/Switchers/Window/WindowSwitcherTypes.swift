@@ -13,6 +13,12 @@ struct WindowSpaceContext: Equatable {
     let desktopNumber: Int?
 }
 
+struct SpaceWindowGroup {
+    let spaceID: Int
+    let spaceLabel: String
+    let entries: [WindowEntry]
+}
+
 struct WindowSwitcherItem: Identifiable {
     let id: Int
     let icon: NSImage

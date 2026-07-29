@@ -30,7 +30,7 @@ struct AllSpacesWindowComputer {
     let spacesForWindow: (Int) -> [Int]
     let context: AllSpacesWindowComputeContext
 
-    func compute() -> [WindowListProvider.SpaceWindowGroup] {
+    func compute() -> [SpaceWindowGroup] {
         let rawWindows = enumerator.enumerate()
         let filtered = filter.filterForAllSpaces(rawWindows, currentSpaceID: context.currentSpaceID)
 

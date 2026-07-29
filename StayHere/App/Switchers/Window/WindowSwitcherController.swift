@@ -37,7 +37,7 @@ final class WindowSwitcherController {
         coordinator.testSession?.spaceGroups.first?.spaceID
     }
 
-    internal var testSessionSpaceGroups: [WindowListProvider.SpaceWindowGroup]? {
+    internal var testSessionSpaceGroups: [SpaceWindowGroup]? {
         coordinator.testSession?.spaceGroups
     }
 

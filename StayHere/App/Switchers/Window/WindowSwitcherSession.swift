@@ -4,7 +4,7 @@ import Foundation
 protocol WindowSwitcherSessionProtocol: SwitcherSession where Selection == Int {
     var startingWindowID: Int? { get }
     var selectedWindowID: Int? { get set }
-    var spaceGroups: [WindowListProvider.SpaceWindowGroup] { get }
+    var spaceGroups: [SpaceWindowGroup] { get }
     var flatEntries: [WindowEntry] { get }
 }
 
@@ -23,7 +23,7 @@ struct WindowSwitcherSession: WindowSwitcherSessionProtocol {
     let startingWindowID: Int?
     var selectedWindowID: Int?
     let shortcut: SpaceSwitcherShortcut
-    let spaceGroups: [WindowListProvider.SpaceWindowGroup]
+    let spaceGroups: [SpaceWindowGroup]
     let flatEntries: [WindowEntry]
     let trigger: SwitcherSessionTrigger
 }

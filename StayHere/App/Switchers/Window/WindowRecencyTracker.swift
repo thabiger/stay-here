@@ -4,8 +4,8 @@ final class WindowRecencyTracker {
     private(set) var recentWindowIDs: [Int] = []
 
     func orderedEntriesAndGroups(
-        from spaceGroups: [WindowListProvider.SpaceWindowGroup]
-    ) -> (entries: [WindowEntry], groups: [WindowListProvider.SpaceWindowGroup]) {
+        from spaceGroups: [SpaceWindowGroup]
+    ) -> (entries: [WindowEntry], groups: [SpaceWindowGroup]) {
         let groups = recentEntries(from: spaceGroups)
         return (groups.flatMap(\.entries), groups)
     }
@@ -32,7 +32,7 @@ final class WindowRecencyTracker {
         }
     }
 
-    private func recentEntries(from spaceGroups: [WindowListProvider.SpaceWindowGroup]) -> [WindowListProvider.SpaceWindowGroup] {
+    private func recentEntries(from spaceGroups: [SpaceWindowGroup]) -> [SpaceWindowGroup] {
         let allEntries = spaceGroups.flatMap(\.entries)
         guard !allEntries.isEmpty else {
             recentWindowIDs = []
@@ -80,7 +80,7 @@ final class WindowRecencyTracker {
             guard let sorted = recencyBySpaceID[spaceID], !sorted.isEmpty,
                   let original = spaceGroups.first(where: { $0.spaceID == spaceID })
             else { return nil }
-            return WindowListProvider.SpaceWindowGroup(
+            return SpaceWindowGroup(
                 spaceID: spaceID,
                 spaceLabel: original.spaceLabel,
                 entries: sorted

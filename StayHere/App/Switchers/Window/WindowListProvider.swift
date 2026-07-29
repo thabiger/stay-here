@@ -6,12 +6,6 @@ import UniformTypeIdentifiers
 
 @MainActor
 final class WindowListProvider {
-    struct SpaceWindowGroup {
-        let spaceID: Int
-        let spaceLabel: String
-        let entries: [WindowEntry]
-    }
-
     // NOTE: these providers are intentionally NOT @MainActor-isolated. Their live
     // implementations (CGWindowList, AXUIElement, NSRunningApplication, NSWorkspace,
     // CGS) are all thread-safe, and the all-spaces background refresh path calls

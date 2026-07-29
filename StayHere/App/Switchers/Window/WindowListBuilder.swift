@@ -2,7 +2,7 @@ import AppKit
 import Core
 
 struct WindowSwitcherSessionSource {
-    let spaceGroups: [WindowListProvider.SpaceWindowGroup]
+    let spaceGroups: [SpaceWindowGroup]
     let flatEntries: [WindowEntry]
     let startingWindowID: Int?
 }
@@ -52,7 +52,7 @@ final class WindowListBuilder {
 
         let sessionOrdered = WindowSwitcherSelection.sessionOrder(fromRecentEntries: adjustedEntries)
 
-        let finalGroups: [WindowListProvider.SpaceWindowGroup]
+        let finalGroups: [SpaceWindowGroup]
         if mode == .currentSpace, recencyGroups.isEmpty, spaceGroups.count == 1 {
             finalGroups = spaceGroups
         } else {
@@ -132,13 +132,13 @@ final class WindowListBuilder {
         )
     }
 
-    private func fetchSpaceGroups() -> [WindowListProvider.SpaceWindowGroup]? {
+    private func fetchSpaceGroups() -> [SpaceWindowGroup]? {
         switch mode {
         case .currentSpace:
             guard let context = listProvider.currentContext() else { return nil }
             let entries = listProvider.entries(in: context)
             let label = registry.name(for: context.spaceID)
-            return [WindowListProvider.SpaceWindowGroup(
+            return [SpaceWindowGroup(
                 spaceID: context.spaceID,
                 spaceLabel: label,
                 entries: entries
@@ -173,8 +173,8 @@ final class WindowListBuilder {
 
     private static func spaceGroups(
         from orderedEntries: [WindowEntry],
-        using sortedGroups: [WindowListProvider.SpaceWindowGroup]
-    ) -> [WindowListProvider.SpaceWindowGroup] {
+        using sortedGroups: [SpaceWindowGroup]
+    ) -> [SpaceWindowGroup] {
         var entriesBySpace: [Int: [WindowEntry]] = [:]
         var spaceOrder: [Int] = []
         var seenSpaces: Set<Int> = []
@@ -195,7 +195,7 @@ final class WindowListBuilder {
             guard let entries = entriesBySpace[spaceID], !entries.isEmpty,
                   let original = sortedGroups.first(where: { $0.spaceID == spaceID })
             else { return nil }
-            return WindowListProvider.SpaceWindowGroup(
+            return SpaceWindowGroup(
                 spaceID: spaceID,
                 spaceLabel: original.spaceLabel,
                 entries: entries
