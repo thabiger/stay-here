@@ -110,11 +110,11 @@ final class WindowSwitcherController {
     func start() {
         coordinator.start()
         guard mode == .allSpaces else { return }
-        // Warm the all-spaces cache off the critical path so the first menu
-        // open is instant instead of paying the AX/CGS enumeration cost.
+        // Warm the all-spaces cache off the main thread so the first menu open
+        // is instant without blocking the app right after launch.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
             guard let self else { return }
-            _ = listProvider.entriesForAllSpaces()
+            listProvider.refreshAllSpacesCacheInBackground()
         }
         // Refresh the cache when apps launch or terminate — the most common
         // window-set changes. Intra-app window open/close is not observable
@@ -123,11 +123,15 @@ final class WindowSwitcherController {
         launchObserver = center.addObserver(
             forName: NSWorkspace.didLaunchApplicationNotification,
             object: nil, queue: .main
-        ) { [weak self] _ in self?.scheduleCacheRefresh() }
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.scheduleCacheRefresh() }
+        }
         terminateObserver = center.addObserver(
             forName: NSWorkspace.didTerminateApplicationNotification,
             object: nil, queue: .main
-        ) { [weak self] _ in self?.scheduleCacheRefresh() }
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.scheduleCacheRefresh() }
+        }
     }
 
     func stop() {
@@ -145,8 +149,7 @@ final class WindowSwitcherController {
         pendingCacheRefresh?.cancel()
         let work = DispatchWorkItem { [weak self] in
             guard let self else { return }
-            listProvider.invalidateCache()
-            _ = listProvider.entriesForAllSpaces()
+            listProvider.refreshAllSpacesCacheInBackground()
         }
         pendingCacheRefresh = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0, execute: work)
@@ -296,13 +299,9 @@ extension WindowSwitcherController: @preconcurrency SwitcherSessionDelegate {
             listProvider.invalidateCache()
             return
         }
-        // For the all-spaces controller: invalidate the (now-stale) cache and
-        // immediately rebuild in the background so the next open is instant
-        // while still picking up new/closed windows.
-        listProvider.invalidateCache()
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            _ = listProvider.entriesForAllSpaces()
-        }
+        // For the all-spaces controller: refresh the cache off-main. The
+        // last-good snapshot keeps serving reads while the rebuild runs, so
+        // a quick second invocation never blocks behind the AX/CGS work.
+        listProvider.refreshAllSpacesCacheInBackground()
     }
 }

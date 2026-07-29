@@ -208,4 +208,58 @@ final class WindowListProviderTests: XCTestCase {
         XCTAssertEqual(entry.windowTitle, "Today")
         XCTAssertTrue(entry.icon === icon)
     }
+
+    // MARK: - All-spaces background refresh
+
+    private func waitForMainQueue(timeout: TimeInterval = 1.0) {
+        let exp = expectation(description: "main-queue-drain")
+        DispatchQueue.main.async { exp.fulfill() }
+        wait(for: [exp], timeout: timeout)
+    }
+
+    private func makeAllSpacesProvider(
+        enumerateCount: UnsafeMutablePointer<Int>? = nil
+    ) -> WindowListProvider {
+        let bridge = WindowListProviderMockBridge(
+            managedSnapshotValue: makeSnapshot(),
+            spacesForWindowValues: [1: [100]]
+        )
+        return makeProvider(
+            bridge: bridge,
+            windowInfo: {
+                enumerateCount?.pointee += 1
+                return [self.makeWindow(pid: 10, windowID: 1)]
+            }
+        )
+    }
+
+    func testRefreshAllSpacesCacheInBackgroundPopulatesCacheWithoutInlineBuild() {
+        let enumerateCount = UnsafeMutablePointer<Int>.allocate(capacity: 1)
+        enumerateCount.initialize(to: 0)
+        defer { enumerateCount.deallocate() }
+        let provider = makeAllSpacesProvider(enumerateCount: enumerateCount)
+
+        provider.refreshAllSpacesCacheInBackground()
+        for _ in 0..<10 { waitForMainQueue() }
+
+        let groups = provider.entriesForAllSpaces()
+        XCTAssertEqual(groups.flatMap(\.entries).map(\.windowID), [1])
+        XCTAssertEqual(enumerateCount.pointee, 1, "the background refresh should be the only enumeration")
+    }
+
+    func testRefreshAllSpacesCacheInBackgroundCoalescesConcurrentCalls() {
+        let enumerateCount = UnsafeMutablePointer<Int>.allocate(capacity: 1)
+        enumerateCount.initialize(to: 0)
+        defer { enumerateCount.deallocate() }
+        let provider = makeAllSpacesProvider(enumerateCount: enumerateCount)
+
+        provider.refreshAllSpacesCacheInBackground()
+        provider.refreshAllSpacesCacheInBackground()
+        for _ in 0..<20 { waitForMainQueue() }
+
+        XCTAssertEqual(
+            enumerateCount.pointee, 2,
+            "second request while in flight must coalesce into exactly one follow-up refresh"
+        )
+    }
 }
