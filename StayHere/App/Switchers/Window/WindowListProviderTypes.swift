@@ -21,6 +21,7 @@ enum WindowListProviderTypes {
         WindowTitleResolver.live(pid: pid)
     }
 
+    /// Must only be called from the main actor. AXUIElement is not thread-safe.
     static nonisolated func liveFocusedWindowIDProvider() -> Int? {
         let systemWideElement = AXUIElementCreateSystemWide()
         var windowRef: CFTypeRef?

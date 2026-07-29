@@ -1,3 +1,4 @@
+import Foundation
 import ApplicationServices
 
 typealias AccessibilityWindowTitlesProvider = (pid_t) -> [Int: String]
@@ -11,6 +12,8 @@ struct WindowWithTitle {
 
 final class WindowTitleResolver {
     typealias TitleProvider = (pid_t) -> [Int: String]
+
+    private static let axQueue = DispatchQueue(label: "com.stayhere.ax-title-resolver")
 
     private let titleProvider: TitleProvider
 
@@ -55,7 +58,8 @@ final class WindowTitleResolver {
     }
 
     static func live(pid: pid_t) -> [Int: String] {
-        let appElement = AXUIElementCreateApplication(pid)
+        Self.axQueue.sync {
+            let appElement = AXUIElementCreateApplication(pid)
         var windowsRef: CFTypeRef?
         guard AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &windowsRef) == .success,
               let windows = windowsRef as? [AXUIElement],
@@ -79,5 +83,6 @@ final class WindowTitleResolver {
             titles[number.intValue] = trimmed
         }
         return titles
+        }
     }
 }

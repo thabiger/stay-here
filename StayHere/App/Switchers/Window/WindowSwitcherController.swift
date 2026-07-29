@@ -101,6 +101,9 @@ final class WindowSwitcherController {
 
     deinit {
         pendingCacheRefresh?.cancel()
+        DispatchQueue.main.async { [listProvider] in
+            listProvider.cancelAllSpacesRefresh()
+        }
         if let launchObserver { NSWorkspace.shared.notificationCenter.removeObserver(launchObserver) }
         if let terminateObserver { NSWorkspace.shared.notificationCenter.removeObserver(terminateObserver) }
     }
@@ -111,11 +114,9 @@ final class WindowSwitcherController {
         coordinator.start()
         guard mode == .allSpaces else { return }
         // Warm the all-spaces cache off the main thread so the first menu open
-        // is instant without blocking the app right after launch.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
-            guard let self else { return }
-            listProvider.refreshAllSpacesCacheInBackground()
-        }
+        // is instant. The background thread prevents UI blocking, so fire
+        // immediately rather than waiting.
+        listProvider.refreshAllSpacesCacheInBackground()
         // Refresh the cache when apps launch or terminate — the most common
         // window-set changes. Intra-app window open/close is not observable
         // via public APIs; the sessionDidEnd rebuild catches those.
@@ -137,6 +138,7 @@ final class WindowSwitcherController {
     func stop() {
         pendingCacheRefresh?.cancel()
         pendingCacheRefresh = nil
+        listProvider.cancelAllSpacesRefresh()
         if let launchObserver { NSWorkspace.shared.notificationCenter.removeObserver(launchObserver); self.launchObserver = nil }
         if let terminateObserver { NSWorkspace.shared.notificationCenter.removeObserver(terminateObserver); self.terminateObserver = nil }
         coordinator.stop()

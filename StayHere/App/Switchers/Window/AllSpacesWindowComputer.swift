@@ -10,11 +10,16 @@ struct AllSpacesWindowComputeContext {
     let spacesByID: [Int: SpaceIdentity]
     let spaceNames: [Int: String]
     let namespaceLabels: [Int: String]
+    /// Settings snapshotted on the main actor so the background path never
+    /// reads the shared mutable `WindowFilter.settings` reference.
+    let showHiddenWindows: Bool
+    let showMinimizedWindows: Bool
 }
 
-/// All members are stateless and thread-safe by design (CGWindowList / AX /
-/// NSRunningApplication / NSWorkspace / CGS calls), so crossing to a background
-/// queue is safe despite the compiler being unable to verify Sendability.
+/// All members are stateless. AX calls (via `titleResolver`) are serialized
+/// through a dedicated queue inside `WindowTitleResolver.live(pid:)`, so crossing
+/// to a background queue is safe despite the compiler being unable to verify
+/// Sendability.
 extension AllSpacesWindowComputer: @unchecked Sendable {}
 
 /// Non-isolated computer for the all-spaces window list. All referenced helpers
@@ -32,9 +37,18 @@ struct AllSpacesWindowComputer {
 
     func compute() -> [SpaceWindowGroup] {
         let rawWindows = enumerator.enumerate()
-        let filtered = filter.filterForAllSpaces(rawWindows, currentSpaceID: context.currentSpaceID)
+        let filtered = filter.filterForAllSpaces(
+            rawWindows,
+            currentSpaceID: context.currentSpaceID,
+            showHiddenWindows: context.showHiddenWindows,
+            showMinimizedWindows: context.showMinimizedWindows
+        )
 
         let withTitles = titleResolver.resolveTitles(for: filtered) { _ in nil }
+
+        let preResolvedSpaceIDs = Dictionary(
+            uniqueKeysWithValues: filtered.map { ($0.windowID, $0.spaceIDs) }
+        )
 
         let entries = withTitles.map { window in
             WindowEntry(
@@ -52,7 +66,8 @@ struct AllSpacesWindowComputer {
             spacesByID: context.spacesByID,
             spacesForWindow: spacesForWindow,
             nameProvider: { context.spaceNames[$0] ?? SpaceDisplayNameProvider.defaultUnnamedName },
-            namespaceLabelProvider: { context.namespaceLabels[$0] ?? "" }
+            namespaceLabelProvider: { context.namespaceLabels[$0] ?? "" },
+            preResolvedSpaceIDs: preResolvedSpaceIDs
         )
     }
 }

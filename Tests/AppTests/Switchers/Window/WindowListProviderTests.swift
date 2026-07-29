@@ -211,12 +211,6 @@ final class WindowListProviderTests: XCTestCase {
 
     // MARK: - All-spaces background refresh
 
-    private func waitForMainQueue(timeout: TimeInterval = 1.0) {
-        let exp = expectation(description: "main-queue-drain")
-        DispatchQueue.main.async { exp.fulfill() }
-        wait(for: [exp], timeout: timeout)
-    }
-
     private func makeAllSpacesProvider(
         enumerateCount: UnsafeMutablePointer<Int>? = nil
     ) -> WindowListProvider {
@@ -233,21 +227,21 @@ final class WindowListProviderTests: XCTestCase {
         )
     }
 
-    func testRefreshAllSpacesCacheInBackgroundPopulatesCacheWithoutInlineBuild() {
+    func testRefreshAllSpacesCacheInBackgroundPopulatesCacheWithoutInlineBuild() async {
         let enumerateCount = UnsafeMutablePointer<Int>.allocate(capacity: 1)
         enumerateCount.initialize(to: 0)
         defer { enumerateCount.deallocate() }
         let provider = makeAllSpacesProvider(enumerateCount: enumerateCount)
 
         provider.refreshAllSpacesCacheInBackground()
-        for _ in 0..<10 { waitForMainQueue() }
+        await provider.waitForAllSpacesRefresh()
 
         let groups = provider.entriesForAllSpaces()
         XCTAssertEqual(groups.flatMap(\.entries).map(\.windowID), [1])
         XCTAssertEqual(enumerateCount.pointee, 1, "the background refresh should be the only enumeration")
     }
 
-    func testRefreshAllSpacesCacheInBackgroundCoalescesConcurrentCalls() {
+    func testRefreshAllSpacesCacheInBackgroundCoalescesConcurrentCalls() async {
         let enumerateCount = UnsafeMutablePointer<Int>.allocate(capacity: 1)
         enumerateCount.initialize(to: 0)
         defer { enumerateCount.deallocate() }
@@ -255,7 +249,7 @@ final class WindowListProviderTests: XCTestCase {
 
         provider.refreshAllSpacesCacheInBackground()
         provider.refreshAllSpacesCacheInBackground()
-        for _ in 0..<20 { waitForMainQueue() }
+        await provider.waitForAllSpacesRefresh()
 
         XCTAssertEqual(
             enumerateCount.pointee, 2,

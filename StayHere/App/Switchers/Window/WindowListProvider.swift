@@ -46,7 +46,7 @@ final class WindowListProvider {
         self.cache = WindowListCache()
 
         self.refresher = AllSpacesCacheRefresher(
-            computerFactory: { [weak registry, cgsBridge, enumerator, filter, titleResolver, iconProvider] in
+            computerFactory: { [weak registry, cgsBridge, enumerator, filter, titleResolver, iconProvider, settings] in
                 let orderedIDs = registry?.orderedSpaceIDs() ?? []
                 let spaces = registry?.spaces ?? []
                 var names: [Int: String] = [:]
@@ -60,7 +60,9 @@ final class WindowListProvider {
                     orderedSpaceIDs: orderedIDs,
                     spacesByID: Dictionary(uniqueKeysWithValues: spaces.map { ($0.id, $0) }),
                     spaceNames: names,
-                    namespaceLabels: labels
+                    namespaceLabels: labels,
+                    showHiddenWindows: settings.windowSwitcherShowHiddenWindows,
+                    showMinimizedWindows: settings.windowSwitcherShowMinimizedWindows
                 )
                 return AllSpacesWindowComputer(
                     enumerator: enumerator,
@@ -71,8 +73,11 @@ final class WindowListProvider {
                     context: context
                 )
             },
-            onCompletion: { [weak cache] groups in
-                cache?.updateAllSpaces(with: groups)
+            onCompletion: { [weak cache] groups, generation in
+                cache?.updateAllSpaces(with: groups, generation: generation)
+            },
+            generationProvider: { [weak cache] in
+                cache?.cacheGeneration ?? 0
             }
         )
 
@@ -138,7 +143,10 @@ final class WindowListProvider {
         let entries = pipeline.buildEntriesForAllSpaces(from: rawWindows, currentSpaceID: currentSpaceID)
 
         let groups = grouper.groupWindows(entries)
-        cache.updateAllSpaces(with: groups)
+        // Note: Direct inline build bypasses generation check. Only the
+        // background refresh path uses the generation counter to protect
+        // against stale completions post-invalidation.
+        cache.updateAllSpaces(with: groups, generation: cache.cacheGeneration)
         return groups
     }
 
@@ -148,5 +156,13 @@ final class WindowListProvider {
 
     func refreshAllSpacesCacheInBackground() {
         refresher.refresh()
+    }
+
+    func cancelAllSpacesRefresh() {
+        refresher.cancel()
+    }
+
+    func waitForAllSpacesRefresh() async {
+        await refresher.waitForIdle()
     }
 }

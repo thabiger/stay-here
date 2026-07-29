@@ -10,12 +10,13 @@ enum WindowSpaceGrouping {
         spacesByID: [Int: SpaceIdentity],
         spacesForWindow: (Int) -> [Int],
         nameProvider: (Int) -> String,
-        namespaceLabelProvider: (Int) -> String
+        namespaceLabelProvider: (Int) -> String,
+        preResolvedSpaceIDs: [Int: [Int]] = [:]
     ) -> [SpaceWindowGroup] {
         var windowsBySpace: [Int: [WindowEntry]] = [:]
 
         for window in windows {
-            let spaceIDs = spacesForWindow(window.windowID)
+            let spaceIDs = preResolvedSpaceIDs[window.windowID] ?? spacesForWindow(window.windowID)
             if let primarySpaceID = spaceIDs.first(where: { orderedSpaceIDs.contains($0) })
                 ?? spaceIDs.first {
                 windowsBySpace[primarySpaceID, default: []].append(window)
