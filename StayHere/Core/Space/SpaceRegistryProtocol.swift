@@ -12,8 +12,6 @@ public protocol SpaceRegistryProtocol: AnyObject {
     var spaces: [SpaceIdentity] { get }
     var activeSpaceID: Int? { get }
     var labels: [Int: SpaceLabel] { get }
-    var displayOrder: [Int] { get }
-    var usesCustomDisplayOrder: Bool { get }
     var desktopNumberBySpaceID: [Int: Int] { get }
     var nativeOrderByDisplay: [String: [Int]] { get }
 

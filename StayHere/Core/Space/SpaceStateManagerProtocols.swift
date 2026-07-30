@@ -7,13 +7,6 @@ public protocol SpaceRenaming {
     func rename(spaceID: Int, name: String)
 }
 
-// MARK: - Reordering
-
-@MainActor
-public protocol SpaceReordering {
-    func moveDisplayOrder(fromOffsets: IndexSet, toOffset: Int)
-}
-
 // MARK: - Snapshot Building
 
 @MainActor

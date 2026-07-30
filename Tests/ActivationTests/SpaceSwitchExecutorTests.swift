@@ -76,13 +76,6 @@ final class SpaceSwitchExecutorTests: XCTestCase {
         }
 
         let (repository, executor) = makeFixtures(bridge: bridge)
-        repository.stateStore.syncPersistenceState(
-            labels: [:],
-            displayOrder: [103, 101, 102],
-            usesCustomDisplayOrder: true
-        )
-        repository.refreshSpaces()
-
         await executor.switchToNextSpace()
         bridge.activeSpaceIDValue = 101
         bridge.managedSnapshotValue = CGSBridge.ManagedSnapshot(

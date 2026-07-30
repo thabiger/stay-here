@@ -12,7 +12,6 @@ final class CompositionServices {
     let repository: SpaceStateManager
     let refreshSpaces: RefreshSpacesUseCase
     let renameSpace: RenameSpaceUseCase
-    let reorderSpaces: ReorderSpacesUseCase
     let switchSpace: SwitchSpaceUseCase
     let buildSpaceSnapshot: BuildSpaceSnapshotUseCase
     let logger: any Logging
@@ -56,7 +55,6 @@ final class CompositionServices {
             logger: logger
         )
         self.renameSpace = RenameSpaceUseCase(renamer: self.repository)
-        self.reorderSpaces = ReorderSpacesUseCase(reorderer: self.repository)
         self.switchSpace = SwitchSpaceUseCase(
             cgsBridge: cgsBridge,
             repository: self.repository,

@@ -59,44 +59,23 @@ public struct SpaceOrderingService {
 
     public func orderedSpaceIDs(
         spaces: [SpaceIdentity],
-        displayOrder: [Int],
-        usesCustomDisplayOrder: Bool,
         desktopNumberBySpaceID: [Int: Int]
     ) -> [Int] {
-        let desktopOrderedIDs = spaces
+        spaces
             .sorted { desktopSortKey(for: $0.id, desktopNumberBySpaceID: desktopNumberBySpaceID) < desktopSortKey(for: $1.id, desktopNumberBySpaceID: desktopNumberBySpaceID) }
             .map(\.id)
-
-        guard usesCustomDisplayOrder else {
-            return desktopOrderedIDs
-        }
-
-        let validIDs = Set(spaces.map(\.id))
-        var ids = displayOrder.filter { validIDs.contains($0) }
-        for id in desktopOrderedIDs where !ids.contains(id) {
-            ids.append(id)
-        }
-        return ids
     }
 
     public func switchableOrderedSpaceIDs(
         spaces: [SpaceIdentity],
-        displayOrder: [Int],
-        usesCustomDisplayOrder: Bool,
         desktopNumberBySpaceID: [Int: Int]
     ) -> [Int] {
-        let switchableIDs = Set(
-            spaces
-                .filter { $0.kind == .desktop }
-                .map(\.id)
-        )
+        let desktopIDs = Set(spaces.filter { $0.kind == .desktop }.map(\.id))
         return orderedSpaceIDs(
             spaces: spaces,
-            displayOrder: displayOrder,
-            usesCustomDisplayOrder: usesCustomDisplayOrder,
             desktopNumberBySpaceID: desktopNumberBySpaceID
         )
-        .filter { switchableIDs.contains($0) }
+        .filter { desktopIDs.contains($0) }
     }
 
     public func namespaceLabel(

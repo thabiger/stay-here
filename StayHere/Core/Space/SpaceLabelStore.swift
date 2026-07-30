@@ -3,8 +3,6 @@ import Foundation
 @MainActor
 public final class SpaceLabelStore {
     public private(set) var labels: [Int: SpaceLabel]
-    public private(set) var displayOrder: [Int]
-    public private(set) var usesCustomDisplayOrder: Bool
 
     private let store: SpaceStore
     private let logger: any Logging
@@ -19,11 +17,9 @@ public final class SpaceLabelStore {
 
         let persisted = store.load()
         self.labels = persisted.labels
-        self.displayOrder = persisted.displayOrder
-        self.usesCustomDisplayOrder = persisted.usesCustomDisplayOrder
     }
 
-    public func rename(spaceID: Int, name: String, orderedSpaceIDs: @autoclosure () -> [Int]) {
+    public func rename(spaceID: Int, name: String) {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         let normalized = trimmed.isEmpty ? SpaceDisplayNameProvider.defaultUnnamedName : trimmed
 
@@ -32,39 +28,10 @@ public final class SpaceLabelStore {
         }
 
         labels[spaceID] = SpaceLabel(name: normalized)
-        persistDebounced(
-            orderedSpaceIDs: orderedSpaceIDs(),
-            labels: labels,
-            usesCustomDisplayOrder: usesCustomDisplayOrder
-        )
+        persistDebounced(labels: labels)
     }
 
-    public func moveDisplayOrder(fromOffsets: IndexSet, toOffset: Int, currentOrderedSpaceIDs: [Int]) {
-        var ids = currentOrderedSpaceIDs
-        let removed = fromOffsets.compactMap { offset in
-            ids.indices.contains(offset) ? ids[offset] : nil
-        }
-        for offset in fromOffsets.sorted(by: >) where ids.indices.contains(offset) {
-            ids.remove(at: offset)
-        }
-
-        var insertionIndex = toOffset
-        for offset in fromOffsets where offset < toOffset {
-            insertionIndex -= 1
-        }
-        insertionIndex = max(0, min(insertionIndex, ids.count))
-        ids.insert(contentsOf: removed, at: insertionIndex)
-
-        displayOrder = ids
-        usesCustomDisplayOrder = true
-        persistDebounced(
-            orderedSpaceIDs: ids,
-            labels: labels,
-            usesCustomDisplayOrder: usesCustomDisplayOrder
-        )
-    }
-
-    public func reconcileLabels(for spaces: [SpaceIdentity], orderedSpaceIDs: @autoclosure () -> [Int]) {
+    public func reconcileLabels(for spaces: [SpaceIdentity]) {
         var updated = labels
         var changed = false
 
@@ -82,38 +49,26 @@ public final class SpaceLabelStore {
         guard changed else { return }
 
         labels = updated
-        persistDebounced(
-            orderedSpaceIDs: orderedSpaceIDs(),
-            labels: labels,
-            usesCustomDisplayOrder: usesCustomDisplayOrder
-        )
+        persistDebounced(labels: labels)
     }
 
-    public func persistNow(orderedSpaceIDs: [Int]) {
+    public func persistNow() {
         pendingPersistTask?.cancel()
         pendingPersistTask = nil
 
         do {
-            try store.save(
-                PersistedSpaces(
-                    labels: labels,
-                    displayOrder: orderedSpaceIDs,
-                    usesCustomDisplayOrder: usesCustomDisplayOrder
-                )
-            )
+            try store.save(PersistedSpaces(labels: labels))
         } catch {
             logger.error("persist-failed")
         }
     }
 
-    func persistenceSnapshot() -> (labels: [Int: SpaceLabel], displayOrder: [Int], usesCustomDisplayOrder: Bool) {
-        (labels, displayOrder, usesCustomDisplayOrder)
+    func persistenceSnapshot() -> [Int: SpaceLabel] {
+        labels
     }
 
     private func persistDebounced(
-        orderedSpaceIDs: [Int],
-        labels labelsSnapshot: [Int: SpaceLabel],
-        usesCustomDisplayOrder usesCustomSnapshot: Bool
+        labels labelsSnapshot: [Int: SpaceLabel]
     ) {
         pendingPersistTask?.cancel()
 
@@ -123,13 +78,7 @@ public final class SpaceLabelStore {
             guard !Task.isCancelled else { return }
 
             do {
-                try self.store.save(
-                    PersistedSpaces(
-                        labels: labelsSnapshot,
-                        displayOrder: orderedSpaceIDs,
-                        usesCustomDisplayOrder: usesCustomSnapshot
-                    )
-                )
+                try self.store.save(PersistedSpaces(labels: labelsSnapshot))
             } catch {
                 self.logger.error("persist-failed")
             }

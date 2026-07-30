@@ -96,41 +96,11 @@ final class SpaceStateManagerTests: XCTestCase {
         XCTAssertEqual(reader.name(for: 101), "Inbox")
     }
 
-    func testMoveDisplayOrderPersistsAcrossRepositoryInstances() {
-        let store = makeStore()
-        let snapshot = CGSBridge.ManagedSnapshot(
-            spaces: [
-                SpaceIdentity(id: 101, display: "display-a", kind: .desktop),
-                SpaceIdentity(id: 102, display: "display-a", kind: .desktop),
-                SpaceIdentity(id: 103, display: "display-a", kind: .desktop)
-            ],
-            activeByDisplay: ["display-a": 101],
-            orderedIDsByDisplay: ["display-a": [101, 102, 103]]
-        )
-
-        let writer = SpaceStateManagerFactory.make(
-            cgsBridge: MockCGSBridge(activeSpaceIDValue: 101, managedSnapshotValue: snapshot),
-            store: store
-        )
-        writer.moveDisplayOrder(fromOffsets: IndexSet(integer: 2), toOffset: 0)
-        writer.persistNow()
-
-        let reader = SpaceStateManagerFactory.make(
-            cgsBridge: MockCGSBridge(activeSpaceIDValue: 101, managedSnapshotValue: snapshot),
-            store: store
-        )
-
-        XCTAssertTrue(reader.usesCustomDisplayOrder)
-        XCTAssertEqual(reader.orderedSpaceIDs(), [103, 101, 102])
-    }
-
     func testInitDoesNotDropPersistedLabelsWhenSnapshotIsTransientlyEmpty() {
         let store = makeStore()
         try? store.save(
             PersistedSpaces(
-                labels: [101: SpaceLabel(name: "Inbox")],
-                displayOrder: [101],
-                usesCustomDisplayOrder: false
+                labels: [101: SpaceLabel(name: "Inbox")]
             )
         )
 
@@ -158,9 +128,7 @@ final class SpaceStateManagerTests: XCTestCase {
         )
         try? store.save(
             PersistedSpaces(
-                labels: [101: SpaceLabel(name: "Inbox")],
-                displayOrder: [101],
-                usesCustomDisplayOrder: false
+                labels: [101: SpaceLabel(name: "Inbox")]
             )
         )
 

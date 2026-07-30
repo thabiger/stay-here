@@ -7,8 +7,6 @@ public final class SpaceStateManager {
     public var spaces: [SpaceIdentity] { stateStore.spaces }
     public var activeSpaceID: Int? { stateStore.activeSpaceID }
     public var labels: [Int: SpaceLabel] { stateStore.labels }
-    public var displayOrder: [Int] { stateStore.displayOrder }
-    public var usesCustomDisplayOrder: Bool { stateStore.usesCustomDisplayOrder }
     public var desktopNumberBySpaceID: [Int: Int] { stateStore.desktopNumberBySpaceID }
     public var nativeOrderByDisplay: [String: [Int]] { stateStore.nativeOrderByDisplay }
 
@@ -39,13 +37,8 @@ public final class SpaceStateManager {
         self.persistenceCoordinator = persistenceCoordinator
         self.stateStoreObserver = nil
         bindStateStore()
-        // Load persisted labels/displayOrder into stateStore before first snapshot
         let initialPersistence = persistenceCoordinator.persistenceSnapshot()
-        stateStore.syncPersistenceState(
-            labels: initialPersistence.labels,
-            displayOrder: initialPersistence.displayOrder,
-            usesCustomDisplayOrder: initialPersistence.usesCustomDisplayOrder
-        )
+        stateStore.syncPersistenceState(labels: initialPersistence)
         refreshSpaces()
     }
 
@@ -109,33 +102,15 @@ public final class SpaceStateManager {
     // MARK: Persistence Coordination
 
     public func rename(spaceID: Int, name: String) {
-        let snapshot = persistenceCoordinator.rename(
+        let labels = persistenceCoordinator.rename(
             spaceID: spaceID,
-            name: name,
-            orderedSpaceIDs: orderedSpaceIDs()
+            name: name
         )
-        stateStore.syncPersistenceState(
-            labels: snapshot.labels,
-            displayOrder: snapshot.displayOrder,
-            usesCustomDisplayOrder: snapshot.usesCustomDisplayOrder
-        )
-    }
-
-    public func moveDisplayOrder(fromOffsets: IndexSet, toOffset: Int) {
-        let snapshot = persistenceCoordinator.moveDisplayOrder(
-            fromOffsets: fromOffsets,
-            toOffset: toOffset,
-            currentOrderedSpaceIDs: orderedSpaceIDs()
-        )
-        stateStore.syncPersistenceState(
-            labels: snapshot.labels,
-            displayOrder: snapshot.displayOrder,
-            usesCustomDisplayOrder: snapshot.usesCustomDisplayOrder
-        )
+        stateStore.syncPersistenceState(labels: labels)
     }
 
     public func persistNow() {
-        persistenceCoordinator.persistNow(orderedSpaceIDs: orderedSpaceIDs())
+        persistenceCoordinator.persistNow()
     }
 
     // MARK: Space Ordering
@@ -143,8 +118,6 @@ public final class SpaceStateManager {
     public func orderedSpaceIDs() -> [Int] {
         orderingService.orderedSpaceIDs(
             spaces: spaces,
-            displayOrder: displayOrder,
-            usesCustomDisplayOrder: usesCustomDisplayOrder,
             desktopNumberBySpaceID: desktopNumberBySpaceID
         )
     }
@@ -152,8 +125,6 @@ public final class SpaceStateManager {
     public func switchableOrderedSpaceIDs() -> [Int] {
         orderingService.switchableOrderedSpaceIDs(
             spaces: spaces,
-            displayOrder: displayOrder,
-            usesCustomDisplayOrder: usesCustomDisplayOrder,
             desktopNumberBySpaceID: desktopNumberBySpaceID
         )
     }
@@ -164,8 +135,7 @@ public final class SpaceStateManager {
         snapshotBuilder.json(
             spaces: stateStore.spaces,
             labels: stateStore.labels,
-            activeSpaceID: stateStore.activeSpaceID,
-            displayOrder: orderedSpaceIDs()
+            activeSpaceID: stateStore.activeSpaceID
         )
     }
 
@@ -197,21 +167,13 @@ public final class SpaceStateManager {
     }
 
     private func reconcilePersistedSpaces() {
-        let snapshot = persistenceCoordinator.reconcileLabels(
-            for: stateStore.spaces,
-            orderedSpaceIDs: orderedSpaceIDs()
-        )
-        stateStore.syncPersistenceState(
-            labels: snapshot.labels,
-            displayOrder: snapshot.displayOrder,
-            usesCustomDisplayOrder: snapshot.usesCustomDisplayOrder
-        )
+        let labels = persistenceCoordinator.reconcileLabels(for: stateStore.spaces)
+        stateStore.syncPersistenceState(labels: labels)
     }
 }
 
 extension SpaceStateManager: SpaceRegistryProtocol {}
 extension SpaceStateManager: SpaceRenaming {}
-extension SpaceStateManager: SpaceReordering {}
 extension SpaceStateManager: SpaceSnapshotBuilding {}
 extension SpaceStateManager: SpaceSnapshotRefreshable {}
 extension SpaceStateManager: SpaceSwitchSnapshotProviding {}

@@ -57,7 +57,7 @@ final class SpaceOrderingServiceTests: XCTestCase {
         XCTAssertNil(derived.desktopNumberBySpaceID[202])
     }
 
-    func testOrderedSpaceIDsMergeCustomOrderWithDiscoveredSpaces() {
+    func testOrderedSpaceIDsSortByDesktopNumber() {
         let spaces = [
             SpaceIdentity(id: 101, display: "display-a", kind: .desktop),
             SpaceIdentity(id: 102, display: "display-a", kind: .desktop),
@@ -66,12 +66,10 @@ final class SpaceOrderingServiceTests: XCTestCase {
 
         let ordered = service.orderedSpaceIDs(
             spaces: spaces,
-            displayOrder: [103, 101],
-            usesCustomDisplayOrder: true,
             desktopNumberBySpaceID: [101: 1, 102: 2, 103: 3]
         )
 
-        XCTAssertEqual(ordered, [103, 101, 102])
+        XCTAssertEqual(ordered, [101, 102, 103])
     }
 
     func testSwitchableOrderedSpaceIDsExcludeNonDesktopSpaces() {
@@ -83,11 +81,9 @@ final class SpaceOrderingServiceTests: XCTestCase {
 
         let ordered = service.switchableOrderedSpaceIDs(
             spaces: spaces,
-            displayOrder: [102, 103, 101],
-            usesCustomDisplayOrder: true,
             desktopNumberBySpaceID: [101: 1, 103: 2]
         )
 
-        XCTAssertEqual(ordered, [103, 101])
+        XCTAssertEqual(ordered, [101, 103])
     }
 }

@@ -52,5 +52,4 @@ public struct SpaceStateSnapshot: Codable {
     public var activeSpaceID: Int?
     public var spaces: [SpaceIdentity]
     public var labels: [Int: SpaceLabel]
-    public var displayOrder: [Int]
 }

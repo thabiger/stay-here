@@ -5,8 +5,6 @@ public struct SpaceState: Equatable {
     public var spaces: [SpaceIdentity] = []
     public var activeSpaceID: Int?
     public var labels: [Int: SpaceLabel] = [:]
-    public var displayOrder: [Int] = []
-    public var usesCustomDisplayOrder: Bool = false
     public var desktopNumberBySpaceID: [Int: Int] = [:]
     public var nativeOrderByDisplay: [String: [Int]] = [:]
 
@@ -16,16 +14,12 @@ public struct SpaceState: Equatable {
         spaces: [SpaceIdentity],
         activeSpaceID: Int?,
         labels: [Int: SpaceLabel],
-        displayOrder: [Int],
-        usesCustomDisplayOrder: Bool,
         desktopNumberBySpaceID: [Int: Int],
         nativeOrderByDisplay: [String: [Int]]
     ) {
         self.spaces = spaces
         self.activeSpaceID = activeSpaceID
         self.labels = labels
-        self.displayOrder = displayOrder
-        self.usesCustomDisplayOrder = usesCustomDisplayOrder
         self.desktopNumberBySpaceID = desktopNumberBySpaceID
         self.nativeOrderByDisplay = nativeOrderByDisplay
     }
@@ -37,24 +31,18 @@ public final class SpaceStateStore: ObservableObject {
     public var spaces: [SpaceIdentity] { state.spaces }
     public var activeSpaceID: Int? { state.activeSpaceID }
     public var labels: [Int: SpaceLabel] { state.labels }
-    public var displayOrder: [Int] { state.displayOrder }
-    public var usesCustomDisplayOrder: Bool { state.usesCustomDisplayOrder }
     public var desktopNumberBySpaceID: [Int: Int] { state.desktopNumberBySpaceID }
     public var nativeOrderByDisplay: [String: [Int]] { state.nativeOrderByDisplay }
 
     public init() {}
 
     public func syncPersistenceState(
-        labels: [Int: SpaceLabel],
-        displayOrder: [Int],
-        usesCustomDisplayOrder: Bool
+        labels: [Int: SpaceLabel]
     ) {
         state = SpaceState(
             spaces: state.spaces,
             activeSpaceID: state.activeSpaceID,
             labels: labels,
-            displayOrder: displayOrder,
-            usesCustomDisplayOrder: usesCustomDisplayOrder,
             desktopNumberBySpaceID: state.desktopNumberBySpaceID,
             nativeOrderByDisplay: state.nativeOrderByDisplay
         )
@@ -65,8 +53,6 @@ public final class SpaceStateStore: ObservableObject {
             spaces: derivedState.spaces,
             activeSpaceID: derivedState.activeSpaceID,
             labels: state.labels,
-            displayOrder: state.displayOrder,
-            usesCustomDisplayOrder: state.usesCustomDisplayOrder,
             desktopNumberBySpaceID: derivedState.desktopNumberBySpaceID,
             nativeOrderByDisplay: derivedState.nativeOrderByDisplay
         )

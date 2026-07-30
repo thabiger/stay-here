@@ -20,15 +20,13 @@ public struct SpaceSnapshotBuilder {
     public func json(
         spaces: [SpaceIdentity],
         labels: [Int: SpaceLabel],
-        activeSpaceID: Int?,
-        displayOrder: [Int]
+        activeSpaceID: Int?
     ) -> String {
         let snap = SpaceStateSnapshot(
             timestampISO8601: Self.isoFormatter.string(from: Date()),
             activeSpaceID: activeSpaceID,
             spaces: spaces,
-            labels: labels,
-            displayOrder: displayOrder
+            labels: labels
         )
         guard let data = try? encoder.encode(snap),
               let string = String(data: data, encoding: .utf8) else {
