@@ -109,8 +109,17 @@ final class AppEventTapProxy: EventTapProxying {
             logger.info("event tap disabled by user input (secure input session); not re-enabling")
             return Unmanaged.passUnretained(event)
 
-        case .keyDown, .flagsChanged:
+        case .keyDown:
             consecutiveDisableCount = 0
+            guard shouldDispatchKeyboardEvent(event) else {
+                return Unmanaged.passUnretained(event)
+            }
+            return dispatchKeyboardEvent(proxy: proxy, event: event)
+        case .flagsChanged:
+            consecutiveDisableCount = 0
+            guard shouldDispatchFlagsChanged(event) else {
+                return Unmanaged.passUnretained(event)
+            }
             return dispatchKeyboardEvent(proxy: proxy, event: event)
         case .leftMouseDown, .leftMouseUp:
             consecutiveDisableCount = 0
@@ -147,6 +156,34 @@ final class AppEventTapProxy: EventTapProxying {
         return Unmanaged.passUnretained(event)
     }
 
+    /// Security boundary: rejects keyboard events whose key code does not match
+    /// any registered client's configured shortcut, unless a client has an active
+    /// switcher session (during which all key events must be visible for modifier
+    /// tracking). Non-matching events are returned immediately via
+    /// `passUnretained` without reaching any client's `handle` method.
+    private func shouldDispatchKeyboardEvent(_ event: CGEvent) -> Bool {
+        if clients.contains(where: { $0.handlesKeyboardEvents && $0.hasActiveSession }) {
+            return true
+        }
+        let keycode = event.getIntegerValueField(.keyboardEventKeycode)
+        let interestingKeyCodes = clients
+            .filter { $0.handlesKeyboardEvents }
+            .flatMap { $0.keyboardShortcutKeyCodes }
+        return Set(interestingKeyCodes).contains(CGKeyCode(keycode))
+    }
+
+    /// Security boundary: rejects flags-changed events that carry no relevant
+    /// modifier (cmd/ctrl/alt/shift), unless a client has an active switcher
+    /// session. This avoids dispatching benign modifier events to clients.
+    private func shouldDispatchFlagsChanged(_ event: CGEvent) -> Bool {
+        if clients.contains(where: { $0.handlesKeyboardEvents && $0.hasActiveSession }) {
+            return true
+        }
+        let flags = event.flags
+        let relevantModifiers: CGEventFlags = [.maskCommand, .maskControl, .maskAlternate, .maskShift]
+        return !flags.intersection(relevantModifiers).isEmpty
+    }
+
     private static let eventTapCallback: CGEventTapCallBack = { proxy, type, event, userInfo in
         guard let userInfo else { return Unmanaged.passUnretained(event) }
         let tapProxy = Unmanaged<AppEventTapProxy>.fromOpaque(userInfo).takeUnretainedValue()
@@ -159,6 +196,10 @@ final class AppEventTapProxy: EventTapProxying {
     ) -> CFMachPort? {
         guard !RuntimeEnvironment.isAutomationSession else { return nil }
 
+        // The `eventsOfInterest` mask only supports event-type filtering, not
+        // key-code filtering. Filtering by key code is intentionally performed
+        // in the callback via `shouldDispatchKeyboardEvent` to minimize the
+        // window during which raw keystroke data is accessible in process memory.
         let keyDownMask = 1 << CGEventType.keyDown.rawValue
         let flagsChangedMask = 1 << CGEventType.flagsChanged.rawValue
         let leftMouseDownMask = 1 << CGEventType.leftMouseDown.rawValue

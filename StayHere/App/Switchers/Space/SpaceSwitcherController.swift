@@ -162,4 +162,8 @@ extension SpaceSwitcherController: @preconcurrency SwitcherSessionDelegate {
         commitSpace(spaceID)
         return true
     }
+
+    var keyboardShortcutKeyCodes: Set<CGKeyCode> {
+        [shortcutProvider().keyCode]
+    }
 }

@@ -306,4 +306,8 @@ extension WindowSwitcherController: @preconcurrency SwitcherSessionDelegate {
         // a quick second invocation never blocks behind the AX/CGS work.
         listProvider.refreshAllSpacesCacheInBackground()
     }
+
+    var keyboardShortcutKeyCodes: Set<CGKeyCode> {
+        [shortcutProvider().keyCode]
+    }
 }

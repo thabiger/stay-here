@@ -31,6 +31,13 @@ final class AppEventTapProxyTests: XCTestCase {
         return event
     }
 
+    private func makeFlagsChangedEvent(flags: CGEventFlags = []) -> CGEvent {
+        let event = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: false)!
+        event.type = .flagsChanged
+        event.flags = flags
+        return event
+    }
+
     private func makeMouseEvent(type: CGEventType, point: CGPoint = .zero) -> CGEvent {
         let mouseType: CGEventType
         let button: CGMouseButton
@@ -294,25 +301,107 @@ final class AppEventTapProxyTests: XCTestCase {
         XCTAssertEqual(later.handledEvents.count, 0)
         XCTAssertNil(result)
     }
+
+    // MARK: - Security boundary tests
+
+    func testSecurityKeyboardFilterRejectsNonMatchingKeyCode() {
+        let proxy = makeProxy()
+        let client = FakeClient(keyboardShortcutKeyCodes: [42])
+        proxy.register(client)
+
+        let event = makeKeyEvent(keyCode: 1) // not in shortcut set
+        let result = proxy.handle(proxy: dummyProxy, type: .keyDown, event: event)
+
+        XCTAssertNotNil(result, "rejected event must pass through to OS")
+        XCTAssertEqual(client.handledEvents.count, 0,
+                       "non-matching key codes must not reach client.handle")
+    }
+
+    func testSecurityKeyboardFilterPassesMatchingKeyCode() {
+        let proxy = makeProxy()
+        let client = FakeClient(keyboardShortcutKeyCodes: [42])
+        proxy.register(client)
+
+        let event = makeKeyEvent(keyCode: 42)
+        _ = proxy.handle(proxy: dummyProxy, type: .keyDown, event: event)
+
+        XCTAssertEqual(client.handledEvents.count, 1,
+                       "matching key code must reach client.handle")
+    }
+
+    func testSecurityKeyboardFilterPassesAllDuringActiveSession() {
+        let proxy = makeProxy()
+        let client = FakeClient(hasActiveSession: true, keyboardShortcutKeyCodes: [42])
+        proxy.register(client)
+
+        // Key code 1 is not in the shortcut set, but active session lifts the filter
+        let event = makeKeyEvent(keyCode: 1)
+        _ = proxy.handle(proxy: dummyProxy, type: .keyDown, event: event)
+
+        XCTAssertEqual(client.handledEvents.count, 1,
+                       "all key events must dispatch during active session")
+    }
+
+    func testSecurityFlagsFilterRejectsIrrelevantModifier() {
+        let proxy = makeProxy()
+        let client = FakeClient()
+        proxy.register(client)
+
+        let event = makeFlagsChangedEvent(flags: [.maskNonCoalesced])
+        let result = proxy.handle(proxy: dummyProxy, type: .flagsChanged, event: event)
+
+        XCTAssertNotNil(result, "rejected event must pass through to OS")
+        XCTAssertEqual(client.handledEvents.count, 0,
+                       "irrelevant modifier changes must not reach client.handle")
+    }
+
+    func testSecurityFlagsFilterPassesRelevantModifier() {
+        let proxy = makeProxy()
+        let client = FakeClient()
+        proxy.register(client)
+
+        let event = makeFlagsChangedEvent(flags: [.maskCommand])
+        _ = proxy.handle(proxy: dummyProxy, type: .flagsChanged, event: event)
+
+        XCTAssertEqual(client.handledEvents.count, 1,
+                       "command-key change must reach client.handle")
+    }
+
+    func testSecurityFlagsFilterPassesAllDuringActiveSession() {
+        let proxy = makeProxy()
+        let client = FakeClient(hasActiveSession: true)
+        proxy.register(client)
+
+        let event = makeFlagsChangedEvent(flags: [.maskNonCoalesced])
+        _ = proxy.handle(proxy: dummyProxy, type: .flagsChanged, event: event)
+
+        XCTAssertEqual(client.handledEvents.count, 1,
+                       "all flags-changed events must dispatch during active session")
+    }
 }
+
+// MARK: - FakeClient
 
 private final class FakeClient: CGEventTapClient {
     private let consumesEvents: Bool
     var hasActiveSession: Bool
     var handlesKeyboardEvents: Bool
     var handlesMouseEvents: Bool
+    var keyboardShortcutKeyCodes: Set<CGKeyCode>
     private(set) var handledEvents: [CGEvent] = []
 
     init(
         consumesEvents: Bool = false,
         hasActiveSession: Bool = false,
         handlesKeyboardEvents: Bool = true,
-        handlesMouseEvents: Bool = false
+        handlesMouseEvents: Bool = false,
+        keyboardShortcutKeyCodes: Set<CGKeyCode> = [0]
     ) {
         self.consumesEvents = consumesEvents
         self.hasActiveSession = hasActiveSession
         self.handlesKeyboardEvents = handlesKeyboardEvents
         self.handlesMouseEvents = handlesMouseEvents
+        self.keyboardShortcutKeyCodes = keyboardShortcutKeyCodes
     }
 
     func handle(proxy: CGEventTapProxy, event: CGEvent) -> Unmanaged<CGEvent>? {

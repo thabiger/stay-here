@@ -33,6 +33,7 @@ final class SetupRequirementsPresenter {
             To do that, macOS needs to allow a few things:
 
             • Accessibility lets StayHere focus apps, read Dock state, and apply space-related behavior.
+            • Input Monitoring lets StayHere detect keyboard shortcuts (like Command+Tab or Command+backtick) to open the space and window switchers. To do this, StayHere watches for specific key combinations system-wide. StayHere never logs, stores, or transmits your keystrokes — it only checks whether a keypress matches your configured switcher shortcut.
             • Control+<Number> under Mission Control are the built-in shortcuts StayHere relies on for desktop switching (this one is under Settings -> Keyboard -> Keyboard Shortcuts -> Mission Control).
 
             Use the checklist below. A green check means that item is ready; click any missing item to jump to the right System Settings pane, make the change, then return here and click Reload to relaunch StayHere. StayHere will start once every required item is checked.

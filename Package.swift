@@ -14,7 +14,8 @@ let package = Package(
         .executableTarget(
             name: "StayHereApp",
             dependencies: ["Core", "Activation", "Shared"],
-            path: "StayHere/App"
+            path: "StayHere/App",
+            resources: [.process("PrivacyInfo.xcprivacy")]
         ),
         .target(name: "TestHelpers", dependencies: ["Core"], path: "Tests/TestHelpers"),
         .testTarget(

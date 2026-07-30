@@ -5,4 +5,9 @@ public protocol CGEventTapClient: AnyObject {
     var hasActiveSession: Bool { get }
     var handlesKeyboardEvents: Bool { get }
     var handlesMouseEvents: Bool { get }
+    var keyboardShortcutKeyCodes: Set<CGKeyCode> { get }
+}
+
+public extension CGEventTapClient {
+    var keyboardShortcutKeyCodes: Set<CGKeyCode> { [] }
 }

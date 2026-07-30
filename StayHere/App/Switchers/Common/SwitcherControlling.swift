@@ -14,6 +14,7 @@ protocol SwitcherControlling: AnyObject, CGEventTapClient {
     func commitSwitcherSelection()
     func commitSelection(at position: Int)
     func cancelSession()
+    var keyboardShortcutKeyCodes: Set<CGKeyCode> { get }
 }
 
 extension SpaceSwitcherController: @preconcurrency SwitcherControlling {}
