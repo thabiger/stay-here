@@ -59,7 +59,8 @@ enum WindowSwitcherSelection {
     static func recordSelection(
         _ selectedWindowID: Int,
         in activeSession: (any WindowSwitcherSessionProtocol)?,
-        recentWindowIDs: inout [Int]
+        recentWindowIDs: inout [Int],
+        scope: WindowRecencyScope
     ) {
         guard let activeSession else {
             recentWindowIDs.removeAll { $0 == selectedWindowID }
@@ -79,6 +80,11 @@ enum WindowSwitcherSelection {
         orderedIDs += previousRecentIDs.filter { id in
             id != selectedWindowID && id != activeSession.startingWindowID
         }
-        recentWindowIDs = orderedIDs
+        if scope == .subset {
+            let sessionIDs = Set(activeSession.flatEntries.map(\.windowID))
+            recentWindowIDs = orderedIDs + recentWindowIDs.filter { !sessionIDs.contains($0) }
+        } else {
+            recentWindowIDs = orderedIDs
+        }
     }
 }

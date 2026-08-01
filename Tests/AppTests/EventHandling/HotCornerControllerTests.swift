@@ -21,7 +21,7 @@ final class HotCornerControllerTests: XCTestCase {
             settings: settings,
             mouseLocationProvider: { mouseLocation },
             screenFramesProvider: { [CGRect(x: 0, y: 0, width: 100, height: 100)] },
-            actionHandler: { triggeredActions.append($0) }
+            actionHandler: ClosureHotCornerActionHandler { triggeredActions.append($0) }
         )
 
         controller.start()
@@ -46,7 +46,7 @@ final class HotCornerControllerTests: XCTestCase {
             settings: settings,
             mouseLocationProvider: { CGPoint(x: 100, y: 100) },
             screenFramesProvider: { [CGRect(x: 0, y: 0, width: 100, height: 100)] },
-            actionHandler: { triggeredActions.append($0) }
+            actionHandler: ClosureHotCornerActionHandler { triggeredActions.append($0) }
         )
 
         controller.poll()
@@ -58,7 +58,7 @@ final class HotCornerControllerTests: XCTestCase {
         let settings = makeSettings()
         let controller = HotCornerController(
             settings: settings,
-            actionHandler: { _ in }
+            actionHandler: ClosureHotCornerActionHandler { _ in }
         )
 
         XCTAssertFalse(controller.hasAssignedCorners())

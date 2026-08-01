@@ -4,20 +4,23 @@ final class WindowRecencyTracker {
     private(set) var recentWindowIDs: [Int] = []
 
     func orderedEntriesAndGroups(
-        from spaceGroups: [SpaceWindowGroup]
+        from spaceGroups: [SpaceWindowGroup],
+        scope: WindowRecencyScope
     ) -> (entries: [WindowEntry], groups: [SpaceWindowGroup]) {
-        let groups = recentEntries(from: spaceGroups)
+        let groups = recentEntries(from: spaceGroups, scope: scope)
         return (groups.flatMap(\.entries), groups)
     }
 
     func recordSelection(
         _ selectedWindowID: Int,
-        in activeSession: (any WindowSwitcherSessionProtocol)?
+        in activeSession: (any WindowSwitcherSessionProtocol)?,
+        scope: WindowRecencyScope
     ) {
         WindowSwitcherSelection.recordSelection(
             selectedWindowID,
             in: activeSession,
-            recentWindowIDs: &recentWindowIDs
+            recentWindowIDs: &recentWindowIDs,
+            scope: scope
         )
     }
 
@@ -32,10 +35,17 @@ final class WindowRecencyTracker {
         }
     }
 
-    private func recentEntries(from spaceGroups: [SpaceWindowGroup]) -> [SpaceWindowGroup] {
+    private func recentEntries(
+        from spaceGroups: [SpaceWindowGroup],
+        scope: WindowRecencyScope
+    ) -> [SpaceWindowGroup] {
         let allEntries = spaceGroups.flatMap(\.entries)
         guard !allEntries.isEmpty else {
-            recentWindowIDs = []
+            if scope == .complete {
+                recentWindowIDs = []
+            }
+            // Subset: never wipe on a transient empty listing. Unlisted IDs are
+            // inert (filtered at display) and pruned by the next complete listing.
             return []
         }
 
@@ -46,7 +56,14 @@ final class WindowRecencyTracker {
         let unknownEntries = allEntries.filter { !knownIDs.contains($0.windowID) }
         let entriesByID = Dictionary(uniqueKeysWithValues: allEntries.map { ($0.windowID, $0) })
         let orderedFlat = orderedIDs.compactMap { entriesByID[$0] } + unknownEntries
-        recentWindowIDs = orderedFlat.map(\.windowID)
+        if scope == .subset {
+            // Keep recency for windows not present in this partial listing so
+            // cross-space MRU ordering survives until the next complete listing.
+            recentWindowIDs = orderedFlat.map(\.windowID) + recentWindowIDs.filter { !entryIDs.contains($0) }
+        } else {
+            // Complete listing is authoritative: prune stale IDs.
+            recentWindowIDs = orderedFlat.map(\.windowID)
+        }
 
         var windowSpaceLookup: [Int: Int] = [:]
         for group in spaceGroups {

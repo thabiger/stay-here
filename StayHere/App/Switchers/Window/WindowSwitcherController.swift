@@ -289,7 +289,7 @@ extension WindowSwitcherController: @preconcurrency SwitcherSessionDelegate {
               let entry = session.flatEntries.first(where: { $0.windowID == windowID }) else {
             return false
         }
-        recencyTracker.recordSelection(windowID, in: session)
+        recencyTracker.recordSelection(windowID, in: session, scope: mode.recencyScope)
         commitSelectedEntry(entry)
         return true
     }

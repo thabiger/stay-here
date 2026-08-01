@@ -40,7 +40,10 @@ final class WindowListBuilder {
             guard !allEntries.isEmpty else { return nil }
         }
 
-        let (recencyEntries, recencyGroups) = recencyTracker.orderedEntriesAndGroups(from: spaceGroups)
+        let (recencyEntries, recencyGroups) = recencyTracker.orderedEntriesAndGroups(
+            from: spaceGroups,
+            scope: mode.recencyScope
+        )
 
         var adjustedEntries = recencyEntries
         if let focusedID = listProvider.focusedWindowID(),

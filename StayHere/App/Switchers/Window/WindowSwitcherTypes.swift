@@ -46,3 +46,21 @@ enum WindowSwitcherMode {
     case currentSpace
     case allSpaces
 }
+
+/// Whether a listing passed to the recency tracker covers all windows.
+/// Complete listings (all spaces) are authoritative: IDs absent from them
+/// are stale and pruned. Subset listings (current space) must preserve
+/// recency for windows they do not contain.
+enum WindowRecencyScope {
+    case subset
+    case complete
+}
+
+extension WindowSwitcherMode {
+    var recencyScope: WindowRecencyScope {
+        switch self {
+        case .currentSpace: .subset
+        case .allSpaces: .complete
+        }
+    }
+}
