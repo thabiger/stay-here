@@ -53,7 +53,7 @@ final class WindowListBuilder {
             recencyTracker.promoteToCurrent(focusedID)
         }
 
-        let sessionOrdered = WindowSwitcherSelection.sessionOrder(fromRecentEntries: adjustedEntries)
+        let sessionOrdered = Self.sessionOrder(fromRecentEntries: adjustedEntries)
 
         let finalGroups: [SpaceWindowGroup]
         if mode == .currentSpace, recencyGroups.isEmpty, spaceGroups.count == 1 {
@@ -172,6 +172,11 @@ final class WindowListBuilder {
                 showSpaceLabels: true
             )
         }
+    }
+
+    private static func sessionOrder(fromRecentEntries entries: [WindowEntry]) -> [WindowEntry] {
+        guard entries.count > 1 else { return entries }
+        return [entries[1], entries[0]] + Array(entries.dropFirst(2))
     }
 
     private static func spaceGroups(

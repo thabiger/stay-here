@@ -16,10 +16,22 @@ final class WindowRecencyTracker {
         in activeSession: (any WindowSwitcherSessionProtocol)?,
         scope: WindowRecencyScope
     ) {
-        WindowSwitcherSelection.recordSelection(
-            selectedWindowID,
-            in: activeSession,
-            recentWindowIDs: &recentWindowIDs,
+        guard let activeSession else {
+            // No-session commit is a pure promote-to-front, deliberately
+            // scope-independent (preserves the recency tail for both scopes).
+            recentWindowIDs.removeAll { $0 == selectedWindowID }
+            recentWindowIDs.insert(selectedWindowID, at: 0)
+            return
+        }
+        var promoting = [selectedWindowID]
+        if let startingWindowID = activeSession.startingWindowID,
+           startingWindowID != selectedWindowID {
+            promoting.append(startingWindowID)
+        }
+        recentWindowIDs = RecencyOrdering.merge(
+            recentIDs: recentWindowIDs,
+            incomingIDs: activeSession.flatEntries.map(\.windowID),
+            promoting: promoting,
             scope: scope
         )
     }
@@ -40,30 +52,15 @@ final class WindowRecencyTracker {
         scope: WindowRecencyScope
     ) -> [SpaceWindowGroup] {
         let allEntries = spaceGroups.flatMap(\.entries)
-        guard !allEntries.isEmpty else {
-            if scope == .complete {
-                recentWindowIDs = []
-            }
-            // Subset: never wipe on a transient empty listing. Unlisted IDs are
-            // inert (filtered at display) and pruned by the next complete listing.
-            return []
-        }
-
-        let entryIDs = Set(allEntries.map(\.windowID))
-        let orderedIDs = recentWindowIDs.filter { entryIDs.contains($0) }
-
-        let knownIDs = Set(orderedIDs)
-        let unknownEntries = allEntries.filter { !knownIDs.contains($0.windowID) }
         let entriesByID = Dictionary(uniqueKeysWithValues: allEntries.map { ($0.windowID, $0) })
-        let orderedFlat = orderedIDs.compactMap { entriesByID[$0] } + unknownEntries
-        if scope == .subset {
-            // Keep recency for windows not present in this partial listing so
-            // cross-space MRU ordering survives until the next complete listing.
-            recentWindowIDs = orderedFlat.map(\.windowID) + recentWindowIDs.filter { !entryIDs.contains($0) }
-        } else {
-            // Complete listing is authoritative: prune stale IDs.
-            recentWindowIDs = orderedFlat.map(\.windowID)
-        }
+
+        let mergedIDs = RecencyOrdering.merge(
+            recentIDs: recentWindowIDs,
+            incomingIDs: allEntries.map(\.windowID),
+            scope: scope
+        )
+        recentWindowIDs = mergedIDs
+        let orderedFlat = mergedIDs.compactMap { entriesByID[$0] }
 
         var windowSpaceLookup: [Int: Int] = [:]
         for group in spaceGroups {
