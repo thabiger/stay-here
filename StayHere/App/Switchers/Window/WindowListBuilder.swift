@@ -5,6 +5,10 @@ struct WindowSwitcherSessionSource {
     let spaceGroups: [SpaceWindowGroup]
     let flatEntries: [WindowEntry]
     let startingWindowID: Int?
+    /// Desired persistent recency order after this session build (merged
+    /// order + focus promotion). Applied once by
+    /// WindowSwitcherController.buildSession. Unused on the snapshot path.
+    let recencyOrder: [Int]
 }
 
 @MainActor
@@ -29,6 +33,9 @@ final class WindowListBuilder {
         self.settings = settings
     }
 
+    /// Focus promotion on open is deliberate (CORR-1 behavior); it is
+    /// computed here purely and applied by the controller at session build —
+    /// no state writes happen inside the builder.
     func makeSessionSource() -> WindowSwitcherSessionSource? {
         guard let spaceGroups = fetchSpaceGroups() else { return nil }
 
@@ -40,17 +47,21 @@ final class WindowListBuilder {
             guard !allEntries.isEmpty else { return nil }
         }
 
-        let (recencyEntries, recencyGroups) = recencyTracker.orderedEntriesAndGroups(
+        let (recencyEntries, recencyGroups, mergedOrder) = recencyTracker.orderedEntriesAndGroups(
             from: spaceGroups,
             scope: mode.recencyScope
         )
 
         var adjustedEntries = recencyEntries
+        var recencyOrder = mergedOrder
         if let focusedID = listProvider.focusedWindowID(),
            let focusedIndex = adjustedEntries.firstIndex(where: { $0.windowID == focusedID }) {
             let focused = adjustedEntries.remove(at: focusedIndex)
             adjustedEntries.insert(focused, at: 0)
-            recencyTracker.promoteToCurrent(focusedID)
+            if let recencyIndex = recencyOrder.firstIndex(of: focusedID) {
+                let promoted = recencyOrder.remove(at: recencyIndex)
+                recencyOrder.insert(promoted, at: 0)
+            }
         }
 
         let sessionOrdered = Self.sessionOrder(fromRecentEntries: adjustedEntries)
@@ -65,7 +76,8 @@ final class WindowListBuilder {
         return WindowSwitcherSessionSource(
             spaceGroups: finalGroups,
             flatEntries: sessionOrdered,
-            startingWindowID: recencyEntries.first?.windowID
+            startingWindowID: recencyEntries.first?.windowID,
+            recencyOrder: recencyOrder
         )
     }
 
@@ -75,7 +87,8 @@ final class WindowListBuilder {
             source = WindowSwitcherSessionSource(
                 spaceGroups: session.spaceGroups,
                 flatEntries: session.flatEntries,
-                startingWindowID: session.startingWindowID
+                startingWindowID: session.startingWindowID,
+                recencyOrder: [] // unused on snapshot path — no state write
             )
         } else {
             guard let built = makeSessionSource() else { return emptySnapshot() }

@@ -9,6 +9,9 @@ final class WindowSwitcherController {
     let settings: WindowSwitcherSettings & AllSpacesWindowSwitcherSettings
     let registry: any SpaceRegistryProtocol
     let shortcutProvider: () -> SpaceSwitcherShortcut
+    /// Shared recency state; mutated at exactly two explicit points —
+    /// `apply(order:)` in `buildSession` (listing path) and
+    /// `recordSelection` in `commit(_:in:)` (commit path).
     let recencyTracker: WindowRecencyTracker
     let listBuilder: WindowListBuilder
     let panelPresenter: WindowSwitcherPanelPresenter
@@ -250,6 +253,10 @@ extension WindowSwitcherController: @preconcurrency SwitcherSessionDelegate {
 
     func buildSession(shortcut: SpaceSwitcherShortcut, trigger: SwitcherSessionTrigger) -> WindowSwitcherSession? {
         guard let source = listBuilder.makeSessionSource() else { return nil }
+        // Sole listing-path state write; applied once at session build so
+        // state evolution is auditable (commit path writes via
+        // recordSelection in commit(_:in:)).
+        recencyTracker.apply(order: source.recencyOrder)
         return WindowSwitcherSession(
             startingWindowID: source.startingWindowID,
             selectedWindowID: source.flatEntries.first?.windowID,
