@@ -68,58 +68,70 @@ final class WindowRecencyTracker {
         recentWindowIDs = Array(ids.prefix(Self.recentWindowIDsLimit))
     }
 
+    /// An entry paired with the space it came from. Carrying the spaceID
+    /// alongside the entry means regrouping never needs a fallback space
+    /// lookup — the previous `windowSpaceLookup[entry.windowID] ?? -1`
+    /// sentinel was dead (every entry in the ordered list originates from
+    /// `spaceGroups`) and could silently produce phantom space groups.
+    struct SpaceEntry {
+        let spaceID: Int
+        let entry: WindowEntry
+    }
+
+    /// Pure regrouping step: given the recency-ordered flat entries and the
+    /// original space groups, returns the same entries regrouped per space —
+    /// each space's entries in recency order, spaces ordered by their most
+    /// recent entry. Spaces with no surviving entries (or no matching source
+    /// group) are dropped. Does not read or write `recentWindowIDs`.
+    static func groupedBySpace(
+        ordered: [SpaceEntry],
+        from spaceGroups: [SpaceWindowGroup]
+    ) -> [SpaceWindowGroup] {
+        let orderIndex = Dictionary(
+            uniqueKeysWithValues: ordered.enumerated().map { ($0.element.entry.windowID, $0.offset) }
+        )
+        let grouped = Dictionary(grouping: ordered, by: \.spaceID)
+
+        let sortedSpaceIDs = grouped.keys.sorted { a, b in
+            let aIndex = grouped[a]?.first.flatMap { orderIndex[$0.entry.windowID] } ?? Int.max
+            let bIndex = grouped[b]?.first.flatMap { orderIndex[$0.entry.windowID] } ?? Int.max
+            return aIndex < bIndex
+        }
+
+        return sortedSpaceIDs.compactMap { spaceID in
+            guard let spaceEntries = grouped[spaceID], !spaceEntries.isEmpty,
+                  let original = spaceGroups.first(where: { $0.spaceID == spaceID })
+            else { return nil }
+            return SpaceWindowGroup(
+                spaceID: spaceID,
+                spaceLabel: original.spaceLabel,
+                entries: spaceEntries.map(\.entry)
+            )
+        }
+    }
+
     private func recentEntries(
         from spaceGroups: [SpaceWindowGroup],
         scope: WindowRecencyScope
     ) -> ([SpaceWindowGroup], [Int]) {
         let allEntries = spaceGroups.flatMap(\.entries)
-        let entriesByID = Dictionary(uniqueKeysWithValues: allEntries.map { ($0.windowID, $0) })
+        // Each entry carries the space it came from, so regrouping never
+        // performs a lookup that could fall back to a sentinel space ID.
+        let spaceEntryByID = Dictionary(
+            uniqueKeysWithValues: spaceGroups.flatMap { group in
+                group.entries.map { SpaceEntry(spaceID: group.spaceID, entry: $0) }
+            }.map { ($0.entry.windowID, $0) }
+        )
 
         let mergedIDs = RecencyOrdering.merge(
             recentIDs: recentWindowIDs,
             incomingIDs: allEntries.map(\.windowID),
             scope: scope
         )
-        let orderedFlat = mergedIDs.compactMap { entriesByID[$0] }
-
-        var windowSpaceLookup: [Int: Int] = [:]
-        for group in spaceGroups {
-            for entry in group.entries {
-                windowSpaceLookup[entry.windowID] = group.spaceID
-            }
-        }
-
-        let recencyBySpaceID: [Int: [WindowEntry]] = Dictionary(
-            grouping: orderedFlat,
-            by: { entry in
-                windowSpaceLookup[entry.windowID] ?? -1
-            }
+        let groups = Self.groupedBySpace(
+            ordered: mergedIDs.compactMap { spaceEntryByID[$0] },
+            from: spaceGroups
         )
-
-        let windowIndexLookup: [Int: Int] = Dictionary(
-            uniqueKeysWithValues: orderedFlat.enumerated().map { ($0.element.windowID, $0.offset) }
-        )
-
-        let sortedSpaceIDs = recencyBySpaceID.keys.sorted { a, b in
-            let aIndex = (recencyBySpaceID[a]?.first).flatMap { first in
-                windowIndexLookup[first.windowID]
-            } ?? Int.max
-            let bIndex = (recencyBySpaceID[b]?.first).flatMap { first in
-                windowIndexLookup[first.windowID]
-            } ?? Int.max
-            return aIndex < bIndex
-        }
-
-        let groups: [SpaceWindowGroup] = sortedSpaceIDs.compactMap { spaceID in
-            guard let sorted = recencyBySpaceID[spaceID], !sorted.isEmpty,
-                  let original = spaceGroups.first(where: { $0.spaceID == spaceID })
-            else { return nil }
-            return SpaceWindowGroup(
-                spaceID: spaceID,
-                spaceLabel: original.spaceLabel,
-                entries: sorted
-            )
-        }
         return (groups, mergedIDs)
     }
 }

@@ -210,6 +210,47 @@ final class WindowRecencyTrackerTests: XCTestCase {
                        "Complete query must not mutate state")
     }
 
+    func testGroupedBySpaceOrdersSpacesByMostRecentEntry() {
+        let groups = WindowRecencyTracker.groupedBySpace(
+            ordered: [
+                .init(spaceID: 200, entry: makeEntry(windowID: 202)),
+                .init(spaceID: 100, entry: makeEntry(windowID: 101)),
+                .init(spaceID: 100, entry: makeEntry(windowID: 102)),
+                .init(spaceID: 200, entry: makeEntry(windowID: 201))
+            ],
+            from: [
+                makeGroup(spaceID: 100, entries: [makeEntry(windowID: 101), makeEntry(windowID: 102)]),
+                makeGroup(spaceID: 200, entries: [makeEntry(windowID: 201), makeEntry(windowID: 202)])
+            ]
+        )
+        XCTAssertEqual(groups.map(\.spaceID), [200, 100],
+                       "Spaces ordered by their most-recent entry (202 before 101)")
+        XCTAssertEqual(groups[0].entries.map(\.windowID), [202, 201],
+                       "Space 200 entries in recency order")
+        XCTAssertEqual(groups[1].entries.map(\.windowID), [101, 102],
+                       "Space 100 entries in recency order")
+    }
+
+    func testGroupedBySpaceDropsSpacesWithNoSurvivingEntries() {
+        let groups = WindowRecencyTracker.groupedBySpace(
+            ordered: [.init(spaceID: 100, entry: makeEntry(windowID: 101))],
+            from: [
+                makeGroup(spaceID: 100, entries: [makeEntry(windowID: 101)]),
+                makeGroup(spaceID: 200, entries: [makeEntry(windowID: 201)])
+            ]
+        )
+        XCTAssertEqual(groups.map(\.spaceID), [100],
+                       "Spaces with no entries in the ordered list are dropped — no phantom groups (regression guard for the removed -1 sentinel)")
+    }
+
+    func testGroupedBySpaceWithEmptyOrderedInputReturnsEmptyGroups() {
+        let groups = WindowRecencyTracker.groupedBySpace(
+            ordered: [],
+            from: [makeGroup(spaceID: 100, entries: [makeEntry(windowID: 101)])]
+        )
+        XCTAssertTrue(groups.isEmpty)
+    }
+
     func testApplyCapsRecentWindowIDsAtLimit() {
         let tracker = WindowRecencyTracker()
         tracker.apply(order: Array(0..<600))
