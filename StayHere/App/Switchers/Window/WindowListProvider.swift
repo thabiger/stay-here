@@ -10,7 +10,9 @@ final class WindowListProvider {
     private let grouper: WindowGrouper
     private let registry: any SpaceRegistryProtocol
     private let cgsBridge: any CGSBridgeProtocol
+    private let settings: WindowSwitcherSettings
     private let focusedWindowIDProvider: WindowListProviderTypes.FocusedWindowIDProvider
+    private var lastSettingsVersion: Int?
 
     init(
         registry: any SpaceRegistryProtocol,
@@ -24,6 +26,7 @@ final class WindowListProvider {
     ) {
         self.registry = registry
         self.cgsBridge = cgsBridge
+        self.settings = settings
         self.focusedWindowIDProvider = focusedWindowIDProvider
 
         let enumerator = WindowEnumerator(provider: windowInfoProvider)
@@ -98,6 +101,24 @@ final class WindowListProvider {
         )
     }
 
+    private var settingsVersion: Int {
+        var hasher = Hasher()
+        hasher.combine(settings.windowSwitcherShowHiddenWindows)
+        hasher.combine(settings.windowSwitcherShowMinimizedWindows)
+        return hasher.finalize()
+    }
+
+    private func invalidateCacheIfSettingsChanged() {
+        let version = settingsVersion
+        guard let lastSettingsVersion else {
+            self.lastSettingsVersion = version
+            return
+        }
+        guard lastSettingsVersion != version else { return }
+        self.lastSettingsVersion = version
+        cache.invalidate()
+    }
+
     func currentContext() -> WindowSpaceContext? {
         let snapshot = cgsBridge.managedSnapshot()
         guard let activeSpaceID = cgsBridge.activeSpaceID()
@@ -117,6 +138,7 @@ final class WindowListProvider {
     }
 
     func entries(in context: WindowSpaceContext) -> [WindowEntry] {
+        invalidateCacheIfSettingsChanged()
         if let cached = cache.perSpaceHit(for: context) {
             return cached
         }
@@ -134,6 +156,7 @@ final class WindowListProvider {
     }
 
     func entriesForAllSpaces() -> [SpaceWindowGroup] {
+        invalidateCacheIfSettingsChanged()
         if let cached = cache.allSpacesHit() {
             return cached
         }

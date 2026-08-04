@@ -10,7 +10,7 @@ final class AllSpacesCacheRefresher {
     private enum RefreshState {
         case idle
         case refreshing(task: Task<[SpaceWindowGroup]?, Never>, id: Int, generation: Int)
-        case pending
+        case pending(id: Int, generation: Int)
     }
 
     private var state: RefreshState = .idle
@@ -31,8 +31,8 @@ final class AllSpacesCacheRefresher {
         switch state {
         case .idle:
             startRefresh()
-        case .refreshing:
-            state = .pending
+        case .refreshing(_, let id, let generation):
+            state = .pending(id: id, generation: generation)
         case .pending:
             break
         }
@@ -57,16 +57,28 @@ final class AllSpacesCacheRefresher {
         Task { @MainActor [weak self] in
             guard let self else { return }
             let groups = await task.value
-            // Only process if this task is still the current refresh task.
-            // A stale callback (from a cancelled/superseded task) must not
-            // corrupt the state machine.
-            guard case .refreshing(_, let currentID, let generation) = self.state, currentID == id else {
-                return
+            switch self.state {
+            case .refreshing(_, let currentID, let generation):
+                // Stale callback (from a cancelled/superseded task) must not
+                // corrupt the state machine.
+                guard currentID == id else { return }
+                if let groups {
+                    self.onCompletion(groups, generation)
+                }
+                self.handleCompletion()
+            case .pending(let pendingID, let generation):
+                // A refresh() request arrived while this task was in flight, so
+                // the state moved to .pending before this callback ran. The
+                // completing task is still the current one: deliver its result
+                // and let handleCompletion start the coalesced follow-up.
+                guard pendingID == id else { return }
+                if let groups {
+                    self.onCompletion(groups, generation)
+                }
+                self.handleCompletion()
+            case .idle:
+                break
             }
-            if let groups {
-                self.onCompletion(groups, generation)
-            }
-            self.handleCompletion()
         }
     }
 
