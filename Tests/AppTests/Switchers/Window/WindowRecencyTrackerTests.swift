@@ -73,13 +73,13 @@ final class WindowRecencyTrackerTests: XCTestCase {
         )
 
         XCTAssertEqual(entries.map(\.windowID), [201])
-        XCTAssertEqual(mergedOrder, [201, 103, 102, 101],
-                       "Subset listing keeps other-space IDs in their prior order")
+        XCTAssertEqual(mergedOrder, [103, 201, 102, 101],
+                       "Subset listing keeps other-space IDs in their prior positions")
         XCTAssertEqual(tracker.recentWindowIDs, [103, 201, 102, 101],
                        "Query is pure: state unchanged until apply")
 
         tracker.apply(order: mergedOrder)
-        XCTAssertEqual(tracker.recentWindowIDs, [201, 103, 102, 101])
+        XCTAssertEqual(tracker.recentWindowIDs, [103, 201, 102, 101])
     }
 
     func testEmptySubsetListingDoesNotWipe() {
@@ -166,7 +166,7 @@ final class WindowRecencyTrackerTests: XCTestCase {
             scope: .subset
         )
         tracker.apply(order: openOrder2)
-        XCTAssertEqual(tracker.recentWindowIDs, [102, 101, 201, 202],
+        XCTAssertEqual(tracker.recentWindowIDs, [102, 201, 101, 202],
                        "Subset open keeps cross-space MRU order")
 
         // 3. All-spaces open (complete) with B windows in raw enumeration order
@@ -180,11 +180,30 @@ final class WindowRecencyTrackerTests: XCTestCase {
         )
         tracker.apply(order: openOrder3)
 
-        XCTAssertEqual(tracker.recentWindowIDs, [102, 101, 201, 202],
+        XCTAssertEqual(tracker.recentWindowIDs, [102, 201, 101, 202],
                        "Non-current-space windows survive in MRU order after the issue flow")
         XCTAssertEqual(entries.map(\.windowID), [102, 101, 201, 202])
         XCTAssertEqual(groups.first(where: { $0.spaceID == 200 })?.entries.map(\.windowID), [201, 202],
                        "Space B windows are MRU-ordered (201 before 202), not enumeration-ordered")
+    }
+
+    func testSubsetOpenWithNewWindowPreservesInterleaving() {
+        let tracker = WindowRecencyTracker()
+        seed(tracker, [202, 101, 201, 102])
+        XCTAssertEqual(tracker.recentWindowIDs, [102, 201, 101, 202])
+
+        let (_, _, mergedOrder) = tracker.orderedEntriesAndGroups(
+            from: [makeGroup(spaceID: 100, entries: [makeEntry(windowID: 103), makeEntry(windowID: 102), makeEntry(windowID: 101)])],
+            scope: .subset
+        )
+
+        XCTAssertEqual(tracker.recentWindowIDs, [102, 201, 101, 202],
+                       "Query is pure: state unchanged until apply")
+        XCTAssertEqual(mergedOrder, [102, 201, 101, 103, 202],
+                       "New window 103 inserted after last known subset window 101")
+
+        tracker.apply(order: mergedOrder)
+        XCTAssertEqual(tracker.recentWindowIDs, [102, 201, 101, 103, 202])
     }
 
     func testOrderedEntriesAndGroupsNeverMutates() {

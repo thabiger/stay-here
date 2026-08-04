@@ -18,22 +18,43 @@ final class RecencyOrderingTests: XCTestCase {
 
     func testSubsetMergePreservesUnlistedIDsInPriorOrder() {
         XCTAssertEqual(
-            RecencyOrdering.merge(recentIDs: [103, 201, 102, 101], incomingIDs: [201], promoting: [], scope: .subset),
-            [201, 103, 102, 101]
+            RecencyOrdering.mergeSubsetListing(recentIDs: [103, 201, 102, 101], incomingIDs: [201]),
+            [103, 201, 102, 101]
         )
     }
 
     func testSubsetMergeAppendsUnknownAfterKnown() {
         XCTAssertEqual(
-            RecencyOrdering.merge(recentIDs: [2], incomingIDs: [1, 2, 3], promoting: [], scope: .subset),
+            RecencyOrdering.mergeSubsetListing(recentIDs: [2], incomingIDs: [1, 2, 3]),
             [2, 1, 3]
         )
     }
 
     func testEmptyIncomingSubsetPreservesList() {
         XCTAssertEqual(
-            RecencyOrdering.merge(recentIDs: [1, 2], incomingIDs: [], promoting: [], scope: .subset),
+            RecencyOrdering.mergeSubsetListing(recentIDs: [1, 2], incomingIDs: []),
             [1, 2]
+        )
+    }
+
+    func testSubsetListingKeepsCrossSpaceInterleaving() {
+        XCTAssertEqual(
+            RecencyOrdering.mergeSubsetListing(recentIDs: [102, 201, 101, 202], incomingIDs: [102, 101]),
+            [102, 201, 101, 202]
+        )
+    }
+
+    func testSubsetListingAppendsNewWindowsAfterLastKnownSubsetWindow() {
+        XCTAssertEqual(
+            RecencyOrdering.mergeSubsetListing(recentIDs: [102, 201, 101, 202], incomingIDs: [103, 102, 101]),
+            [102, 201, 101, 103, 202]
+        )
+    }
+
+    func testSubsetListingAllUnknownAppendsAtEnd() {
+        XCTAssertEqual(
+            RecencyOrdering.mergeSubsetListing(recentIDs: [201, 202], incomingIDs: [103, 104]),
+            [201, 202, 103, 104]
         )
     }
 

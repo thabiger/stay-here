@@ -17,7 +17,7 @@ final class WindowRecencyTracker {
 
     /// Pure read query. Orders `spaceGroups` by recency and returns the
     /// entries, the regrouped spaces, and the full desired persistent order
-    /// (`mergedOrder`, including the `.subset`-preserved tail). Does not
+    /// (`mergedOrder`, with `.subset` using in-place preserved order). Does not
     /// mutate state — callers apply the order via `apply(order:)`.
     func orderedEntriesAndGroups(
         from spaceGroups: [SpaceWindowGroup],
@@ -123,11 +123,20 @@ final class WindowRecencyTracker {
             }.map { ($0.entry.windowID, $0) }
         )
 
-        let mergedIDs = RecencyOrdering.merge(
-            recentIDs: recentWindowIDs,
-            incomingIDs: allEntries.map(\.windowID),
-            scope: scope
-        )
+        let mergedIDs: [Int]
+        switch scope {
+        case .subset:
+            mergedIDs = RecencyOrdering.mergeSubsetListing(
+                recentIDs: recentWindowIDs,
+                incomingIDs: allEntries.map(\.windowID)
+            )
+        case .complete:
+            mergedIDs = RecencyOrdering.merge(
+                recentIDs: recentWindowIDs,
+                incomingIDs: allEntries.map(\.windowID),
+                scope: .complete
+            )
+        }
         let groups = Self.groupedBySpace(
             ordered: mergedIDs.compactMap { spaceEntryByID[$0] },
             from: spaceGroups

@@ -70,6 +70,9 @@ enum WindowRecencyScope {
 /// 4. `promoting` IDs are forced to the front, in order, and deduplicated
 ///    against everything else (commit path: selected window + session start
 ///    window). Listing path passes `[]`.
+/// 5. Subset-scope **listing** uses `mergeSubsetListing` (in-place; never
+///    relocates other-space IDs). The `.subset` branch of `merge` is the
+///    commit-path contract only (promotes to front, preserves tail).
 enum RecencyOrdering {
     static func merge(
         recentIDs: [Int],
@@ -95,6 +98,33 @@ enum RecencyOrdering {
         case .complete:
             return ordered
         }
+    }
+
+    /// Subset-listing merge (display-only path). Reorders only the incoming
+    /// (current-space) IDs and leaves every other ID exactly where it is:
+    /// - Incoming IDs already in `recentIDs` keep their positions (they are
+    ///   already in recency order among themselves).
+    /// - Incoming IDs not in `recentIDs` (genuinely new windows) are appended
+    ///   immediately after the last incoming ID present in `recentIDs`
+    ///   (at the end when none are present).
+    /// - IDs outside `incomingIDs` (other-space windows) are never relocated,
+    ///   so a display-only subset open cannot corrupt the shared MRU order
+    ///   (CORR-1). Never used on the commit path — commits promote via
+    ///   `merge(promoting:)`.
+    static func mergeSubsetListing(recentIDs: [Int], incomingIDs: [Int]) -> [Int] {
+        let incomingSet = Set(incomingIDs)
+        guard !incomingSet.isEmpty else { return recentIDs }
+
+        let known = recentIDs.filter { incomingSet.contains($0) }
+        let knownSet = Set(known)
+        let unknown = incomingIDs.filter { !knownSet.contains($0) }
+        guard !unknown.isEmpty else { return recentIDs }
+
+        var result = recentIDs
+        let insertionIndex = (recentIDs.lastIndex { incomingSet.contains($0) }.map { $0 + 1 })
+            ?? result.count
+        result.insert(contentsOf: unknown, at: insertionIndex)
+        return result
     }
 }
 
