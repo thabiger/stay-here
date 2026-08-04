@@ -56,7 +56,7 @@ struct AllSpacesWindowComputer {
                 pid: window.pid,
                 appName: window.appName,
                 windowTitle: window.windowTitle,
-                icon: iconProvider(filtered.first(where: { $0.windowID == window.windowID })?.application)
+                icon: iconProvider(window.application)
             )
         }
 

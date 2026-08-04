@@ -8,6 +8,7 @@ struct WindowWithTitle {
     let pid: pid_t
     let appName: String
     let windowTitle: String?
+    let application: (any WindowListApplication)?
 }
 
 final class WindowTitleResolver {
@@ -38,7 +39,8 @@ final class WindowTitleResolver {
                 windowID: filtered.windowID,
                 pid: filtered.pid,
                 appName: appName,
-                windowTitle: windowTitle
+                windowTitle: windowTitle,
+                application: filtered.application
             )
         }
     }
