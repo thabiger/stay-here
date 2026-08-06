@@ -3,6 +3,8 @@ import Combine
 
 @MainActor
 public final class SpaceStateManager {
+    public nonisolated static let maxConsecutiveAnomalyRetentions = 3
+
     public let objectWillChange = ObservableObjectPublisher()
     public var spaces: [SpaceIdentity] { stateStore.spaces }
     public var activeSpaceID: Int? { stateStore.activeSpaceID }
@@ -18,6 +20,7 @@ public final class SpaceStateManager {
     private let snapshotBuilder: SpaceSnapshotBuilder
     private let logger: any Logging
     private var stateStoreObserver: AnyCancellable?
+    private var consecutiveAnomalyRetentions = 0
 
     public init(
         cgsBridge: any CGSBridgeProtocol,
@@ -157,13 +160,21 @@ public final class SpaceStateManager {
         let derivedState = orderingService.deriveState(
             snapshot: snapshot,
             globalActiveID: cgsBridge.activeSpaceID(),
-            previousActiveID: stateStore.activeSpaceID
+            previousActiveID: stateStore.activeSpaceID,
+            previousSpaces: stateStore.spaces,
+            previousNativeOrderByDisplay: stateStore.nativeOrderByDisplay,
+            previousDesktopNumberBySpaceID: stateStore.desktopNumberBySpaceID,
+            consecutiveAnomalyRetentions: consecutiveAnomalyRetentions,
+            maxConsecutiveAnomalyRetentions: Self.maxConsecutiveAnomalyRetentions
         )
         let spacesChanged = derivedState.spaces != stateStore.spaces
         stateStore.applyDerivedState(derivedState)
-        if spacesChanged, snapshot.spaces.isEmpty == false {
+        if spacesChanged,
+           snapshot.spaces.isEmpty == false,
+           !SpaceOrderingService.containsSyntheticFallback(derivedState.spaces) {
             reconcilePersistedSpaces()
         }
+        consecutiveAnomalyRetentions = derivedState.retainedPreviousSpaces ? consecutiveAnomalyRetentions + 1 : 0
     }
 
     private func reconcilePersistedSpaces() {
