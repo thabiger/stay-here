@@ -50,30 +50,14 @@ final class WindowListProvider {
 
         self.refresher = AllSpacesCacheRefresher(
             computerFactory: { [weak registry, cgsBridge, enumerator, filter, titleResolver, iconProvider, settings] in
-                let orderedIDs = registry?.orderedSpaceIDs() ?? []
-                let spaces = registry?.spaces ?? []
-                var names: [Int: String] = [:]
-                var labels: [Int: String] = [:]
-                for spaceID in orderedIDs {
-                    names[spaceID] = registry?.name(for: spaceID) ?? SpaceDisplayNameProvider.defaultUnnamedName
-                    labels[spaceID] = registry?.namespaceLabel(for: spaceID) ?? ""
-                }
-                let context = AllSpacesWindowComputeContext(
-                    currentSpaceID: cgsBridge.activeSpaceID() ?? registry?.activeSpaceID ?? -1,
-                    orderedSpaceIDs: orderedIDs,
-                    spacesByID: Dictionary(uniqueKeysWithValues: spaces.map { ($0.id, $0) }),
-                    spaceNames: names,
-                    namespaceLabels: labels,
-                    showHiddenWindows: settings.windowSwitcherShowHiddenWindows,
-                    showMinimizedWindows: settings.windowSwitcherShowMinimizedWindows
-                )
-                return AllSpacesWindowComputer(
+                Self.makeAllSpacesComputer(
+                    registry: registry,
+                    cgsBridge: cgsBridge,
                     enumerator: enumerator,
                     filter: filter,
                     titleResolver: titleResolver,
                     iconProvider: iconProvider,
-                    spacesForWindow: { windowID in cgsBridge.spacesForWindow(windowID: windowID) },
-                    context: context
+                    settings: settings
                 )
             },
             onCompletion: { [weak cache] groups, generation in
@@ -98,6 +82,54 @@ final class WindowListProvider {
             namespaceLabelProvider: { [weak registry] spaceID in
                 registry?.namespaceLabel(for: spaceID) ?? ""
             }
+        )
+    }
+
+    private static func makeAllSpacesComputeContext(
+        registry: (any SpaceRegistryProtocol)?,
+        cgsBridge: any CGSBridgeProtocol,
+        settings: WindowSwitcherSettings
+    ) -> AllSpacesWindowComputeContext {
+        let orderedIDs = registry?.orderedSpaceIDs() ?? []
+        let spaces = registry?.spaces ?? []
+        var names: [Int: String] = [:]
+        var labels: [Int: String] = [:]
+        for spaceID in orderedIDs {
+            names[spaceID] = registry?.name(for: spaceID) ?? SpaceDisplayNameProvider.defaultUnnamedName
+            labels[spaceID] = registry?.namespaceLabel(for: spaceID) ?? ""
+        }
+        return AllSpacesWindowComputeContext(
+            currentSpaceID: cgsBridge.activeSpaceID() ?? registry?.activeSpaceID ?? -1,
+            orderedSpaceIDs: orderedIDs,
+            spacesByID: Dictionary(uniqueKeysWithValues: spaces.map { ($0.id, $0) }),
+            spaceNames: names,
+            namespaceLabels: labels,
+            showHiddenWindows: settings.windowSwitcherShowHiddenWindows,
+            showMinimizedWindows: settings.windowSwitcherShowMinimizedWindows
+        )
+    }
+
+    private static func makeAllSpacesComputer(
+        registry: (any SpaceRegistryProtocol)?,
+        cgsBridge: any CGSBridgeProtocol,
+        enumerator: WindowEnumerator,
+        filter: WindowFilter,
+        titleResolver: WindowTitleResolver,
+        iconProvider: @escaping WindowListProviderTypes.IconProvider,
+        settings: WindowSwitcherSettings
+    ) -> AllSpacesWindowComputer {
+        let context = makeAllSpacesComputeContext(
+            registry: registry,
+            cgsBridge: cgsBridge,
+            settings: settings
+        )
+        return AllSpacesWindowComputer(
+            enumerator: enumerator,
+            filter: filter,
+            titleResolver: titleResolver,
+            iconProvider: iconProvider,
+            spacesForWindow: { windowID in cgsBridge.spacesForWindow(windowID: windowID) },
+            context: context
         )
     }
 
