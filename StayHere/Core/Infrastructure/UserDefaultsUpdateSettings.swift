@@ -1,6 +1,6 @@
 import Foundation
 
-public final class UserDefaultsUpdateSettings: UpdateSettings {
+public final class UserDefaultsUpdateSettings: SettingsBackingStore, UpdateSettings {
     private enum Key {
         static let automaticUpdateChecksEnabled = "updates.automatic.enabled"
     }
@@ -9,21 +9,8 @@ public final class UserDefaultsUpdateSettings: UpdateSettings {
         static let automaticUpdateChecksEnabled: Bool = true
     }
 
-    private let defaults: UserDefaults
-
-    public init(defaults: UserDefaults = .standard) {
-        self.defaults = defaults
-    }
-
     public var automaticUpdateChecksEnabled: Bool {
-        get {
-            if defaults.object(forKey: Key.automaticUpdateChecksEnabled) != nil {
-                return defaults.bool(forKey: Key.automaticUpdateChecksEnabled)
-            }
-            return Defaults.automaticUpdateChecksEnabled
-        }
-        set {
-            defaults.set(newValue, forKey: Key.automaticUpdateChecksEnabled)
-        }
+        get { defaults[setting: Key.automaticUpdateChecksEnabled, default: Defaults.automaticUpdateChecksEnabled] }
+        set { defaults[setting: Key.automaticUpdateChecksEnabled, default: Defaults.automaticUpdateChecksEnabled] = newValue }
     }
 }

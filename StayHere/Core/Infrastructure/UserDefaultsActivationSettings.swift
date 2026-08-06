@@ -1,6 +1,6 @@
 import Foundation
 
-public final class UserDefaultsActivationSettings: ActivationSettings {
+public final class UserDefaultsActivationSettings: SettingsBackingStore, ActivationSettings {
     private enum Key {
         static let activationEnabled = "activation.enabled"
         static let activationSingleWindowAppBundleIDs = "activation.singleWindowAppBundleIDs"
@@ -9,12 +9,6 @@ public final class UserDefaultsActivationSettings: ActivationSettings {
 
     private enum Defaults {
         static let activationDockClickInterceptionEnabled: Bool = true
-    }
-
-    private let defaults: UserDefaults
-
-    public init(defaults: UserDefaults = .standard) {
-        self.defaults = defaults
     }
 
     public var activationDockClickInterceptionEnabled: Bool {
