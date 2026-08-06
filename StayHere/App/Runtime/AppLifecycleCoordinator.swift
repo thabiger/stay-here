@@ -14,6 +14,7 @@ final class AppLifecycleCoordinator {
     private let setActivationPolicy: (NSApplication.ActivationPolicy) -> Void
     private let logger: any Logging
     private var pollTimer: Timer?
+    private static let safetyNetTimerInterval: TimeInterval = 20
 
     init(
         appearanceManager: AppearanceManager,
@@ -45,13 +46,9 @@ final class AppLifecycleCoordinator {
         setActivationPolicy(.accessory) // set the app to accessory mode (hidden in the Dock)
         applyAppearance() // light/dark mode
 
-        pollTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
-            guard !isSettingsOpen() else { return }
-            refreshSpacesSoon()
-        }
-
         refreshSpacesAsync()
         rebuildSpaceItems()
+        startSafetyNetTimer(isSettingsOpen: isSettingsOpen, refreshSpacesSoon: refreshSpacesSoon)
         showSetupRequirementsIfNeeded(
             startEventDrivenControllers: startEventDrivenControllers,
             presentSetupRequirementsWarning: presentSetupRequirementsWarning
@@ -66,8 +63,34 @@ final class AppLifecycleCoordinator {
         stopControllers()
     }
 
-    func handleActiveSpaceChanged(isSettingsOpen: Bool, refreshSpacesSoon: @escaping () -> Void) {
+    func handleActiveSpaceChanged(
+        isSettingsOpen: Bool,
+        refreshSpacesConverging: @escaping () -> Void
+    ) {
         guard !isSettingsOpen else { return }
+        refreshSpacesConverging()
+    }
+
+    private func startSafetyNetTimer(
+        isSettingsOpen: @escaping () -> Bool,
+        refreshSpacesSoon: @escaping () -> Void
+    ) {
+        guard pollTimer == nil else { return }
+        pollTimer = Timer.scheduledTimer(withTimeInterval: Self.safetyNetTimerInterval, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.safetyNetTick(isSettingsOpen: isSettingsOpen, refreshSpacesSoon: refreshSpacesSoon)
+            }
+        }
+    }
+
+    func safetyNetTick(
+        isSettingsOpen: () -> Bool,
+        refreshSpacesSoon: () -> Void
+    ) {
+        guard !isSettingsOpen() else { return }
+        guard setupStatusProvider().isSatisfied else { return }
         refreshSpacesSoon()
     }
 

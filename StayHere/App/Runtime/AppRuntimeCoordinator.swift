@@ -156,6 +156,18 @@ final class AppRuntimeCoordinator: AppCoordinating {
             self?.statusBarCoordinator.rebuildSpaceItems()
         }
 
+        // When the active space changes (notification) → refresh core space state
+        spaceObservationCoordinator.bindRefreshSpacesHandler { [weak self] in
+            guard let self else { return }
+            self.lifecycleCoordinator.handleActiveSpaceChanged(
+                isSettingsOpen: self.isSettingsOpen,
+                refreshSpacesConverging: { [weak self] in
+                    guard let self else { return }
+                    self.services.refreshSpaces.refreshSoonConverging()
+                }
+            )
+        }
+
         // Initialize HUD dedup to avoid HUD on first registry event at startup
         lastObservedActiveSpaceID = registry.activeSpaceID
 
@@ -165,7 +177,7 @@ final class AppRuntimeCoordinator: AppCoordinating {
         // Run lifecycle coordinator - sets activation policy, starts timers, checks setup requirements
         lifecycleCoordinator.applicationDidFinishLaunching(
             isSettingsOpen: { [weak self] in self?.isSettingsOpen ?? false },
-            refreshSpacesSoon: { [weak self] in self?.services.refreshSpaces.refreshWithRetry() },
+            refreshSpacesSoon: { [weak self] in self?.services.refreshSpaces.refreshSoon() },
             refreshSpacesAsync: { [weak self] in self?.services.refreshSpaces.refreshAsync() },
             rebuildSpaceItems: { [weak self] in
                 self?.statusBarCoordinator.rebuildSpaceItems()

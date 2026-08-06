@@ -74,4 +74,61 @@ final class AppLifecycleCoordinatorTests: XCTestCase {
 
         XCTAssertEqual(refreshCount, 1)
     }
+
+    func testSafetyNetTickNoOpsWhenSetupUnsatisfied() {
+        let coordinator = AppLifecycleCoordinator(
+            appearanceManager: AppearanceManager(settings: UserDefaultsSettingsRepository()),
+            applyAppearance: {},
+            setupStatusProvider: {
+                AppSetupStatusSnapshot(isSatisfied: false, missingDescriptionsCount: 1)
+            },
+            setActivationPolicy: { _ in },
+            logger: NoOpLogger()
+        )
+        var refreshCount = 0
+
+        coordinator.safetyNetTick(isSettingsOpen: { false }) {
+            refreshCount += 1
+        }
+
+        XCTAssertEqual(refreshCount, 0)
+    }
+
+    func testSafetyNetTickRefreshesWhenSetupSatisfied() {
+        let coordinator = AppLifecycleCoordinator(
+            appearanceManager: AppearanceManager(settings: UserDefaultsSettingsRepository()),
+            applyAppearance: {},
+            setupStatusProvider: {
+                AppSetupStatusSnapshot(isSatisfied: true, missingDescriptionsCount: 0)
+            },
+            setActivationPolicy: { _ in },
+            logger: NoOpLogger()
+        )
+        var refreshCount = 0
+
+        coordinator.safetyNetTick(isSettingsOpen: { false }) {
+            refreshCount += 1
+        }
+
+        XCTAssertEqual(refreshCount, 1)
+    }
+
+    func testSafetyNetTickNoOpsWhileSettingsOpen() {
+        let coordinator = AppLifecycleCoordinator(
+            appearanceManager: AppearanceManager(settings: UserDefaultsSettingsRepository()),
+            applyAppearance: {},
+            setupStatusProvider: {
+                AppSetupStatusSnapshot(isSatisfied: true, missingDescriptionsCount: 0)
+            },
+            setActivationPolicy: { _ in },
+            logger: NoOpLogger()
+        )
+        var refreshCount = 0
+
+        coordinator.safetyNetTick(isSettingsOpen: { true }) {
+            refreshCount += 1
+        }
+
+        XCTAssertEqual(refreshCount, 0)
+    }
 }

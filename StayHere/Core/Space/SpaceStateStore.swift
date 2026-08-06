@@ -39,23 +39,27 @@ public final class SpaceStateStore: ObservableObject {
     public func syncPersistenceState(
         labels: [Int: SpaceLabel]
     ) {
-        state = SpaceState(
+        let nextState = SpaceState(
             spaces: state.spaces,
             activeSpaceID: state.activeSpaceID,
             labels: labels,
             desktopNumberBySpaceID: state.desktopNumberBySpaceID,
             nativeOrderByDisplay: state.nativeOrderByDisplay
         )
+        guard nextState != state else { return }
+        state = nextState
     }
 
     public func applyDerivedState(_ derivedState: SpaceRegistryDerivedState) {
-        state = SpaceState(
+        let nextState = SpaceState(
             spaces: derivedState.spaces,
             activeSpaceID: derivedState.activeSpaceID,
             labels: state.labels,
             desktopNumberBySpaceID: derivedState.desktopNumberBySpaceID,
             nativeOrderByDisplay: derivedState.nativeOrderByDisplay
         )
+        guard nextState != state else { return }
+        state = nextState
     }
 
     public func currentSwitchSnapshot() -> SpaceSwitchSnapshot {

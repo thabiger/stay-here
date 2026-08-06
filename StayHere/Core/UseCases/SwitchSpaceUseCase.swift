@@ -23,7 +23,7 @@ public final class SwitchSpaceUseCase {
             },
             scheduleRefreshSoon: {
                 Task { @MainActor in
-                    refreshUseCase.refreshWithRetry()
+                    refreshUseCase.refreshSoon()
                 }
             },
             logger: logger

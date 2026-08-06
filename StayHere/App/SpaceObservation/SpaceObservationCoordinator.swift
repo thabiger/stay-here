@@ -14,6 +14,7 @@ final class SpaceObservationCoordinator {
     private var isSettingsOpen: () -> Bool = { false }
     private var onActiveSpaceChanged: (() -> Void)?
     private var onScheduleMenuRebuild: (() -> Void)?
+    private var onRefreshSpaces: (() -> Void)?
 
     init(
         registry: any SpaceRegistryProtocol,
@@ -37,6 +38,10 @@ final class SpaceObservationCoordinator {
 
     func bindMenuRebuildHandler(_ handler: @escaping () -> Void) {
         self.onScheduleMenuRebuild = handler
+    }
+
+    func bindRefreshSpacesHandler(_ handler: @escaping () -> Void) {
+        self.onRefreshSpaces = handler
     }
 
     func startObserving() {
@@ -82,6 +87,7 @@ final class SpaceObservationCoordinator {
     private func handleActiveSpaceChanged() {
         guard !isSettingsOpen() else { return }
         onActiveSpaceChanged?()
+        onRefreshSpaces?()
     }
 
     func stopObserving() {
