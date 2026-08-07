@@ -7,6 +7,7 @@ public struct SpaceState: Equatable {
     public var labels: [Int: SpaceLabel] = [:]
     public var desktopNumberBySpaceID: [Int: Int] = [:]
     public var nativeOrderByDisplay: [String: [Int]] = [:]
+    public var isStaleSnapshot: Bool = false
 
     public init() {}
 
@@ -15,13 +16,15 @@ public struct SpaceState: Equatable {
         activeSpaceID: Int?,
         labels: [Int: SpaceLabel],
         desktopNumberBySpaceID: [Int: Int],
-        nativeOrderByDisplay: [String: [Int]]
+        nativeOrderByDisplay: [String: [Int]],
+        isStaleSnapshot: Bool = false
     ) {
         self.spaces = spaces
         self.activeSpaceID = activeSpaceID
         self.labels = labels
         self.desktopNumberBySpaceID = desktopNumberBySpaceID
         self.nativeOrderByDisplay = nativeOrderByDisplay
+        self.isStaleSnapshot = isStaleSnapshot
     }
 }
 
@@ -33,6 +36,7 @@ public final class SpaceStateStore: ObservableObject {
     public var labels: [Int: SpaceLabel] { state.labels }
     public var desktopNumberBySpaceID: [Int: Int] { state.desktopNumberBySpaceID }
     public var nativeOrderByDisplay: [String: [Int]] { state.nativeOrderByDisplay }
+    public var isStaleSnapshot: Bool { state.isStaleSnapshot }
 
     public init() {}
 
@@ -44,7 +48,8 @@ public final class SpaceStateStore: ObservableObject {
             activeSpaceID: state.activeSpaceID,
             labels: labels,
             desktopNumberBySpaceID: state.desktopNumberBySpaceID,
-            nativeOrderByDisplay: state.nativeOrderByDisplay
+            nativeOrderByDisplay: state.nativeOrderByDisplay,
+            isStaleSnapshot: state.isStaleSnapshot
         )
         guard nextState != state else { return }
         state = nextState
@@ -56,7 +61,8 @@ public final class SpaceStateStore: ObservableObject {
             activeSpaceID: derivedState.activeSpaceID,
             labels: state.labels,
             desktopNumberBySpaceID: derivedState.desktopNumberBySpaceID,
-            nativeOrderByDisplay: derivedState.nativeOrderByDisplay
+            nativeOrderByDisplay: derivedState.nativeOrderByDisplay,
+            isStaleSnapshot: derivedState.isStaleSnapshot
         )
         guard nextState != state else { return }
         state = nextState
@@ -66,7 +72,8 @@ public final class SpaceStateStore: ObservableObject {
         SpaceSwitchSnapshot(
             activeSpaceID: activeSpaceID,
             spaces: spaces,
-            nativeOrderByDisplay: nativeOrderByDisplay
+            nativeOrderByDisplay: nativeOrderByDisplay,
+            isStaleSnapshot: isStaleSnapshot
         )
     }
 }

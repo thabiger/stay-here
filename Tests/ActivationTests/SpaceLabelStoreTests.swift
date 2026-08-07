@@ -36,7 +36,7 @@ final class SpaceLabelStoreTests: XCTestCase {
         XCTAssertNil(reloaded.labels[999])
     }
 
-    func testReconcileDoesNotDeleteLabelsForEmptyOrSyntheticFallbackInput() {
+    func testReconcileDoesNotDeleteLabelsForEmptyInput() {
         let store = makeStore()
         let labelStore = SpaceLabelStore(store: store, logger: NoOpLogger())
         labelStore.rename(spaceID: 999, name: "Old")
@@ -45,27 +45,6 @@ final class SpaceLabelStoreTests: XCTestCase {
         let reloaded = SpaceLabelStore(store: store, logger: NoOpLogger())
         reloaded.reconcileLabels(for: [])
         XCTAssertEqual(reloaded.labels[999]?.name, "Old", "Empty input must not delete labels")
-
-        reloaded.reconcileLabels(for: [SpaceIdentity(id: 1, display: SpaceOrderingService.fallbackDisplay)])
-        XCTAssertEqual(reloaded.labels[999]?.name, "Old", "Synthetic fallback input must not delete labels")
-        XCTAssertNil(reloaded.labels[1])
-    }
-
-    func testReconcileBlocksMixedListContainingSyntheticFallback() {
-        let store = makeStore()
-        let labelStore = SpaceLabelStore(store: store, logger: NoOpLogger())
-        labelStore.rename(spaceID: 999, name: "Old")
-        labelStore.persistNow()
-
-        let reloaded = SpaceLabelStore(store: store, logger: NoOpLogger())
-        reloaded.reconcileLabels(
-            for: [
-                SpaceIdentity(id: 1, display: SpaceOrderingService.fallbackDisplay),
-                SpaceIdentity(id: 101, display: "display-a", kind: .desktop)
-            ]
-        )
-        XCTAssertEqual(reloaded.labels[999]?.name, "Old", "Any synthetic fallback in the input must block reconcile")
-        XCTAssertNil(reloaded.labels[101], "Reconcile must not run when a synthetic fallback is present")
     }
 
     private func makeStore() -> SpaceStore {

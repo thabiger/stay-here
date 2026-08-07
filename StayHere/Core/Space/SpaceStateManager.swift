@@ -11,6 +11,7 @@ public final class SpaceStateManager {
     public var labels: [Int: SpaceLabel] { stateStore.labels }
     public var desktopNumberBySpaceID: [Int: Int] { stateStore.desktopNumberBySpaceID }
     public var nativeOrderByDisplay: [String: [Int]] { stateStore.nativeOrderByDisplay }
+    public var isStaleSnapshot: Bool { stateStore.isStaleSnapshot }
 
     let cgsBridge: any CGSBridgeProtocol
     let stateStore: SpaceStateStore
@@ -171,7 +172,7 @@ public final class SpaceStateManager {
         stateStore.applyDerivedState(derivedState)
         if spacesChanged,
            snapshot.spaces.isEmpty == false,
-           !SpaceOrderingService.containsSyntheticFallback(derivedState.spaces) {
+           !derivedState.isStaleSnapshot {
             reconcilePersistedSpaces()
         }
         consecutiveAnomalyRetentions = derivedState.retainedPreviousSpaces ? consecutiveAnomalyRetentions + 1 : 0

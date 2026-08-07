@@ -6,19 +6,22 @@ public struct SpaceRegistryDerivedState: Equatable {
     public let nativeOrderByDisplay: [String: [Int]]
     public let desktopNumberBySpaceID: [Int: Int]
     public let retainedPreviousSpaces: Bool
+    public let isStaleSnapshot: Bool
 
     public init(
         spaces: [SpaceIdentity],
         activeSpaceID: Int?,
         nativeOrderByDisplay: [String: [Int]],
         desktopNumberBySpaceID: [Int: Int],
-        retainedPreviousSpaces: Bool = false
+        retainedPreviousSpaces: Bool = false,
+        isStaleSnapshot: Bool = false
     ) {
         self.spaces = spaces
         self.activeSpaceID = activeSpaceID
         self.nativeOrderByDisplay = nativeOrderByDisplay
         self.desktopNumberBySpaceID = desktopNumberBySpaceID
         self.retainedPreviousSpaces = retainedPreviousSpaces
+        self.isStaleSnapshot = isStaleSnapshot
     }
 }
 
@@ -42,18 +45,21 @@ public struct SpaceOrderingService {
         }
         let nextSpaces: [SpaceIdentity]
         let retainedPreviousSpaces: Bool
+        var isStaleSnapshot = false
         if !discovered.isEmpty {
             nextSpaces = discovered
             retainedPreviousSpaces = false
         } else if snapshot.spaces.isEmpty {
-            nextSpaces = fallbackSpaces()
+            nextSpaces = []
             retainedPreviousSpaces = false
+            isStaleSnapshot = true
         } else if previousSpaces.isEmpty {
             nextSpaces = []
             retainedPreviousSpaces = false
         } else if consecutiveAnomalyRetentions >= maxConsecutiveAnomalyRetentions - 1 {
-            nextSpaces = fallbackSpaces()
+            nextSpaces = []
             retainedPreviousSpaces = false
+            isStaleSnapshot = true
         } else {
             nextSpaces = previousSpaces
             retainedPreviousSpaces = true
@@ -88,7 +94,8 @@ public struct SpaceOrderingService {
             activeSpaceID: clampedActive,
             nativeOrderByDisplay: nativeOrderByDisplay,
             desktopNumberBySpaceID: desktopNumberBySpaceID,
-            retainedPreviousSpaces: retainedPreviousSpaces
+            retainedPreviousSpaces: retainedPreviousSpaces,
+            isStaleSnapshot: isStaleSnapshot
         )
     }
 
@@ -138,20 +145,6 @@ public struct SpaceOrderingService {
             return display
         }
         return snapshot.activeByDisplay.keys.sorted().first ?? snapshot.spaces.first?.display
-    }
-
-    public static let fallbackDisplay = "fallback-display"
-
-    public static func isSyntheticFallback(_ space: SpaceIdentity) -> Bool {
-        space.display == fallbackDisplay
-    }
-
-    public static func containsSyntheticFallback(_ spaces: [SpaceIdentity]) -> Bool {
-        spaces.isEmpty || spaces.contains(where: { isSyntheticFallback($0) })
-    }
-
-    private func fallbackSpaces() -> [SpaceIdentity] {
-        [SpaceIdentity(id: 1, display: Self.fallbackDisplay)]
     }
 
     private func clampActiveSpaceID(_ spaceID: Int?, into spaces: [SpaceIdentity]) -> Int? {

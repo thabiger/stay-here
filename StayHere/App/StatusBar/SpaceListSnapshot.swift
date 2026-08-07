@@ -20,6 +20,13 @@ struct SpaceListSnapshot {
         updateInfo: UpdateInfo?,
         diagnosticsEnabled: Bool
     ) -> SpaceListSnapshot {
+        guard !registry.isStaleSnapshot else {
+            return SpaceListSnapshot(
+                spaceItems: [],
+                updateInfo: updateInfo,
+                diagnosticsEnabled: diagnosticsEnabled
+            )
+        }
         let spaceIDs = registry.switchableOrderedSpaceIDs()
         let items = spaceIDs.map { id in
             SpaceItem(

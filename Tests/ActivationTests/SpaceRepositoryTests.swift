@@ -112,8 +112,9 @@ final class SpaceStateManagerTests: XCTestCase {
             store: store
         )
 
+        XCTAssertTrue(repository.isStaleSnapshot)
         XCTAssertEqual(repository.name(for: 101), "Inbox")
-        XCTAssertNil(repository.labels[1], "Fallback space state must not be persisted as a real label")
+        XCTAssertNil(repository.labels[1], "Stale snapshots must not fabricate a label for space 1")
 
         let reloaded = store.load()
         XCTAssertEqual(reloaded.labels[101]?.name, "Inbox")
@@ -133,6 +134,7 @@ final class SpaceStateManagerTests: XCTestCase {
         )
 
         let repository = SpaceStateManagerFactory.make(cgsBridge: bridge, store: store)
+        XCTAssertTrue(repository.isStaleSnapshot)
 
         bridge.activeSpaceIDValue = 101
         bridge.managedSnapshotValue = .init(
@@ -142,6 +144,7 @@ final class SpaceStateManagerTests: XCTestCase {
         )
         repository.refreshSpaces()
 
+        XCTAssertFalse(repository.isStaleSnapshot)
         XCTAssertEqual(repository.name(for: 101), "Inbox")
         XCTAssertEqual(repository.spaces.map(\.id), [101])
     }
@@ -175,9 +178,9 @@ final class SpaceStateManagerTests: XCTestCase {
         repository.refreshSpaces()
 
         XCTAssertEqual(repository.spaces.map(\.id), [101, 102],
-                       "Previous spaces must be retained, not replaced by the fallback/empty list")
+                       "Previous spaces must be retained, not replaced by an empty list")
         XCTAssertEqual(repository.name(for: 101), "Inbox")
-        XCTAssertNil(repository.labels[1], "Synthetic fallback must never be persisted as a label")
+        XCTAssertNil(repository.labels[1], "Space 1 must not gain a label during retention")
         XCTAssertNil(repository.labels[201])
 
         repository.persistNow()   // flush any pending debounced write before reload
@@ -187,7 +190,7 @@ final class SpaceStateManagerTests: XCTestCase {
         XCTAssertNil(reloaded.labels[201])
     }
 
-    func testRefreshConvergesToFallbackAfterConsecutiveAnomalyRefreshes() {
+    func testRefreshConvergesToStaleAfterConsecutiveAnomalyRefreshes() {
         let store = makeStore()
         try? store.save(PersistedSpaces(labels: [101: SpaceLabel(name: "Inbox")]))
 
@@ -214,16 +217,18 @@ final class SpaceStateManagerTests: XCTestCase {
             repository.refreshSpaces()
             XCTAssertEqual(repository.spaces.map(\.id), [101, 102],
                            "Within the anomaly budget previous spaces are retained")
+            XCTAssertFalse(repository.isStaleSnapshot)
         }
 
         repository.refreshSpaces()
         XCTAssertEqual(
             repository.spaces,
-            [SpaceIdentity(id: 1, display: SpaceOrderingService.fallbackDisplay)],
-            "Once the anomaly budget is exhausted the retained list is dropped and the fallback appears"
+            [],
+            "Once the anomaly budget is exhausted the retained list is dropped and the state goes stale"
         )
-        XCTAssertEqual(repository.name(for: 101), "Inbox", "Labels must survive the convergence fallback")
-        XCTAssertNil(repository.labels[1], "Synthetic fallback must never be persisted as a label")
+        XCTAssertTrue(repository.isStaleSnapshot)
+        XCTAssertEqual(repository.name(for: 101), "Inbox", "Labels must survive the stale epoch")
+        XCTAssertNil(repository.labels[1], "Space 1 must not gain a label during a stale epoch")
     }
 
     private func makeStore() -> SpaceStore {

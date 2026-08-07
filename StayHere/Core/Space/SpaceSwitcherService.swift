@@ -11,15 +11,18 @@ public struct SpaceSwitchSnapshot {
     public let activeSpaceID: Int?
     public let spaces: [SpaceIdentity]
     public let nativeOrderByDisplay: [String: [Int]]
+    public let isStaleSnapshot: Bool
 
     public init(
         activeSpaceID: Int?,
         spaces: [SpaceIdentity],
-        nativeOrderByDisplay: [String: [Int]]
+        nativeOrderByDisplay: [String: [Int]],
+        isStaleSnapshot: Bool = false
     ) {
         self.activeSpaceID = activeSpaceID
         self.spaces = spaces
         self.nativeOrderByDisplay = nativeOrderByDisplay
+        self.isStaleSnapshot = isStaleSnapshot
     }
 }
 
@@ -50,6 +53,11 @@ public actor SpaceSwitcherService {
         if snapshot.activeSpaceID == spaceID {
             logger.info("switch-space skipped=already-active")
             return .alreadyActive
+        }
+
+        guard !snapshot.isStaleSnapshot else {
+            logger.error("switch-space failed=stale-snapshot")
+            return .unknownSpace
         }
 
         guard snapshot.spaces.first(where: { $0.id == spaceID })?.kind == .desktop else {

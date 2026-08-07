@@ -29,9 +29,10 @@ final class SpaceOrderingServiceTests: XCTestCase {
 
         XCTAssertEqual(derived.spaces.map(\.id), [201, 202])
         XCTAssertEqual(derived.activeSpaceID, 201)
+        XCTAssertFalse(derived.isStaleSnapshot)
     }
 
-    func testDeriveStateFallsBackWhenGlobalActiveSpaceIsMissing() {
+    func testDeriveStateReturnsEmptyStaleStateWhenSnapshotIsEmpty() {
         let snapshot = CGSBridge.ManagedSnapshot(
             spaces: [],
             activeByDisplay: [:],
@@ -49,8 +50,9 @@ final class SpaceOrderingServiceTests: XCTestCase {
             maxConsecutiveAnomalyRetentions: SpaceStateManager.maxConsecutiveAnomalyRetentions
         )
 
-        XCTAssertEqual(derived.spaces, [SpaceIdentity(id: 1, display: "fallback-display")])
-        XCTAssertEqual(derived.activeSpaceID, 1)
+        XCTAssertEqual(derived.spaces, [])
+        XCTAssertTrue(derived.isStaleSnapshot)
+        XCTAssertNil(derived.activeSpaceID)
     }
 
     func testDeriveStateKeepsPreviousSpacesWhenSelectedDisplayHasNoSpacesButSnapshotIsNonEmpty() {
@@ -91,6 +93,7 @@ final class SpaceOrderingServiceTests: XCTestCase {
         XCTAssertEqual(derived.spaces, [], "An empty previous list must never be retained")
         XCTAssertNil(derived.activeSpaceID, "activeSpaceID must not dangle outside an empty list")
         XCTAssertFalse(derived.retainedPreviousSpaces)
+        XCTAssertFalse(derived.isStaleSnapshot)
     }
 
     func testDeriveStateCarriesForwardOrderingMetadataDuringRetention() {
@@ -119,7 +122,7 @@ final class SpaceOrderingServiceTests: XCTestCase {
                        "Retention must carry forward the previous epoch's desktop numbering")
     }
 
-    func testDeriveStateConvergesToFallbackAfterConsecutiveAnomalyRefreshes() {
+    func testDeriveStateConvergesToStaleStateAfterConsecutiveAnomalyRefreshes() {
         let snapshot = CGSBridge.ManagedSnapshot(
             spaces: [SpaceIdentity(id: 201, display: "display-b", kind: .desktop)],
             activeByDisplay: ["display-a": 101, "display-b": 201],
@@ -141,6 +144,7 @@ final class SpaceOrderingServiceTests: XCTestCase {
             )
             XCTAssertEqual(derived.spaces, previous, "Previous spaces are retained within the anomaly budget")
             XCTAssertTrue(derived.retainedPreviousSpaces)
+            XCTAssertFalse(derived.isStaleSnapshot)
             count = derived.retainedPreviousSpaces ? count + 1 : 0
         }
         let converged = service.deriveState(
@@ -153,9 +157,10 @@ final class SpaceOrderingServiceTests: XCTestCase {
         )
         XCTAssertEqual(
             converged.spaces,
-            [SpaceIdentity(id: 1, display: SpaceOrderingService.fallbackDisplay)],
-            "Once the anomaly budget is exhausted the retained list is dropped and the fallback appears"
+            [],
+            "Once the anomaly budget is exhausted the retained list is dropped and the state goes stale"
         )
+        XCTAssertTrue(converged.isStaleSnapshot)
         XCTAssertFalse(converged.retainedPreviousSpaces)
     }
 

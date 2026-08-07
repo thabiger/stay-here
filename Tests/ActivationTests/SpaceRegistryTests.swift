@@ -20,6 +20,8 @@ final class SpaceRegistryTests: XCTestCase {
         XCTAssertEqual(registry.activeSpaceID, repository.activeSpaceID)
         XCTAssertEqual(registry.spaces.map(\.id), repository.spaces.map(\.id))
         XCTAssertEqual(registry.labels, repository.labels)
+        XCTAssertEqual(registry.isStaleSnapshot, repository.isStaleSnapshot)
+        XCTAssertFalse(registry.isStaleSnapshot)
     }
 
     func testForwardsReadMethodsToRepository() {

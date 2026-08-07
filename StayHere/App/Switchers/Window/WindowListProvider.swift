@@ -90,6 +90,17 @@ final class WindowListProvider {
         cgsBridge: any CGSBridgeProtocol,
         settings: WindowSwitcherSettings
     ) -> AllSpacesWindowComputeContext {
+        if registry?.isStaleSnapshot == true {
+            return AllSpacesWindowComputeContext(
+                currentSpaceID: cgsBridge.activeSpaceID() ?? -1,
+                orderedSpaceIDs: [],
+                spacesByID: [:],
+                spaceNames: [:],
+                namespaceLabels: [:],
+                showHiddenWindows: settings.windowSwitcherShowHiddenWindows,
+                showMinimizedWindows: settings.windowSwitcherShowMinimizedWindows
+            )
+        }
         let orderedIDs = registry?.orderedSpaceIDs() ?? []
         let spaces = registry?.spaces ?? []
         var names: [Int: String] = [:]

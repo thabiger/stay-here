@@ -36,6 +36,31 @@ final class SpaceStateStoreTests: XCTestCase {
         XCTAssertNotNil(cancellables)
     }
 
+    func testApplyDerivedStateCarriesStaleFlag() {
+        let store = SpaceStateStore()
+
+        store.applyDerivedState(
+            SpaceRegistryDerivedState(
+                spaces: [],
+                activeSpaceID: nil,
+                nativeOrderByDisplay: [:],
+                desktopNumberBySpaceID: [:],
+                isStaleSnapshot: true
+            )
+        )
+        XCTAssertTrue(store.isStaleSnapshot)
+
+        store.applyDerivedState(
+            SpaceRegistryDerivedState(
+                spaces: [SpaceIdentity(id: 101, display: "display-a", kind: .desktop)],
+                activeSpaceID: 101,
+                nativeOrderByDisplay: ["display-a": [101]],
+                desktopNumberBySpaceID: [101: 1]
+            )
+        )
+        XCTAssertFalse(store.isStaleSnapshot)
+    }
+
     func testSyncPersistenceStatePublishesOnlyOnChange() {
         let store = SpaceStateStore()
         var publishCount = 0

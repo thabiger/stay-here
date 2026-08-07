@@ -32,7 +32,7 @@ public final class SpaceLabelStore {
     }
 
     public func reconcileLabels(for spaces: [SpaceIdentity]) {
-        guard !SpaceOrderingService.containsSyntheticFallback(spaces) else { return }
+        guard !spaces.isEmpty else { return }
 
         var updated = labels
         var changed = false

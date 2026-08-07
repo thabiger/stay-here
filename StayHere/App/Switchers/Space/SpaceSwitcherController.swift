@@ -97,6 +97,9 @@ final class SpaceSwitcherController {
     }
 
     func buildSnapshot(for session: SpaceSwitcherSession?) -> SpaceSwitcherSnapshot {
+        guard !registry.isStaleSnapshot else {
+            return SpaceSwitcherSnapshot(items: [], title: "Space Switcher")
+        }
         let orderedIDs = registry.switchableOrderedSpaceIDs()
         let selectedID = session?.selectedSpaceID ?? registry.activeSpaceID
         let items = orderedIDs.map { id in
@@ -131,7 +134,8 @@ extension SpaceSwitcherController: @preconcurrency SwitcherSessionDelegate {
     }
 
     func buildSession(shortcut: SpaceSwitcherShortcut, trigger: SwitcherSessionTrigger) -> SpaceSwitcherSession? {
-        SpaceSwitcherSession(
+        guard !registry.isStaleSnapshot else { return nil }
+        return SpaceSwitcherSession(
             startingSpaceID: registry.activeSpaceID,
             selectedSpaceID: registry.activeSpaceID,
             shortcut: shortcut,
