@@ -245,4 +245,85 @@ final class SpaceOrderingServiceTests: XCTestCase {
 
         XCTAssertEqual(ordered, [101, 103])
     }
+
+    func testNextSpacesDecisionAdoptsDiscoveredSpaces() {
+        let discovered = [
+            SpaceIdentity(id: 201, display: "display-b", kind: .desktop),
+            SpaceIdentity(id: 202, display: "display-b", kind: .fullscreen)
+        ]
+        let decision = service.nextSpacesDecision(
+            discovered: discovered,
+            snapshotIsEmpty: false,
+            previousSpaces: [],
+            consecutiveAnomalyRetentions: 0,
+            maxConsecutiveAnomalyRetentions: 3
+        )
+        XCTAssertEqual(decision, .adopt(discovered), "A non-empty discovered list is adopted exactly")
+    }
+
+    func testNextSpacesDecisionStaleWhenSnapshotEmpty() {
+        let decision = service.nextSpacesDecision(
+            discovered: [],
+            snapshotIsEmpty: true,
+            previousSpaces: [SpaceIdentity(id: 101, display: "display-a", kind: .desktop)],
+            consecutiveAnomalyRetentions: 0,
+            maxConsecutiveAnomalyRetentions: 3
+        )
+        XCTAssertEqual(decision, .staleSnapshot, "An empty snapshot must map to the stale state")
+    }
+
+    func testNextSpacesDecisionEmptyWhenNoPreviousSpaces() {
+        let decision = service.nextSpacesDecision(
+            discovered: [],
+            snapshotIsEmpty: false,
+            previousSpaces: [],
+            consecutiveAnomalyRetentions: 0,
+            maxConsecutiveAnomalyRetentions: 3
+        )
+        XCTAssertEqual(decision, .empty, "A non-empty snapshot with no previous spaces must not retain")
+    }
+
+    func testNextSpacesDecisionStaleWhenAnomalyBudgetExhausted() {
+        let previous = [SpaceIdentity(id: 101, display: "display-a", kind: .desktop)]
+        let decision = service.nextSpacesDecision(
+            discovered: [],
+            snapshotIsEmpty: false,
+            previousSpaces: previous,
+            consecutiveAnomalyRetentions: 2,
+            maxConsecutiveAnomalyRetentions: 3
+        )
+        XCTAssertEqual(decision, .staleSnapshot, "Exhausting the anomaly budget drops the retained list")
+    }
+
+    func testNextSpacesDecisionRetainsPreviousWithinBudget() {
+        let previous = [SpaceIdentity(id: 101, display: "display-a", kind: .desktop)]
+        let decision = service.nextSpacesDecision(
+            discovered: [],
+            snapshotIsEmpty: false,
+            previousSpaces: previous,
+            consecutiveAnomalyRetentions: 1,
+            maxConsecutiveAnomalyRetentions: 3
+        )
+        XCTAssertEqual(decision, .retainPrevious, "Retention holds while the anomaly budget is not exhausted")
+    }
+
+    func testNextSpacesDecisionBudgetBoundary() {
+        let previous = [SpaceIdentity(id: 101, display: "display-a", kind: .desktop)]
+        let retain = service.nextSpacesDecision(
+            discovered: [],
+            snapshotIsEmpty: false,
+            previousSpaces: previous,
+            consecutiveAnomalyRetentions: 1,
+            maxConsecutiveAnomalyRetentions: 3
+        )
+        let stale = service.nextSpacesDecision(
+            discovered: [],
+            snapshotIsEmpty: false,
+            previousSpaces: previous,
+            consecutiveAnomalyRetentions: 2,
+            maxConsecutiveAnomalyRetentions: 3
+        )
+        XCTAssertEqual(retain, .retainPrevious, "Retain while consecutiveAnomalyRetentions == max - 2")
+        XCTAssertEqual(stale, .staleSnapshot, "Stale as soon as consecutiveAnomalyRetentions == max - 1")
+    }
 }
