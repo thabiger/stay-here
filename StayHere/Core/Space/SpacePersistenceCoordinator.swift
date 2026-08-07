@@ -31,10 +31,11 @@ public final class SpacePersistenceCoordinator {
     }
 
     @discardableResult
-    public func reconcileLabels(
-        for spaces: [SpaceIdentity]
+    public func observe(
+        spaces: [SpaceIdentity],
+        observedDisplays: Set<String>
     ) -> [Int: SpaceLabel] {
-        labelStore.reconcileLabels(for: spaces)
+        labelStore.observe(spaces: spaces, observedDisplays: observedDisplays)
         return labelStore.persistenceSnapshot()
     }
 

@@ -168,18 +168,21 @@ public final class SpaceStateManager {
             consecutiveAnomalyRetentions: consecutiveAnomalyRetentions,
             maxConsecutiveAnomalyRetentions: Self.maxConsecutiveAnomalyRetentions
         )
-        let spacesChanged = derivedState.spaces != stateStore.spaces
         stateStore.applyDerivedState(derivedState)
-        if spacesChanged,
-           snapshot.spaces.isEmpty == false,
-           !derivedState.isStaleSnapshot {
-            reconcilePersistedSpaces()
+        if !snapshot.spaces.isEmpty,
+           !derivedState.isStaleSnapshot,
+           !derivedState.retainedPreviousSpaces {
+            observePersistedSpaces(snapshot: snapshot)
         }
         consecutiveAnomalyRetentions = derivedState.retainedPreviousSpaces ? consecutiveAnomalyRetentions + 1 : 0
     }
 
-    private func reconcilePersistedSpaces() {
-        let labels = persistenceCoordinator.reconcileLabels(for: stateStore.spaces)
+    private func observePersistedSpaces(snapshot: CGSBridge.ManagedSnapshot) {
+        let observedDisplays = Set(snapshot.spaces.map(\.display))
+        let labels = persistenceCoordinator.observe(
+            spaces: snapshot.spaces,
+            observedDisplays: observedDisplays
+        )
         stateStore.syncPersistenceState(labels: labels)
     }
 }

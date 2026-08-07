@@ -71,7 +71,7 @@ public struct CGSBridge: CGSBridgeProtocol {
         var activeByDisplay: [String: Int] = [:]
         var orderedIDsByDisplay: [String: [Int]] = [:]
         for displayEntry in array {
-            let display = (displayEntry["Display Identifier"] as? String) ?? "unknown-display"
+            let display = (displayEntry["Display Identifier"] as? String) ?? SpaceLabelStore.unknownDisplayIdentifier
             if let current = displayEntry["Current Space"] as? [String: Any],
                let spaceID = Self.parsedSpaceID(from: current) {
                 activeByDisplay[display] = spaceID
