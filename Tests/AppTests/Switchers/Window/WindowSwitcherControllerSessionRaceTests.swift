@@ -113,7 +113,7 @@ final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
             mode: .currentSpace,
             windowSwitchUseCase: windowSwitchUseCase,
             cgsBridge: bridge,
-            listProvider: listProvider
+            dependencies: WindowSwitcherDependencies(listProvider: listProvider)
         )
         return (controller, bridge, listProvider)
     }

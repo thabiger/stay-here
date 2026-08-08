@@ -58,17 +58,13 @@ final class WindowSwitcherController {
         mode: WindowSwitcherMode,
         windowSwitchUseCase: WindowSwitchUseCase,
         cgsBridge: any CGSBridgeProtocol,
-        shortcutProvider: (() -> SpaceSwitcherShortcut)? = nil,
-        listProvider: WindowListProvider? = nil,
-        recencyTracker: WindowRecencyTracker? = nil,
-        listBuilder: WindowListBuilder? = nil,
-        panelPresenter: WindowSwitcherPanelPresenter? = nil
+        dependencies: WindowSwitcherDependencies = WindowSwitcherDependencies()
     ) {
         self.mode = mode
         self.settings = settings
         self.registry = registry
 
-        let resolvedShortcut = shortcutProvider ?? {
+        let resolvedShortcut = dependencies.shortcutProvider ?? {
             switch mode {
             case .currentSpace:
                 return SpaceSwitcherShortcut.parse(settings.windowSwitcherShortcutText)
@@ -82,20 +78,20 @@ final class WindowSwitcherController {
         }
         self.shortcutProvider = resolvedShortcut
 
-        self.listProvider = listProvider ?? WindowListProvider(
+        self.listProvider = dependencies.listProvider ?? WindowListProvider(
             registry: registry,
             cgsBridge: cgsBridge,
             settings: settings
         )
-        self.recencyTracker = recencyTracker ?? WindowRecencyTracker()
-        self.listBuilder = listBuilder ?? WindowListBuilder(
+        self.recencyTracker = dependencies.recencyTracker ?? WindowRecencyTracker()
+        self.listBuilder = dependencies.listBuilder ?? WindowListBuilder(
             mode: mode,
             listProvider: self.listProvider,
             recencyTracker: self.recencyTracker,
             registry: registry,
             settings: settings
         )
-        self.panelPresenter = panelPresenter ?? WindowSwitcherPanelPresenter()
+        self.panelPresenter = dependencies.panelPresenter ?? WindowSwitcherPanelPresenter()
 
         self.windowSwitchUseCase = windowSwitchUseCase
 

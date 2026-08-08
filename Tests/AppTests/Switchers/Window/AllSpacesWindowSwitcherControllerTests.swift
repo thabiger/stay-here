@@ -95,7 +95,7 @@ final class AllSpacesWindowSwitcherControllerTests: XCTestCase {
             mode: .allSpaces,
             windowSwitchUseCase: windowSwitchUseCase,
             cgsBridge: bridge,
-            listProvider: listProvider
+            dependencies: WindowSwitcherDependencies(listProvider: listProvider)
         )
         return (controller, bridge)
     }

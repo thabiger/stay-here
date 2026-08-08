@@ -145,8 +145,7 @@ final class CompositionControllers {
             mode: .currentSpace,
             windowSwitchUseCase: currentSpaceWindowSwitchUseCase,
             cgsBridge: services.cgsBridge,
-            listProvider: currentSpaceListProvider,
-            recencyTracker: recencyTracker
+            dependencies: WindowSwitcherDependencies(listProvider: currentSpaceListProvider, recencyTracker: recencyTracker)
         )
 
         let allSpacesWindowSwitcherController = WindowSwitcherController(
@@ -155,8 +154,7 @@ final class CompositionControllers {
             mode: .allSpaces,
             windowSwitchUseCase: allSpacesWindowSwitchUseCase,
             cgsBridge: services.cgsBridge,
-            listProvider: allSpacesListProvider,
-            recencyTracker: recencyTracker
+            dependencies: WindowSwitcherDependencies(listProvider: allSpacesListProvider, recencyTracker: recencyTracker)
         )
 
         return WindowSwitcherPair(
