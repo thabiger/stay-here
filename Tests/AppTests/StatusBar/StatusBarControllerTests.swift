@@ -40,15 +40,8 @@ final class StatusBarControllerTests: XCTestCase {
         return SpaceStateManagerFactory.makePair(cgsBridge: bridge).queryService
     }
 
-    func testMenuContainsCheckForUpdatesByDefault() {
-        let settings = UserDefaultsSettingsRepository()
-        let controller = StatusBarController(
-            settings: settings,
-            appearanceManager: AppearanceManager(settings: settings)
-        )
-
-        controller.configure(
-            registry: makeRegistry(),
+    private func makeNoopActions() -> StatusBarActions {
+        StatusBarActions(
             onOpenSettings: {},
             onOpenAbout: {},
             onCheckForUpdates: {},
@@ -58,6 +51,19 @@ final class StatusBarControllerTests: XCTestCase {
             onQuit: {},
             onSelectSpace: { _ in },
             onRenameSpace: { _, _ in }
+        )
+    }
+
+    func testMenuContainsCheckForUpdatesByDefault() {
+        let settings = UserDefaultsSettingsRepository()
+        let controller = StatusBarController(
+            settings: settings,
+            appearanceManager: AppearanceManager(settings: settings)
+        )
+
+        controller.configure(
+            registry: makeRegistry(),
+            actions: makeNoopActions()
         )
 
         XCTAssertTrue(controller.debugMenuItemTitles.contains("Check for Updates…"))
@@ -73,15 +79,7 @@ final class StatusBarControllerTests: XCTestCase {
 
         controller.configure(
             registry: makeRegistry(),
-            onOpenSettings: {},
-            onOpenAbout: {},
-            onCheckForUpdates: {},
-            onOpenAvailableUpdate: {},
-            onCopyState: {},
-            onOpenLogs: {},
-            onQuit: {},
-            onSelectSpace: { _ in },
-            onRenameSpace: { _, _ in }
+            actions: makeNoopActions()
         )
 
         controller.setAvailableUpdate(

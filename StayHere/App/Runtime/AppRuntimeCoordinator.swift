@@ -111,7 +111,7 @@ final class AppRuntimeCoordinator: AppCoordinating {
         }
 
         // Configure status bar with all menu actions
-        statusBarCoordinator.configure(
+        statusBarCoordinator.configure(actions: StatusBarActions(
             onOpenSettings: { [weak self] in self?.windowCoordinator.showSettings() },
             onOpenAbout: { [weak self] in self?.windowCoordinator.showAbout() },
             onCheckForUpdates: { [weak self] in self?.updateController?.performManualCheck() },
@@ -133,7 +133,7 @@ final class AppRuntimeCoordinator: AppCoordinating {
                         : self.registry.activeNameSummary()
                 )
             }
-        )
+        ))
 
         // Bind "settings open" state to observation
         statusBarCoordinator.bindSettingsOpen { [weak self] in

@@ -27,29 +27,8 @@ final class StatusBarCoordinator {
         self.isSettingsOpen = isSettingsOpen
     }
 
-    func configure(
-        onOpenSettings: @escaping () -> Void,
-        onOpenAbout: @escaping () -> Void,
-        onCheckForUpdates: @escaping () -> Void,
-        onOpenAvailableUpdate: @escaping () -> Void,
-        onCopyState: @escaping () -> Void,
-        onOpenLogs: @escaping () -> Void,
-        onQuit: @escaping () -> Void,
-        onSelectSpace: @escaping (Int) -> Void,
-        onRenameSpace: @escaping (Int, String) -> Void
-    ) {
-        statusController.configure(
-            registry: registry,
-            onOpenSettings: onOpenSettings,
-            onOpenAbout: onOpenAbout,
-            onCheckForUpdates: onCheckForUpdates,
-            onOpenAvailableUpdate: onOpenAvailableUpdate,
-            onCopyState: onCopyState,
-            onOpenLogs: onOpenLogs,
-            onQuit: onQuit,
-            onSelectSpace: onSelectSpace,
-            onRenameSpace: onRenameSpace
-        )
+    func configure(actions: StatusBarActions) {
+        statusController.configure(registry: registry, actions: actions)
     }
 
     func setTitle(_ title: String) {
