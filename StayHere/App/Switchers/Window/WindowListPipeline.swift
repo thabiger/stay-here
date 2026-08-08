@@ -21,9 +21,9 @@ struct WindowListPipeline {
         }
     }
 
-    func buildEntriesForAllSpaces(from rawWindows: [RawWindowInfo], currentSpaceID: Int) -> [WindowEntry] {
+    func buildEntriesForAllSpaces(from rawWindows: [RawWindowInfo], currentSpaceID: Int, resolveAccessibilityTitles: Bool = true) -> [WindowEntry] {
         let filtered = filter.filterForAllSpaces(rawWindows, currentSpaceID: currentSpaceID)
-        let withTitles = titleResolver.resolveTitles(for: filtered) { _ in nil }
+        let withTitles = titleResolver.resolveTitles(for: filtered, fallbackNameProvider: { _ in nil }, includeAccessibilityTitles: resolveAccessibilityTitles)
         return withTitles.map { window in
             WindowEntry(
                 windowID: window.windowID,

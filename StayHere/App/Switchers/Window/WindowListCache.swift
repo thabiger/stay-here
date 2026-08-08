@@ -26,9 +26,16 @@ final class WindowListCache {
         cachedAllSpacesEntries
     }
 
-    func updateAllSpaces(with groups: [SpaceWindowGroup], generation: Int) {
-        guard generation == cacheGeneration else { return }
+    /// Stores the all-spaces groups, unless the result is stale.
+    /// - Returns: `true` if accepted; `false` if the result belongs to a refresh
+    ///   dispatched before an `invalidate()` (generation mismatch) and was
+    ///   discarded — callers should re-dispatch a refresh so self-heal is
+    ///   guaranteed rather than best-effort (ARCH-1).
+    @discardableResult
+    func updateAllSpaces(with groups: [SpaceWindowGroup], generation: Int) -> Bool {
+        guard generation == cacheGeneration else { return false }
         cachedAllSpacesEntries = groups
+        return true
     }
 
     func invalidate() {

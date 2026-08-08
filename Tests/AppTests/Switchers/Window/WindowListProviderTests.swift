@@ -41,6 +41,30 @@ private final class FakeWindowListSettings: WindowSwitcherSettings {
     var windowSwitcherShowHiddenWindows: Bool = false
 }
 
+/// Records AX provider invocations with thread info for PERF-2 testing.
+private final class ThreadSafeAXInvocationRecorder {
+    private let lock = NSLock()
+    private var invocations: [Bool] = []
+
+    func record(isMainThread: Bool) {
+        lock.lock()
+        defer { lock.unlock() }
+        invocations.append(isMainThread)
+    }
+
+    var count: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return invocations.count
+    }
+
+    var allOffMainThread: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return !invocations.contains(true)
+    }
+}
+
 @MainActor
 final class WindowListProviderTests: XCTestCase {
     private func makeRegistry(bridge: WindowListProviderMockBridge) -> any SpaceRegistryProtocol {
@@ -61,7 +85,8 @@ final class WindowListProviderTests: XCTestCase {
         windowInfo: @escaping () -> [[String: Any]]?,
         runningApplications: [pid_t: FakeWindowListApplication] = [:],
         accessibilityTitles: [pid_t: [Int: String]] = [:],
-        icon: NSImage = NSImage(size: NSSize(width: 18, height: 18))
+        icon: NSImage = NSImage(size: NSSize(width: 18, height: 18)),
+        axInvocationRecorder: ThreadSafeAXInvocationRecorder? = nil
     ) -> WindowListProvider {
         let bridge = bridge ?? WindowListProviderMockBridge(managedSnapshotValue: makeSnapshot())
         let registry = makeRegistry(bridge: bridge)
@@ -71,7 +96,11 @@ final class WindowListProviderTests: XCTestCase {
             settings: settings,
             windowInfoProvider: windowInfo,
             runningApplicationProvider: { runningApplications[$0] },
-            accessibilityWindowTitlesProvider: { accessibilityTitles[$0] ?? [:] },
+            accessibilityWindowTitlesProvider: { pid in
+                let titles = accessibilityTitles[pid] ?? [:]
+                axInvocationRecorder?.record(isMainThread: Thread.isMainThread)
+                return titles
+            },
             iconProvider: { _ in icon }
         )
     }
@@ -278,6 +307,125 @@ final class WindowListProviderTests: XCTestCase {
             enumerateCount.pointee, 2,
             "second request while in flight must coalesce into exactly one follow-up refresh"
         )
+    }
+
+    // MARK: - PERF-2: All-spaces cold inline fallback
+
+    func testAllSpacesColdInlineFallbackNeverCallsAccessibilityProviderOnMainThread() async {
+        let axInvocations = ThreadSafeAXInvocationRecorder()
+        let bridge = WindowListProviderMockBridge(
+            managedSnapshotValue: makeSnapshot(),
+            spacesForWindowValues: [1: [100]]
+        )
+        // Window with no CGWindow name so AX path is exercised by the background refresh
+        let provider = makeProvider(
+            bridge: bridge,
+            windowInfo: { [self.makeWindow(pid: 10, windowID: 1, title: nil)] },
+            accessibilityTitles: [10: [1: "AX Title"]],
+            axInvocationRecorder: axInvocations
+        )
+
+        // Cold call — no prior warm-up
+        let groups = provider.entriesForAllSpaces()
+        XCTAssertFalse(groups.isEmpty, "inline fallback must return non-empty groups")
+        XCTAssertEqual(groups.flatMap(\.entries).map(\.windowID), [1])
+
+        // Wait for the kicked background refresh to complete
+        await provider.waitForAllSpacesRefresh()
+
+        // PERF-2 invariant: AX was invoked (by background refresh) but never on main thread
+        XCTAssertGreaterThan(axInvocations.count, 0, "background refresh must have called the AX provider")
+        XCTAssertTrue(
+            axInvocations.allOffMainThread,
+            "PERF-2: AX provider must never be called on the main thread"
+        )
+    }
+
+    func testAllSpacesColdInlineFallbackSkipsAXAndBackgroundRefreshUpgradesTitles() async throws {
+        let bridge = WindowListProviderMockBridge(
+            managedSnapshotValue: makeSnapshot(),
+            spacesForWindowValues: [1: [100]]
+        )
+        // Window with no CGWindow name (title: nil) so rawName is empty
+        let provider = makeProvider(
+            bridge: bridge,
+            windowInfo: { [self.makeWindow(pid: 10, windowID: 1, title: nil)] },
+            accessibilityTitles: [10: [1: "AX Title"]]
+        )
+
+        // Cold inline fallback — AX skipped, so title is nil (falls back to app name)
+        let groups = provider.entriesForAllSpaces()
+        let entry = try XCTUnwrap(groups.flatMap(\.entries).first)
+        XCTAssertEqual(entry.windowTitle, nil, "cold inline must skip AX — rawName is empty, so title is nil")
+
+        // Wait for the kicked background refresh to complete
+        await provider.waitForAllSpacesRefresh()
+
+        // After background refresh, cache holds full AX titles
+        let refreshedGroups = provider.entriesForAllSpaces()
+        let refreshedEntry = try XCTUnwrap(refreshedGroups.flatMap(\.entries).first)
+        XCTAssertEqual(refreshedEntry.windowTitle, "AX Title", "background refresh must self-heal titles")
+    }
+
+    // MARK: - ARCH-1: inline fallback refresh vs invalidate() race
+
+    func testAllSpacesInlineFallbackKickDiscardedAfterInvalidateSelfHeals() async throws {
+        let enumerateCount = UnsafeMutablePointer<Int>.allocate(capacity: 1)
+        enumerateCount.initialize(to: 0)
+        defer { enumerateCount.deallocate() }
+        let gate = DispatchSemaphore(value: 0)
+        let bridge = WindowListProviderMockBridge(
+            managedSnapshotValue: makeSnapshot(),
+            spacesForWindowValues: [1: [100]]
+        )
+        // Window with no CGWindow name (title: nil) so inline entries are AX-skipped.
+        // Block ONLY enumeration #2 (the inline-fallback kick); #1 (inline) and
+        // later enumerations must never block (they run on the main actor / are needed to finish).
+        let provider = makeProvider(
+            bridge: bridge,
+            windowInfo: {
+                enumerateCount.pointee += 1
+                if enumerateCount.pointee == 2 { gate.wait() }
+                return [self.makeWindow(pid: 10, windowID: 1, title: nil)]
+            },
+            accessibilityTitles: [10: [1: "AX Title"]]
+        )
+
+        // 1. Cold open: inline fallback populates the cache with AX-skipped entries
+        //    (title nil), then kicks a background refresh that blocks on the gate.
+        let groups = provider.entriesForAllSpaces()
+        XCTAssertEqual(groups.flatMap(\.entries).first?.windowTitle, nil,
+                       "cold inline fallback must skip AX (rawName empty -> nil title)")
+
+        // 2. Wait until the kicked refresh is in flight and blocked on the gate.
+        let deadline = DispatchTime.now() + DispatchTimeInterval.seconds(5)
+        while enumerateCount.pointee < 2 {
+            Thread.sleep(forTimeInterval: 0.01)
+            if DispatchTime.now() >= deadline { break }
+        }
+        XCTAssertEqual(enumerateCount.pointee, 2, "inline-fallback kick must be in flight")
+
+        // 3. invalidate() fires while the kick is in flight -> generation bumped.
+        provider.invalidateCache()
+
+        // 4. Release: the stale kick completes AFTER the invalidate. Its result must
+        //    be discarded and a self-heal refresh with the current generation
+        //    re-dispatched (ARCH-1 guarantee).
+        gate.signal()
+        await provider.waitForAllSpacesRefresh()
+
+        // 5. The self-heal re-kick must have run (enumeration #3). WITHOUT the fix
+        //    the stale result is dropped and nothing re-dispatches (count stays 2).
+        XCTAssertEqual(enumerateCount.pointee, 3,
+                       "stale inline-kick result must be followed by a self-heal refresh")
+
+        // 6. Cache must hold full AX titles WITHOUT another user open, and the open
+        //    must be a cache hit (no inline re-enumeration).
+        let refreshed = provider.entriesForAllSpaces()
+        XCTAssertEqual(refreshed.flatMap(\.entries).first?.windowTitle, "AX Title",
+                       "titles must upgrade to AX quality without another user open")
+        XCTAssertEqual(enumerateCount.pointee, 3,
+                       "post-self-heal open must be a cache hit (no inline re-enumeration)")
     }
 
     // MARK: - Current-space background refresh

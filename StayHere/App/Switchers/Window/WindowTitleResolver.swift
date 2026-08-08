@@ -24,7 +24,8 @@ final class WindowTitleResolver {
 
     func resolveTitles(
         for windows: [FilteredWindow],
-        fallbackNameProvider: (pid_t) -> String?
+        fallbackNameProvider: (pid_t) -> String?,
+        includeAccessibilityTitles: Bool = true
     ) -> [WindowWithTitle] {
         var accessibilityTitleCache: [pid_t: [Int: String]] = [:]
 
@@ -32,7 +33,7 @@ final class WindowTitleResolver {
             let appName = filtered.application?.localizedName
                 ?? filtered.ownerName
 
-            let windowTitle = title(for: filtered, cache: &accessibilityTitleCache)
+            let windowTitle = title(for: filtered, cache: &accessibilityTitleCache, includeAccessibilityTitles: includeAccessibilityTitles)
                 ?? fallbackNameProvider(filtered.pid)
 
             return WindowWithTitle(
@@ -45,10 +46,12 @@ final class WindowTitleResolver {
         }
     }
 
-    private func title(for window: FilteredWindow, cache: inout [pid_t: [Int: String]]) -> String? {
+    private func title(for window: FilteredWindow, cache: inout [pid_t: [Int: String]], includeAccessibilityTitles: Bool = true) -> String? {
         if let rawName = window.rawName, !rawName.isEmpty {
             return rawName
         }
+
+        guard includeAccessibilityTitles else { return nil }
 
         if let cached = cache[window.pid] {
             return cached[window.windowID]

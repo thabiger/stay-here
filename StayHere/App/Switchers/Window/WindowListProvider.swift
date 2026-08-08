@@ -51,6 +51,10 @@ final class WindowListProvider {
 
         self.cache = WindowListCache()
 
+        // ARCH-1: local variable captured by reference in onCompletion; set after
+        // refresher is assigned so [weak self] is not needed during init.
+        var allSpacesRefreshTrigger: (() -> Void)?
+
         self.refresher = AllSpacesCacheRefresher(
             computerFactory: { [weak registry, cgsBridge, enumerator, filter, titleResolver, iconProvider, settings] in
                 Self.makeAllSpacesComputer(
@@ -64,7 +68,16 @@ final class WindowListProvider {
                 )
             },
             onCompletion: { [weak cache] groups, generation in
-                cache?.updateAllSpaces(with: groups, generation: generation)
+                guard let cache else { return }
+                if !cache.updateAllSpaces(with: groups, generation: generation) {
+                    // ARCH-1: a refresh dispatched before invalidate() completed late and
+                    // its stale result was discarded. Re-dispatch with the current
+                    // generation so the cache self-heals to full AX titles — guaranteed,
+                    // not best-effort. refresh() coalesces: .idle -> start (fresh
+                    // generation), .refreshing -> .pending (handleCompletion re-dispatches
+                    // with a fresh generation), .pending -> no-op (follow-up queued).
+                    allSpacesRefreshTrigger?()
+                }
             },
             generationProvider: { [weak cache] in
                 cache?.cacheGeneration ?? 0
@@ -111,6 +124,9 @@ final class WindowListProvider {
         self.currentSpaceRefresher.setNotifyHandler { [weak self] context in
             self?.onPerSpaceRefresh?(context)
         }
+
+        // ARCH-1: set the re-kick trigger after all stored properties are initialized.
+        allSpacesRefreshTrigger = { [weak self] in self?.refreshAllSpacesCacheInBackground() }
     }
 
     private static func makeAllSpacesComputeContext(
@@ -255,13 +271,19 @@ final class WindowListProvider {
 
         let rawWindows = pipeline.enumerator.enumerate()
         let currentSpaceID = cgsBridge.activeSpaceID() ?? registry.activeSpaceID ?? -1
-        let entries = pipeline.buildEntriesForAllSpaces(from: rawWindows, currentSpaceID: currentSpaceID)
+        // PERF-2: skip AX title resolution in the inline fallback to avoid
+        // main-thread blocking. Windows with empty CGWindow names will show
+        // nil titles (rendered as app name). A background refresh is kicked
+        // below to self-heal titles for the next open.
+        let entries = pipeline.buildEntriesForAllSpaces(from: rawWindows, currentSpaceID: currentSpaceID, resolveAccessibilityTitles: false)
 
         let groups = grouper.groupWindows(entries)
-        // Note: Direct inline build bypasses generation check. Only the
-        // background refresh path uses the generation counter to protect
-        // against stale completions post-invalidation.
+        // Note: Direct inline build always accepted (fresh data, current generation).
+        // The background refresh path is generation-guarded and re-kicks on stale
+        // discard so self-heal is guaranteed, not best-effort (ARCH-1).
         cache.updateAllSpaces(with: groups, generation: cache.cacheGeneration)
+        // Kick background refresh so titles self-heal to AX quality for the next open.
+        refreshAllSpacesCacheInBackground()
         return groups
     }
 
