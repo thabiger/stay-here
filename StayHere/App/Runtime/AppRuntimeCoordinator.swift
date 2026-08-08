@@ -33,7 +33,7 @@ final class AppRuntimeCoordinator: AppCoordinating {
         let weakSelf = WeakSelf()
 
         self.services = services
-        self.registry = services.repository
+        self.registry = services.queryService
         self.lifecycleCoordinator = services.lifecycleCoordinator
         self.updateController = nil
 
@@ -57,10 +57,10 @@ final class AppRuntimeCoordinator: AppCoordinating {
 
         self.statusBarCoordinator = StatusBarCoordinator(
             statusController: controllers.statusController,
-            registry: services.repository
+            registry: services.queryService
         )
         self.spaceObservationCoordinator = SpaceObservationCoordinator(
-            registry: services.repository,
+            registry: services.queryService,
             switchSpace: services.switchSpace,
             buildSpaceSnapshot: services.buildSpaceSnapshot,
             switchPresentationHelper: controllers.switchPresentationHelper
@@ -69,7 +69,7 @@ final class AppRuntimeCoordinator: AppCoordinating {
             settingsWindowManager: windowManagers.settingsWindowManager,
             aboutWindowManager: aboutWindowManager,
             appearanceManager: services.appearanceManager,
-            registry: services.repository,
+            registry: services.queryService,
             refreshSpaces: services.refreshSpaces
         )
 

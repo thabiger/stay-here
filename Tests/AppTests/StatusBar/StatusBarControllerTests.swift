@@ -28,7 +28,7 @@ final class StatusBarControllerTests: XCTestCase {
         func spacesForWindow(windowID: Int) -> [Int] { [] }
     }
 
-    private func makeRegistry() -> SpaceStateManager {
+    private func makeRegistry() -> any SpaceRegistryProtocol {
         let bridge = MockBridge(
             activeSpaceIDValue: 1,
             managedSnapshotValue: CGSBridge.ManagedSnapshot(
@@ -37,7 +37,7 @@ final class StatusBarControllerTests: XCTestCase {
                 orderedIDsByDisplay: ["Main": [1]]
             )
         )
-        return SpaceStateManagerFactory.make(cgsBridge: bridge)
+        return SpaceStateManagerFactory.makePair(cgsBridge: bridge).queryService
     }
 
     func testMenuContainsCheckForUpdatesByDefault() {

@@ -68,11 +68,11 @@ final class AllSpacesWindowSwitcherControllerTests: XCTestCase {
         )
         bridge.spacesForWindowMap = spacesForWindowMap
 
-        let repository = SpaceStateManagerFactory.make(cgsBridge: bridge)
-        let refreshSpaces = RefreshSpacesUseCase(repository: repository, logger: NoOpLogger())
-        let switchSpace = SwitchSpaceUseCase(cgsBridge: bridge, repository: repository, refreshUseCase: refreshSpaces, logger: NoOpLogger())
+        let repository = SpaceStateManagerFactory.makePair(cgsBridge: bridge)
+        let refreshSpaces = RefreshSpacesUseCase(repository: repository.manager, logger: NoOpLogger())
+        let switchSpace = SwitchSpaceUseCase(cgsBridge: bridge, repository: repository.queryService, refreshUseCase: refreshSpaces, logger: NoOpLogger())
         let listProvider = WindowListProvider(
-            registry: repository,
+            registry: repository.queryService,
             cgsBridge: bridge,
             settings: UserDefaultsSettingsRepository(),
             windowInfoProvider: windowInfo,
@@ -91,7 +91,7 @@ final class AllSpacesWindowSwitcherControllerTests: XCTestCase {
         ))
         let controller = WindowSwitcherController(
             settings: UserDefaultsSettingsRepository(),
-            registry: repository,
+            registry: repository.queryService,
             mode: .allSpaces,
             windowSwitchUseCase: windowSwitchUseCase,
             cgsBridge: bridge,

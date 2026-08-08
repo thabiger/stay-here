@@ -58,11 +58,11 @@ final class SpaceStateManagerTests: XCTestCase {
             return true
         }
 
-        let repository = SpaceStateManagerFactory.make(cgsBridge: bridge, store: store)
-        let refreshSpaces = RefreshSpacesUseCase(repository: repository, logger: NoOpLogger())
+        let pair = SpaceStateManagerFactory.makePair(cgsBridge: bridge, store: store)
+        let refreshSpaces = RefreshSpacesUseCase(repository: pair.manager, logger: NoOpLogger())
         let switchSpace = SwitchSpaceUseCase(
             cgsBridge: bridge,
-            repository: repository,
+            repository: pair.queryService,
             refreshUseCase: refreshSpaces,
             logger: NoOpLogger()
         )
@@ -70,7 +70,7 @@ final class SpaceStateManagerTests: XCTestCase {
 
         XCTAssertEqual(result, .switched)
         XCTAssertEqual(postedIndex, 2)
-        XCTAssertEqual(repository.activeSpaceID, 102)
+        XCTAssertEqual(pair.manager.activeSpaceID, 102)
     }
 
     func testRenamePersistsAcrossRepositoryInstances() {
@@ -81,19 +81,19 @@ final class SpaceStateManagerTests: XCTestCase {
             orderedIDsByDisplay: ["display-a": [101]]
         )
 
-        let writer = SpaceStateManagerFactory.make(
+        let writerPair = SpaceStateManagerFactory.makePair(
             cgsBridge: MockCGSBridge(activeSpaceIDValue: 101, managedSnapshotValue: snapshot),
             store: store
         )
-        writer.rename(spaceID: 101, name: "Inbox")
-        writer.persistNow()
+        writerPair.manager.rename(spaceID: 101, name: "Inbox")
+        writerPair.manager.persistNow()
 
-        let reader = SpaceStateManagerFactory.make(
+        let readerPair = SpaceStateManagerFactory.makePair(
             cgsBridge: MockCGSBridge(activeSpaceIDValue: 101, managedSnapshotValue: snapshot),
             store: store
         )
 
-        XCTAssertEqual(reader.name(for: 101), "Inbox")
+        XCTAssertEqual(readerPair.queryService.name(for: 101), "Inbox")
     }
 
     func testInitDoesNotDropPersistedLabelsWhenSnapshotIsTransientlyEmpty() {
@@ -104,7 +104,7 @@ final class SpaceStateManagerTests: XCTestCase {
             )
         )
 
-        let repository = SpaceStateManagerFactory.make(
+        let pair = SpaceStateManagerFactory.makePair(
             cgsBridge: MockCGSBridge(
                 activeSpaceIDValue: nil,
                 managedSnapshotValue: .init(spaces: [], activeByDisplay: [:], orderedIDsByDisplay: [:])
@@ -112,9 +112,9 @@ final class SpaceStateManagerTests: XCTestCase {
             store: store
         )
 
-        XCTAssertTrue(repository.isStaleSnapshot)
-        XCTAssertEqual(repository.name(for: 101), "Inbox")
-        XCTAssertNil(repository.labels[1], "Stale snapshots must not fabricate a label for space 1")
+        XCTAssertTrue(pair.manager.isStaleSnapshot)
+        XCTAssertEqual(pair.queryService.name(for: 101), "Inbox")
+        XCTAssertNil(pair.manager.labels[1], "Stale snapshots must not fabricate a label for space 1")
 
         let reloaded = store.load()
         XCTAssertEqual(reloaded.labels[101]?.name, "Inbox")
@@ -133,8 +133,8 @@ final class SpaceStateManagerTests: XCTestCase {
             )
         )
 
-        let repository = SpaceStateManagerFactory.make(cgsBridge: bridge, store: store)
-        XCTAssertTrue(repository.isStaleSnapshot)
+        let pair = SpaceStateManagerFactory.makePair(cgsBridge: bridge, store: store)
+        XCTAssertTrue(pair.manager.isStaleSnapshot)
 
         bridge.activeSpaceIDValue = 101
         bridge.managedSnapshotValue = .init(
@@ -142,11 +142,11 @@ final class SpaceStateManagerTests: XCTestCase {
             activeByDisplay: ["display-a": 101],
             orderedIDsByDisplay: ["display-a": [101]]
         )
-        repository.refreshSpaces()
+        pair.manager.refreshSpaces()
 
-        XCTAssertFalse(repository.isStaleSnapshot)
-        XCTAssertEqual(repository.name(for: 101), "Inbox")
-        XCTAssertEqual(repository.spaces.map(\.id), [101])
+        XCTAssertFalse(pair.manager.isStaleSnapshot)
+        XCTAssertEqual(pair.queryService.name(for: 101), "Inbox")
+        XCTAssertEqual(pair.manager.spaces.map(\.id), [101])
     }
 
     func testRefreshWithNonEmptySnapshotAndEmptyDiscoveredDoesNotWipeLabels() {
@@ -165,8 +165,8 @@ final class SpaceStateManagerTests: XCTestCase {
                 orderedIDsByDisplay: ["display-a": [101, 102]]
             )
         )
-        let repository = SpaceStateManagerFactory.make(cgsBridge: bridge, store: store)
-        XCTAssertEqual(repository.spaces.map(\.id), [101, 102])
+        let pair = SpaceStateManagerFactory.makePair(cgsBridge: bridge, store: store)
+        XCTAssertEqual(pair.manager.spaces.map(\.id), [101, 102])
 
         // Phase 2: transient bad state — spaces only on display-b, focus on display-a → discovered empty.
         bridge.activeSpaceIDValue = 101
@@ -175,16 +175,16 @@ final class SpaceStateManagerTests: XCTestCase {
             activeByDisplay: ["display-a": 101, "display-b": 201],
             orderedIDsByDisplay: ["display-b": [201]]
         )
-        repository.refreshSpaces()
+        pair.manager.refreshSpaces()
 
-        XCTAssertEqual(repository.spaces.map(\.id), [101, 102],
+        XCTAssertEqual(pair.manager.spaces.map(\.id), [101, 102],
                        "Previous spaces must be retained, not replaced by an empty list")
-        XCTAssertEqual(repository.name(for: 101), "Inbox")
-        XCTAssertNil(repository.labels[1], "Space 1 must not gain a label during retention")
-        XCTAssertNil(repository.labels[201],
+        XCTAssertEqual(pair.queryService.name(for: 101), "Inbox")
+        XCTAssertNil(pair.manager.labels[1], "Space 1 must not gain a label during retention")
+        XCTAssertNil(pair.manager.labels[201],
                      "ARCH-4: retained/untrusted snapshots must not fabricate labels; the label appears on the next trusted observation of that space")
 
-        repository.persistNow()   // flush any pending debounced write before reload
+        pair.manager.persistNow()   // flush any pending debounced write before reload
         let reloaded = store.load()
         XCTAssertEqual(reloaded.labels[101]?.name, "Inbox")
         XCTAssertNil(reloaded.labels[1])
@@ -885,8 +885,8 @@ final class SpaceStateManagerTests: XCTestCase {
                 orderedIDsByDisplay: ["display-a": [101, 102]]
             )
         )
-        let repository = SpaceStateManagerFactory.make(cgsBridge: bridge, store: store)
-        XCTAssertEqual(repository.spaces.map(\.id), [101, 102])
+        let pair = SpaceStateManagerFactory.makePair(cgsBridge: bridge, store: store)
+        XCTAssertEqual(pair.manager.spaces.map(\.id), [101, 102])
 
         bridge.managedSnapshotValue = .init(
             spaces: [SpaceIdentity(id: 201, display: "display-b", kind: .desktop)],
@@ -894,21 +894,21 @@ final class SpaceStateManagerTests: XCTestCase {
             orderedIDsByDisplay: ["display-b": [201]]
         )
         for _ in 0..<(SpaceStateManager.maxConsecutiveAnomalyRetentions - 1) {
-            repository.refreshSpaces()
-            XCTAssertEqual(repository.spaces.map(\.id), [101, 102],
+            pair.manager.refreshSpaces()
+            XCTAssertEqual(pair.manager.spaces.map(\.id), [101, 102],
                            "Within the anomaly budget previous spaces are retained")
-            XCTAssertFalse(repository.isStaleSnapshot)
+            XCTAssertFalse(pair.manager.isStaleSnapshot)
         }
 
-        repository.refreshSpaces()
+        pair.manager.refreshSpaces()
         XCTAssertEqual(
-            repository.spaces,
+            pair.manager.spaces,
             [],
             "Once the anomaly budget is exhausted the retained list is dropped and the state goes stale"
         )
-        XCTAssertTrue(repository.isStaleSnapshot)
-        XCTAssertEqual(repository.name(for: 101), "Inbox", "Labels must survive the stale epoch")
-        XCTAssertNil(repository.labels[1], "Space 1 must not gain a label during a stale epoch")
+        XCTAssertTrue(pair.manager.isStaleSnapshot)
+        XCTAssertEqual(pair.queryService.name(for: 101), "Inbox", "Labels must survive the stale epoch")
+        XCTAssertNil(pair.manager.labels[1], "Space 1 must not gain a label during a stale epoch")
     }
 
     private func makeStore() -> SpaceStore {

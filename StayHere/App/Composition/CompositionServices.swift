@@ -10,6 +10,7 @@ final class CompositionServices {
     let lifecycleCoordinator: AppLifecycleCoordinator
     let updateService: any UpdateService
     let repository: SpaceStateManager
+    let queryService: SpaceQueryService
     let refreshSpaces: RefreshSpacesUseCase
     let renameSpace: RenameSpaceUseCase
     let switchSpace: SwitchSpaceUseCase
@@ -46,9 +47,13 @@ final class CompositionServices {
             stateStore: stateStore,
             persistenceCoordinator: persistenceCoordinator,
             orderingService: orderingService,
-            nameProvider: nameProvider,
-            snapshotBuilder: snapshotBuilder,
             logger: logger
+        )
+        self.queryService = SpaceQueryService(
+            stateStore: stateStore,
+            orderingService: orderingService,
+            nameProvider: nameProvider,
+            snapshotBuilder: snapshotBuilder
         )
         self.refreshSpaces = RefreshSpacesUseCase(
             repository: self.repository,
@@ -57,10 +62,10 @@ final class CompositionServices {
         self.renameSpace = RenameSpaceUseCase(renamer: self.repository)
         self.switchSpace = SwitchSpaceUseCase(
             cgsBridge: cgsBridge,
-            repository: self.repository,
+            repository: self.queryService,
             refreshUseCase: self.refreshSpaces,
             logger: logger
         )
-        self.buildSpaceSnapshot = BuildSpaceSnapshotUseCase(builder: self.repository)
+        self.buildSpaceSnapshot = BuildSpaceSnapshotUseCase(builder: self.queryService)
     }
 }

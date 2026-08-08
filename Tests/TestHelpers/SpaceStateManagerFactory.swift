@@ -21,6 +21,18 @@ public enum SpaceStateManagerFactory {
         logger: any Logging = NoOpLogger(),
         now: (() -> Date)? = nil
     ) -> SpaceStateManager {
+        makePair(cgsBridge: cgsBridge, stateStore: stateStore, store: store, logger: logger, now: now).manager
+    }
+
+    /// Creates both a `SpaceStateManager` (mutations) and a `SpaceQueryService` (reads)
+    /// sharing the same underlying `stateStore`.
+    public static func makePair(
+        cgsBridge: some CGSBridgeProtocol,
+        stateStore: SpaceStateStore = SpaceStateStore(),
+        store: SpaceStore? = nil,
+        logger: any Logging = NoOpLogger(),
+        now: (() -> Date)? = nil
+    ) -> (manager: SpaceStateManager, queryService: SpaceQueryService) {
         let resolvedStore: SpaceStore
         if let store {
             resolvedStore = store
@@ -37,14 +49,24 @@ public enum SpaceStateManagerFactory {
             labelStore: labelStore,
             logger: logger
         )
-        return SpaceStateManager(
+        // Shared stateless services — wired identically to production
+        // (CompositionServices) so tests mirror the real dependency graph.
+        let orderingService = SpaceOrderingService()
+        let nameProvider = SpaceDisplayNameProvider()
+        let snapshotBuilder = SpaceSnapshotBuilder()
+        let manager = SpaceStateManager(
             cgsBridge: cgsBridge,
             stateStore: stateStore,
             persistenceCoordinator: persistenceCoordinator,
-            orderingService: SpaceOrderingService(),
-            nameProvider: SpaceDisplayNameProvider(),
-            snapshotBuilder: SpaceSnapshotBuilder(),
+            orderingService: orderingService,
             logger: logger
         )
+        let queryService = SpaceQueryService(
+            stateStore: stateStore,
+            orderingService: orderingService,
+            nameProvider: nameProvider,
+            snapshotBuilder: snapshotBuilder
+        )
+        return (manager: manager, queryService: queryService)
     }
 }

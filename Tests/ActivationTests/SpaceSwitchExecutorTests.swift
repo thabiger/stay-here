@@ -143,10 +143,10 @@ final class SpaceSwitchExecutorTests: XCTestCase {
         switcherService: SpaceSwitcherService? = nil,
         scheduleRefreshSoon: @escaping () -> Void = {}
     ) -> (SpaceStateManager, SpaceSwitchExecutor) {
-        let repository = SpaceStateManagerFactory.make(cgsBridge: bridge)
+        let pair = SpaceStateManagerFactory.makePair(cgsBridge: bridge)
         let executor = SpaceSwitchExecutor(
             cgsBridge: bridge,
-            repository: repository,
+            repository: pair.queryService,
             switcherService: switcherService ?? SpaceSwitcherService(
                 cgsBridge: bridge,
                 refreshRetryLimit: 0,
@@ -154,13 +154,13 @@ final class SpaceSwitchExecutorTests: XCTestCase {
             ),
             refreshSpaces: {
                 await MainActor.run {
-                    repository.applyManagedSnapshot(bridge.managedSnapshot())
-                    return repository.currentSwitchSnapshot()
+                    pair.manager.applyManagedSnapshot(bridge.managedSnapshot())
+                    return pair.queryService.currentSwitchSnapshot()
                 }
             },
             scheduleRefreshSoon: scheduleRefreshSoon,
             logger: NoOpLogger()
         )
-        return (repository, executor)
+        return (pair.manager, executor)
     }
 }

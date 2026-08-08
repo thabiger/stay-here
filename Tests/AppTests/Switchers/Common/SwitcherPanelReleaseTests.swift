@@ -24,7 +24,7 @@ private final class LocalMockCGSBridge: CGSBridgeProtocol {
 final class SwitcherPanelReleaseTests: XCTestCase {
     private func makeSpaceController() -> SpaceSwitcherController {
         let bridge = LocalMockCGSBridge()
-        let registry = SpaceStateManagerFactory.make(cgsBridge: bridge)
+        let registry = SpaceStateManagerFactory.makePair(cgsBridge: bridge).queryService
         return SpaceSwitcherController(
             settings: UserDefaultsSettingsRepository(),
             registry: registry,
@@ -34,11 +34,11 @@ final class SwitcherPanelReleaseTests: XCTestCase {
 
     private func makeWindowController() -> WindowSwitcherController {
         let bridge = LocalMockCGSBridge()
-        let repository = SpaceStateManagerFactory.make(cgsBridge: bridge)
-        let refreshSpaces = RefreshSpacesUseCase(repository: repository, logger: NoOpLogger())
-        let switchSpace = SwitchSpaceUseCase(cgsBridge: bridge, repository: repository, refreshUseCase: refreshSpaces, logger: NoOpLogger())
+        let pair = SpaceStateManagerFactory.makePair(cgsBridge: bridge)
+        let refreshSpaces = RefreshSpacesUseCase(repository: pair.manager, logger: NoOpLogger())
+        let switchSpace = SwitchSpaceUseCase(cgsBridge: bridge, repository: pair.queryService, refreshUseCase: refreshSpaces, logger: NoOpLogger())
         let listProvider = WindowListProvider(
-            registry: repository,
+            registry: pair.queryService,
             cgsBridge: bridge,
             settings: UserDefaultsSettingsRepository(),
             windowInfoProvider: { nil },
@@ -56,7 +56,7 @@ final class SwitcherPanelReleaseTests: XCTestCase {
         ))
         return WindowSwitcherController(
             settings: UserDefaultsSettingsRepository(),
-            registry: repository,
+            registry: pair.queryService,
             mode: .currentSpace,
             windowSwitchUseCase: windowSwitchUseCase,
             cgsBridge: bridge,

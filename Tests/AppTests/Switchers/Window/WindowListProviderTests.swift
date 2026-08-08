@@ -43,8 +43,8 @@ private final class FakeWindowListSettings: WindowSwitcherSettings {
 
 @MainActor
 final class WindowListProviderTests: XCTestCase {
-    private func makeRegistry(bridge: WindowListProviderMockBridge) -> SpaceStateManager {
-        SpaceStateManagerFactory.make(cgsBridge: bridge)
+    private func makeRegistry(bridge: WindowListProviderMockBridge) -> any SpaceRegistryProtocol {
+        SpaceStateManagerFactory.makePair(cgsBridge: bridge).queryService
     }
 
     private func makeSnapshot() -> CGSBridge.ManagedSnapshot {

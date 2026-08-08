@@ -112,13 +112,13 @@ final class CompositionControllers {
         let recencyTracker = WindowRecencyTracker()
 
         let currentSpaceListProvider = WindowListProvider(
-            registry: services.repository,
+            registry: services.queryService,
             cgsBridge: services.cgsBridge,
             settings: services.settings
         )
 
         let allSpacesListProvider = WindowListProvider(
-            registry: services.repository,
+            registry: services.queryService,
             cgsBridge: services.cgsBridge,
             settings: services.settings
         )
@@ -141,7 +141,7 @@ final class CompositionControllers {
 
         let windowSwitcherController = WindowSwitcherController(
             settings: services.settings,
-            registry: services.repository,
+            registry: services.queryService,
             mode: .currentSpace,
             windowSwitchUseCase: currentSpaceWindowSwitchUseCase,
             cgsBridge: services.cgsBridge,
@@ -151,7 +151,7 @@ final class CompositionControllers {
 
         let allSpacesWindowSwitcherController = WindowSwitcherController(
             settings: services.settings,
-            registry: services.repository,
+            registry: services.queryService,
             mode: .allSpaces,
             windowSwitchUseCase: allSpacesWindowSwitchUseCase,
             cgsBridge: services.cgsBridge,
@@ -172,7 +172,7 @@ final class CompositionControllers {
     ) -> SpaceSwitcherController {
         SpaceSwitcherController(
             settings: services.settings,
-            registry: services.repository,
+            registry: services.queryService,
             switchToSpace: switchToSpace
         )
     }
@@ -188,7 +188,7 @@ final class CompositionControllers {
     }
 
     /// Hidden concrete deps behind closures: `hud` (onShowSingleWindowHint),
-    /// `services.repository.activeSpaceID` (currentSpaceID/activeSpaceIDs).
+    /// `services.queryService.activeSpaceID` (currentSpaceID/activeSpaceIDs).
     /// These closures are the Activation module's designed seam — keep them visible here.
     private static func makeActivationController(
         services: CompositionServices,
@@ -200,10 +200,10 @@ final class CompositionControllers {
             settings: services.settings,
             windowIndex: windowIndex,
             currentSpaceID: { [services] in
-                services.repository.activeSpaceID
+                services.queryService.activeSpaceID
             },
             activeSpaceIDs: { [services] in
-                guard let id = services.repository.activeSpaceID else { return [] }
+                guard let id = services.queryService.activeSpaceID else { return [] }
                 return Set([id])
             },
             switchToSpace: switchToSpace,

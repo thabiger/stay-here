@@ -43,7 +43,7 @@ final class SpaceSwitcherControllerSessionRaceTests: XCTestCase {
             activeSpaceIDValue: activeSpaceID,
             managedSnapshotValue: snapshot
         )
-        let registry = SpaceStateManagerFactory.make(cgsBridge: bridge)
+        let registry = SpaceStateManagerFactory.makePair(cgsBridge: bridge).queryService
         let controller = SpaceSwitcherController(
             settings: UserDefaultsSettingsRepository(),
             registry: registry,
@@ -229,7 +229,7 @@ final class SpaceSwitcherControllerSessionRaceTests: XCTestCase {
             orderedIDsByDisplay: ["display-a": spaces]
         )
         let bridge = LocalMockCGSBridge(activeSpaceIDValue: 100, managedSnapshotValue: snapshot)
-        let registry = SpaceStateManagerFactory.make(cgsBridge: bridge)
+        let registry = SpaceStateManagerFactory.makePair(cgsBridge: bridge).queryService
         let controller = SpaceSwitcherController(
             settings: UserDefaultsSettingsRepository(),
             registry: registry,
@@ -256,7 +256,7 @@ final class SpaceSwitcherControllerSessionRaceTests: XCTestCase {
             orderedIDsByDisplay: ["display-a": spaces]
         )
         let bridge = LocalMockCGSBridge(activeSpaceIDValue: 100, managedSnapshotValue: snapshot)
-        let registry = SpaceStateManagerFactory.make(cgsBridge: bridge)
+        let registry = SpaceStateManagerFactory.makePair(cgsBridge: bridge).queryService
         let controller = SpaceSwitcherController(
             settings: UserDefaultsSettingsRepository(),
             registry: registry,
