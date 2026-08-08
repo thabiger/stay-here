@@ -67,5 +67,7 @@ final class CompositionServices {
             logger: logger
         )
         self.buildSpaceSnapshot = BuildSpaceSnapshotUseCase(builder: self.queryService)
+        // QUAL-7: SpaceStateManager.init no longer refreshes — bootstrap explicitly.
+        self.repository.start()
     }
 }

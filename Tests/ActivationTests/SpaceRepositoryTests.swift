@@ -911,6 +911,122 @@ final class SpaceStateManagerTests: XCTestCase {
         XCTAssertNil(pair.manager.labels[1], "Space 1 must not gain a label during a stale epoch")
     }
 
+    // MARK: QUAL-7 — init side-effect-free + start() idempotency
+
+    func testInitIsSideEffectFree() {
+        let store = makeStore()
+        let bridge = CountingCGSBridge(
+            activeSpaceIDValue: 201,
+            managedSnapshotValue: CGSBridge.ManagedSnapshot(
+                spaces: [
+                    SpaceIdentity(id: 101, display: "display-a", kind: .desktop),
+                    SpaceIdentity(id: 201, display: "display-b", kind: .desktop)
+                ],
+                activeByDisplay: ["display-a": 101, "display-b": 201],
+                orderedIDsByDisplay: ["display-a": [101], "display-b": [201]]
+            )
+        )
+        let persistenceCoordinator = SpacePersistenceCoordinator(
+            store: store,
+            labelStore: nil,
+            logger: NoOpLogger()
+        )
+        let orderingService = SpaceOrderingService()
+        let stateStore = SpaceStateStore()
+
+        let manager = SpaceStateManager(
+            cgsBridge: bridge,
+            stateStore: stateStore,
+            persistenceCoordinator: persistenceCoordinator,
+            orderingService: orderingService,
+            logger: NoOpLogger()
+        )
+
+        XCTAssertEqual(bridge.snapshotCallCount, 0)
+        XCTAssertNil(manager.activeSpaceID)
+        XCTAssertTrue(manager.spaces.isEmpty)
+    }
+
+    func testStartBootstrapsOnceAndIsIdempotent() {
+        let store = makeStore()
+        let snapshot = CGSBridge.ManagedSnapshot(
+            spaces: [
+                SpaceIdentity(id: 101, display: "display-a", kind: .desktop),
+                SpaceIdentity(id: 201, display: "display-b", kind: .desktop)
+            ],
+            activeByDisplay: ["display-a": 101, "display-b": 201],
+            orderedIDsByDisplay: ["display-a": [101], "display-b": [201]]
+        )
+        let bridge = CountingCGSBridge(
+            activeSpaceIDValue: 201,
+            managedSnapshotValue: snapshot
+        )
+        let persistenceCoordinator = SpacePersistenceCoordinator(
+            store: store,
+            labelStore: nil,
+            logger: NoOpLogger()
+        )
+        let orderingService = SpaceOrderingService()
+        let stateStore = SpaceStateStore()
+
+        let manager = SpaceStateManager(
+            cgsBridge: bridge,
+            stateStore: stateStore,
+            persistenceCoordinator: persistenceCoordinator,
+            orderingService: orderingService,
+            logger: NoOpLogger()
+        )
+
+        // Before start: no CGS calls, empty state.
+        XCTAssertEqual(bridge.snapshotCallCount, 0)
+        XCTAssertTrue(manager.spaces.isEmpty)
+
+        // First start(): bootstraps.
+        manager.start()
+        XCTAssertEqual(bridge.snapshotCallCount, 1)
+        XCTAssertNotNil(manager.activeSpaceID)
+        XCTAssertFalse(manager.spaces.isEmpty)
+
+        // Second start(): no-op (idempotent).
+        manager.start()
+        XCTAssertEqual(bridge.snapshotCallCount, 1)
+    }
+
+    private final class CountingCGSBridge: CGSBridgeProtocol {
+        private let inner: MockCGSBridge
+        var snapshotCallCount = 0
+        var activeSpaceIDCallCount = 0
+
+        init(activeSpaceIDValue: Int?, managedSnapshotValue: CGSBridge.ManagedSnapshot) {
+            self.inner = MockCGSBridge(
+                activeSpaceIDValue: activeSpaceIDValue,
+                managedSnapshotValue: managedSnapshotValue
+            )
+        }
+
+        func activeSpaceID() -> Int? {
+            activeSpaceIDCallCount += 1
+            return inner.activeSpaceID()
+        }
+
+        func managedSnapshot() -> CGSBridge.ManagedSnapshot {
+            snapshotCallCount += 1
+            return inner.managedSnapshot()
+        }
+
+        func managedSpaces() -> [SpaceIdentity] {
+            inner.managedSpaces()
+        }
+
+        func switchByDesktopShortcut(index: Int) -> Bool {
+            inner.switchByDesktopShortcut(index: index)
+        }
+
+        func spacesForWindow(windowID: Int) -> [Int] {
+            inner.spacesForWindow(windowID: windowID)
+        }
+    }
+
     private func makeStore() -> SpaceStore {
         let fileURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("SpaceStateManagerTests")

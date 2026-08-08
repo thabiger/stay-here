@@ -17,6 +17,7 @@ public final class SpaceStateManager {
     private let orderingService: SpaceOrderingService
     private let logger: any Logging
     private var consecutiveAnomalyRetentions = 0
+    private var isInitialized = false
 
     public init(
         cgsBridge: any CGSBridgeProtocol,
@@ -30,6 +31,16 @@ public final class SpaceStateManager {
         self.stateStore = stateStore
         self.orderingService = orderingService
         self.persistenceCoordinator = persistenceCoordinator
+    }
+
+    // MARK: Lifecycle
+
+    /// Bootstraps the manager: loads persisted labels and applies the first CGS
+    /// snapshot. Idempotent — no-op on subsequent calls. Call once after
+    /// construction (the composition root and test factory both do this).
+    public func start() {
+        guard !isInitialized else { return }
+        isInitialized = true
         let initialPersistence = persistenceCoordinator.persistenceSnapshot()
         stateStore.syncPersistenceState(labels: initialPersistence)
         refreshSpaces()

@@ -61,6 +61,7 @@ public enum SpaceStateManagerFactory {
             orderingService: orderingService,
             logger: logger
         )
+        manager.start() // QUAL-7: init no longer refreshes; preserve historical construction-time refresh for tests
         let queryService = SpaceQueryService(
             stateStore: stateStore,
             orderingService: orderingService,
