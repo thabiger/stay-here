@@ -103,6 +103,13 @@ final class AppRuntimeCoordinator: AppCoordinating {
     func applicationDidFinishLaunching() {
         updateController?.restoreCachedState()
 
+        let bridgeHealth = services.cgsBridge.bridgeHealth()
+        if bridgeHealth.isHealthy {
+            services.logger.info("cgs-bridge healthy: \(bridgeHealth.degradedFeatureSummary)")
+        } else {
+            services.logger.error("cgs-bridge DEGRADED: \(bridgeHealth.degradedFeatureSummary)")
+        }
+
         // Configure status bar with all menu actions
         statusBarCoordinator.configure(
             onOpenSettings: { [weak self] in self?.windowCoordinator.showSettings() },

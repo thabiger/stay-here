@@ -7,11 +7,33 @@ public protocol CGSBridgeProtocol {
     func managedSpaces() -> [SpaceIdentity]
     func switchByDesktopShortcut(index: Int) -> Bool
     func spacesForWindow(windowID: Int) -> [Int]
+    func bridgeHealth() -> CGSBridge.HealthReport
+}
+
+extension CGSBridgeProtocol {
+    /// Default: not applicable. Keeps test mocks compiling unchanged;
+    /// only the real CGSBridge reports actual symbol resolution.
+    public func bridgeHealth() -> CGSBridge.HealthReport { .notApplicable }
 }
 
 public struct CGSBridge: CGSBridgeProtocol {
     private typealias CGSConnectionID = UInt32
     private typealias CGSSpaceID = UInt64
+
+    /// Single source of truth for the private CGS symbol surface.
+    /// Keep in sync with docs/cgs-bridge.md.
+    private enum CGSSymbol {
+        static let defaultConnection = "_CGSDefaultConnection"
+        static let mainConnectionFallback = "CGSMainConnectionID"
+        static let getActiveSpace = "CGSGetActiveSpace"
+        static let copyManagedDisplaySpaces = "CGSCopyManagedDisplaySpaces"
+        static let copySpacesForWindows = "CGSCopySpacesForWindows"
+    }
+
+    private typealias MainConn = @convention(c) () -> CGSConnectionID
+    private typealias GetActive = @convention(c) (CGSConnectionID) -> CGSSpaceID
+    private typealias CopyManaged = @convention(c) (CGSConnectionID) -> Unmanaged<CFArray>?
+    private typealias CopySpacesForWindows = @convention(c) (CGSConnectionID, Int32, CFArray) -> Unmanaged<CFArray>?
 
     public static let live = CGSBridge()
 
@@ -28,11 +50,8 @@ public struct CGSBridge: CGSBridgeProtocol {
     }
 
     public func activeSpaceID() -> Int? {
-        typealias MainConn = @convention(c) () -> CGSConnectionID
-        typealias GetActive = @convention(c) (CGSConnectionID) -> CGSSpaceID
-
-        guard let main: MainConn = Self.symbol("_CGSDefaultConnection", as: MainConn.self) ?? Self.symbol("CGSMainConnectionID", as: MainConn.self),
-              let getActive: GetActive = Self.symbol("CGSGetActiveSpace", as: GetActive.self) else {
+        guard let main: MainConn = Self.symbol(CGSSymbol.defaultConnection, as: MainConn.self) ?? Self.symbol(CGSSymbol.mainConnectionFallback, as: MainConn.self),
+              let getActive: GetActive = Self.symbol(CGSSymbol.getActiveSpace, as: GetActive.self) else {
             return nil
         }
 
@@ -57,12 +76,44 @@ public struct CGSBridge: CGSBridgeProtocol {
         }
     }
 
-    public func managedSnapshot() -> ManagedSnapshot {
-        typealias MainConn = @convention(c) () -> CGSConnectionID
-        typealias CopyManaged = @convention(c) (CGSConnectionID) -> Unmanaged<CFArray>?
+    public struct HealthReport: Equatable {
+        public enum SymbolRole: Equatable { case critical, required, optional }
+        public struct SymbolStatus: Equatable {
+            public let symbol: String
+            public let resolved: Bool
+            public let role: SymbolRole
+        }
+        public let symbols: [SymbolStatus]
+        /// True when the managedSnapshot() smoke probe returned any data.
+        public let payloadProbeSucceeded: Bool
 
-        guard let main: MainConn = Self.symbol("_CGSDefaultConnection", as: MainConn.self) ?? Self.symbol("CGSMainConnectionID", as: MainConn.self),
-              let copyManaged: CopyManaged = Self.symbol("CGSCopyManagedDisplaySpaces", as: CopyManaged.self),
+        public init(symbols: [SymbolStatus], payloadProbeSucceeded: Bool) {
+            self.symbols = symbols
+            self.payloadProbeSucceeded = payloadProbeSucceeded
+        }
+
+        /// Healthy = all critical+required symbols resolved and probe succeeded.
+        /// Missing optional symbols degrade a feature but do not fail the check.
+        public var isHealthy: Bool {
+            symbols.filter { $0.role != .optional }.allSatisfy(\.resolved) && payloadProbeSucceeded
+        }
+
+        /// Human-readable degraded-feature summary for log/diagnostics.
+        public var degradedFeatureSummary: String {
+            let missing = symbols.filter { !$0.resolved }
+            guard !missing.isEmpty else {
+                return "all symbols resolved" + (payloadProbeSucceeded ? "" : "; payload probe failed")
+            }
+            let parts = missing.map { "\($0.symbol) (\($0.role))" }
+            return "missing: " + parts.joined(separator: ", ") + (payloadProbeSucceeded ? "" : "; payload probe failed")
+        }
+
+        public static let notApplicable = HealthReport(symbols: [], payloadProbeSucceeded: true)
+    }
+
+    public func managedSnapshot() -> ManagedSnapshot {
+        guard let main: MainConn = Self.symbol(CGSSymbol.defaultConnection, as: MainConn.self) ?? Self.symbol(CGSSymbol.mainConnectionFallback, as: MainConn.self),
+              let copyManaged: CopyManaged = Self.symbol(CGSSymbol.copyManagedDisplaySpaces, as: CopyManaged.self),
               let array = copyManaged(main())?.takeRetainedValue() as? [[String: Any]] else {
             return ManagedSnapshot(spaces: [], activeByDisplay: [:], orderedIDsByDisplay: [:])
         }
@@ -112,11 +163,8 @@ public struct CGSBridge: CGSBridgeProtocol {
     }
 
     public func spacesForWindow(windowID: Int) -> [Int] {
-        typealias MainConn = @convention(c) () -> CGSConnectionID
-        typealias CopySpacesForWindows = @convention(c) (CGSConnectionID, Int32, CFArray) -> Unmanaged<CFArray>?
-
-        guard let main: MainConn = Self.symbol("_CGSDefaultConnection", as: MainConn.self) ?? Self.symbol("CGSMainConnectionID", as: MainConn.self),
-              let copySpaces: CopySpacesForWindows = Self.symbol("CGSCopySpacesForWindows", as: CopySpacesForWindows.self) else {
+        guard let main: MainConn = Self.symbol(CGSSymbol.defaultConnection, as: MainConn.self) ?? Self.symbol(CGSSymbol.mainConnectionFallback, as: MainConn.self),
+              let copySpaces: CopySpacesForWindows = Self.symbol(CGSSymbol.copySpacesForWindows, as: CopySpacesForWindows.self) else {
             return []
         }
 
@@ -130,6 +178,31 @@ public struct CGSBridge: CGSBridgeProtocol {
             return ids.map(\.intValue)
         }
         return []
+    }
+
+    public func bridgeHealth() -> HealthReport {
+        guard !RuntimeEnvironment.isAutomationSession else { return .notApplicable }
+        let handleResolved = Self.handle != nil
+        let connectionResolved =
+            Self.symbol(CGSSymbol.defaultConnection, as: MainConn.self) != nil
+            || Self.symbol(CGSSymbol.mainConnectionFallback, as: MainConn.self) != nil
+        let getActiveResolved = Self.symbol(CGSSymbol.getActiveSpace, as: GetActive.self) != nil
+        let copyManagedResolved = Self.symbol(CGSSymbol.copyManagedDisplaySpaces, as: CopyManaged.self) != nil
+        let copySpacesResolved = Self.symbol(CGSSymbol.copySpacesForWindows, as: CopySpacesForWindows.self) != nil
+        let snapshot = managedSnapshot()
+        let probeOK = !snapshot.spaces.isEmpty
+            || !snapshot.activeByDisplay.isEmpty
+            || !snapshot.orderedIDsByDisplay.isEmpty
+        return HealthReport(
+            symbols: [
+                .init(symbol: "CoreGraphics.dlopen", resolved: handleResolved, role: .critical),
+                .init(symbol: CGSSymbol.defaultConnection, resolved: connectionResolved, role: .critical),
+                .init(symbol: CGSSymbol.getActiveSpace, resolved: getActiveResolved, role: .required),
+                .init(symbol: CGSSymbol.copyManagedDisplaySpaces, resolved: copyManagedResolved, role: .required),
+                .init(symbol: CGSSymbol.copySpacesForWindows, resolved: copySpacesResolved, role: .optional),
+            ],
+            payloadProbeSucceeded: probeOK
+        )
     }
 
     private static func postControlKey(keyCode: CGKeyCode) -> Bool {
