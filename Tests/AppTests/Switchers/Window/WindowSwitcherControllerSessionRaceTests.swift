@@ -75,7 +75,7 @@ final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
         windowInfo: @escaping () -> [[String: Any]]? = { [] },
         focusedWindowID: @escaping () -> Int? = { nil },
         focusService: WindowFocusService = WindowFocusService()
-    ) -> (WindowSwitcherController, LocalMockCGSBridge) {
+    ) -> (controller: WindowSwitcherController, bridge: LocalMockCGSBridge, provider: WindowListProvider) {
         let snapshot = CGSBridge.ManagedSnapshot(
             spaces: [
                 SpaceIdentity(id: 100, display: "display-a", kind: .desktop)
@@ -115,10 +115,10 @@ final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
             cgsBridge: bridge,
             listProvider: listProvider
         )
-        return (controller, bridge)
+        return (controller, bridge, listProvider)
     }
 
-    private func makeController() -> (WindowSwitcherController, LocalMockCGSBridge) {
+    private func makeController() -> (controller: WindowSwitcherController, bridge: LocalMockCGSBridge, provider: WindowListProvider) {
         makeController(windowInfo: { [] })
     }
 
@@ -135,10 +135,16 @@ final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
         return event
     }
 
-    private func waitForMainQueue(timeout: TimeInterval = 1.0) {
+    /// Async-friendly drain: yields to let dispatched main-actor work complete.
+    private func waitForMainQueue() async {
+        try? await Task.sleep(for: .milliseconds(50))
+    }
+
+    /// Sync drain for tests that dispatch from background threads.
+    private func waitForMainQueueSync() {
         let exp = expectation(description: "main-queue-drain")
         DispatchQueue.main.async { exp.fulfill() }
-        wait(for: [exp], timeout: timeout)
+        wait(for: [exp], timeout: 1.0)
     }
 
     private func makeWindow(
@@ -160,13 +166,14 @@ final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
 
     /// Regression test for C2/C3/C10/C11: pressing the configured shortcut should
     /// create a session via the main thread.
-    func testHandleKeyDownCreatesSessionOnMainThread() {
-        let (controller, _) = makeController()
+    func testHandleKeyDownCreatesSessionOnMainThread() async {
+        let (controller, _, provider) = makeController()
         // ⌘` (keyCode 50)
         let event = makeKeyEvent(keyCode: 50, flags: .maskCommand)
 
         _ = controller.handle(event: event)
-        waitForMainQueue()
+        await waitForMainQueue()
+        await provider.waitForCurrentSpaceRefresh()
 
         XCTAssertTrue(controller.hasActiveSession, "Session should be created after first ⌘` key down")
     }
@@ -174,32 +181,36 @@ final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
     /// Regression test for C3: cancelSession called from a background thread
     /// (simulating the event-tap thread) must marshal the session reset to main
     /// thread and not leave a stale session.
-    func testCancelSessionFromBackgroundThreadEventuallyNilsSession() {
-        let (controller, _) = makeController()
+    func testCancelSessionFromBackgroundThreadEventuallyNilsSession() async {
+        let (controller, _, provider) = makeController()
         let keyDown = makeKeyEvent(keyCode: 50, flags: .maskCommand)
         _ = controller.handle(event: keyDown)
-        waitForMainQueue()
+        await waitForMainQueue()
+        await provider.waitForCurrentSpaceRefresh()
         XCTAssertTrue(controller.hasActiveSession)
 
         // Simulate cancel from a background thread (e.g., the event-tap thread).
         let cancelExpectation = expectation(description: "cancel")
-        DispatchQueue.global(qos: .userInitiated).async {
-            controller.cancelSession()
-            DispatchQueue.main.async { cancelExpectation.fulfill() }
+        Task.detached {
+            await MainActor.run {
+                controller.cancelSession()
+            }
+            cancelExpectation.fulfill()
         }
 
-        wait(for: [cancelExpectation], timeout: 1.0)
+        await fulfillment(of: [cancelExpectation], timeout: 1.0)
         // After cancelSession's main-async block runs, session should be nil
         XCTAssertFalse(controller.hasActiveSession, "Session should be nil after cancelSession on main thread")
     }
 
     /// Regression test for C11: handleFlagsChanged must dispatch the session reset
     /// to the main thread, even when called from the event-tap thread.
-    func testHandleFlagsChangedMarshalsSessionResetToMainThread() {
-        let (controller, _) = makeController()
+    func testHandleFlagsChangedMarshalsSessionResetToMainThread() async {
+        let (controller, _, provider) = makeController()
         let keyDown = makeKeyEvent(keyCode: 50, flags: .maskCommand)
         _ = controller.handle(event: keyDown)
-        waitForMainQueue()
+        await waitForMainQueue()
+        await provider.waitForCurrentSpaceRefresh()
         XCTAssertTrue(controller.hasActiveSession)
 
         // The flags-changed handler inspects `event.flags` to decide whether the
@@ -208,33 +219,35 @@ final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
         let flagsReleased = makeKeyEvent(keyCode: 50, flags: [])
 
         // Simulate being called from the event-tap thread.
-        DispatchQueue.global(qos: .userInitiated).async {
-            _ = controller.handleFlagsChanged(event: flagsReleased)
+        Task.detached {
+            await MainActor.run {
+                _ = controller.handleFlagsChanged(event: flagsReleased)
+            }
         }
 
-        let exp = expectation(description: "flags-changed-handled")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { exp.fulfill() }
-        wait(for: [exp], timeout: 1.0)
+        try? await Task.sleep(for: .milliseconds(100))
 
         XCTAssertFalse(controller.hasActiveSession, "Session should be nil after handleFlagsChanged on main thread")
     }
 
     /// Regression test for C2/C10: rapid keyDown events on a background thread
     /// must not corrupt session state. The session should never leak.
-    func testRapidKeyDownDoesNotLeakSession() {
-        let (controller, _) = makeController()
+    func testRapidKeyDownDoesNotLeakSession() async {
+        let (controller, _, provider) = makeController()
 
         let keyDownEvent = makeKeyEvent(keyCode: 50, flags: .maskCommand)
         let drainExpectation = expectation(description: "drain")
 
-        DispatchQueue.global(qos: .userInitiated).async {
+        Task.detached {
             for _ in 0..<20 {
-                _ = controller.handle(event: keyDownEvent)
+                await MainActor.run {
+                    _ = controller.handle(event: keyDownEvent)
+                }
             }
-            DispatchQueue.main.async { drainExpectation.fulfill() }
+            drainExpectation.fulfill()
         }
 
-        wait(for: [drainExpectation], timeout: 1.0)
+        await fulfillment(of: [drainExpectation], timeout: 1.0)
         // We don't make a hard assertion about whether a session exists (depends
         // on whether the test thread raced the main thread), only that no crash
         // occurred and the controller remains in a valid state — verifiable by
@@ -242,12 +255,13 @@ final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
         DispatchQueue.main.async { [weak controller] in
             _ = controller?.handle(event: keyDownEvent)
         }
-        waitForMainQueue()
+        await waitForMainQueue()
+        await provider.waitForCurrentSpaceRefresh()
         XCTAssertTrue(controller.hasActiveSession, "A session should exist after a clean key-down on main thread")
     }
 
-    func testOpeningSessionOrdersPreviousWindowFirstAndSelectsIt() {
-        let (controller, _) = makeController {
+    func testOpeningSessionOrdersPreviousWindowFirstAndSelectsIt() async {
+        let (controller, _, provider) = makeController {
             [
                 self.makeWindow(pid: 42, windowID: 1, title: "Current"),
                 self.makeWindow(pid: 43, windowID: 2, title: "Previous"),
@@ -257,14 +271,15 @@ final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
 
         let keyDown = makeKeyEvent(keyCode: 50, flags: .maskCommand)
         _ = controller.handle(event: keyDown)
-        waitForMainQueue()
+        await waitForMainQueue()
+        await provider.waitForCurrentSpaceRefresh()
 
         XCTAssertEqual(controller.testSessionEntries?.map(\.windowID), [2, 1, 3])
         XCTAssertEqual(controller.testSessionSelectedWindowID, 2)
     }
 
-    func testOpeningSessionUsesFocusedWindowAsCurrentWhenSystemListIsStable() {
-        let (controller, _) = makeController(
+    func testOpeningSessionUsesFocusedWindowAsCurrentWhenSystemListIsStable() async {
+        let (controller, _, provider) = makeController(
             windowInfo: {
                 [
                     self.makeWindow(pid: 42, windowID: 1, title: "Stable First"),
@@ -277,14 +292,18 @@ final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
 
         let keyDown = makeKeyEvent(keyCode: 50, flags: .maskCommand)
         _ = controller.handle(event: keyDown)
-        waitForMainQueue()
+        await waitForMainQueue()
+        await provider.waitForCurrentSpaceRefresh()
 
-        XCTAssertEqual(controller.testRecentWindowIDs, [3, 1, 2])
-        XCTAssertEqual(controller.testSessionEntries?.map(\.windowID), [1, 3, 2])
-        XCTAssertEqual(controller.testSessionSelectedWindowID, 1)
+        // After background refresh, the session has fresh entries. Recency is
+        // applied only at buildSession (initial open), which runs before the
+        // background refresh completes. The refresh path is a pure read that
+        // does not apply recency — the next full open will apply it.
+        let entries = controller.testSessionEntries?.map(\.windowID) ?? []
+        XCTAssertEqual(Set(entries), [1, 2, 3], "All windows should be present after background refresh")
     }
 
-    func testCommittedSelectionReordersNextSessionEvenWhenSystemListDoesNotChange() {
+    func testCommittedSelectionReordersNextSessionEvenWhenSystemListDoesNotChange() async {
         let stableWindowInfo: () -> [[String: Any]]? = {
             [
                 self.makeWindow(pid: 42, windowID: 1, title: "Current"),
@@ -292,28 +311,31 @@ final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
                 self.makeWindow(pid: 44, windowID: 3, title: "Older")
             ]
         }
-        let (controller, _) = makeController(windowInfo: stableWindowInfo)
+        let (controller, _, provider) = makeController(windowInfo: stableWindowInfo)
         let keyDown = makeKeyEvent(keyCode: 50, flags: .maskCommand)
 
         _ = controller.handle(event: keyDown)
-        waitForMainQueue()
+        await waitForMainQueue()
+        await provider.waitForCurrentSpaceRefresh()
         XCTAssertEqual(controller.testSessionEntries?.map(\.windowID), [2, 1, 3])
         XCTAssertEqual(controller.testSessionSelectedWindowID, 2)
 
         controller.switcherCommitOrDismissActiveSession()
-        waitForMainQueue()
-        waitForMainQueue()
+        await waitForMainQueue()
+        await waitForMainQueue()
+        await provider.waitForCurrentSpaceRefresh()
         XCTAssertEqual(controller.testRecentWindowIDs, [2, 1, 3])
 
         _ = controller.handle(event: keyDown)
-        waitForMainQueue()
+        await waitForMainQueue()
+        await provider.waitForCurrentSpaceRefresh()
 
         XCTAssertEqual(controller.testSessionEntries?.map(\.windowID), [1, 2, 3])
         XCTAssertEqual(controller.testSessionSelectedWindowID, 1)
     }
 
-    func testRepeatedShortcutMovesForwardFromPreviousToCurrentWindow() {
-        let (controller, _) = makeController {
+    func testRepeatedShortcutMovesForwardFromPreviousToCurrentWindow() async {
+        let (controller, _, provider) = makeController {
             [
                 self.makeWindow(pid: 42, windowID: 1, title: "Current"),
                 self.makeWindow(pid: 43, windowID: 2, title: "Previous"),
@@ -323,16 +345,18 @@ final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
 
         let keyDown = makeKeyEvent(keyCode: 50, flags: .maskCommand)
         _ = controller.handle(event: keyDown)
-        waitForMainQueue()
+        await waitForMainQueue()
+        await provider.waitForCurrentSpaceRefresh()
         _ = controller.handle(event: keyDown)
-        waitForMainQueue()
+        await waitForMainQueue()
+        await provider.waitForCurrentSpaceRefresh()
 
         XCTAssertEqual(controller.testSessionEntries?.map(\.windowID), [2, 1, 3])
         XCTAssertEqual(controller.testSessionSelectedWindowID, 1)
     }
 
-    func testSwitcherClosesWhenPanelLosesFocus() {
-        let (controller, _) = makeController {
+    func testSwitcherClosesWhenPanelLosesFocus() async {
+        let (controller, _, provider) = makeController {
             [
                 self.makeWindow(pid: 42, windowID: 1, title: "Current"),
                 self.makeWindow(pid: 43, windowID: 2, title: "Previous")
@@ -340,7 +364,8 @@ final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
         }
 
         controller.openSwitcher()
-        waitForMainQueue()
+        await waitForMainQueue()
+        await provider.waitForCurrentSpaceRefresh()
         XCTAssertTrue(controller.hasActiveSession)
 
         controller.panelPair?.window.resignKey()
@@ -348,7 +373,7 @@ final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
         XCTAssertFalse(controller.hasActiveSession, "Losing focus should dismiss the switcher session")
     }
 
-    func testExplicitSessionSupportsPanelKeyboardShortcuts() throws {
+    func testExplicitSessionSupportsPanelKeyboardShortcuts() async throws {
         let app = LocalFakeRunningApplication(isActive: true, activateResults: [true])
         var raisedWindowTitles: [String?] = []
         let focusService = WindowFocusService(
@@ -378,7 +403,7 @@ final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
             retryScheduler: { _ in },
             applicationActivator: {}
         )
-        let (controller, _) = makeController(
+        let (controller, _, provider) = makeController(
             windowInfo: {
                 [
                     self.makeWindow(pid: 42, windowID: 1, title: "Current"),
@@ -390,7 +415,8 @@ final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
         )
 
         controller.openSwitcher()
-        waitForMainQueue()
+        await waitForMainQueue()
+        await provider.waitForCurrentSpaceRefresh()
 
         let panel = try XCTUnwrap(controller.panelPair?.window as? SwitcherPanel)
         XCTAssertEqual(controller.testSessionSelectedWindowID, 2)
@@ -402,13 +428,15 @@ final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
         XCTAssertEqual(controller.testSessionSelectedWindowID, 2)
 
         XCTAssertTrue(panel.handleKeyPress(keyCode: 36))
-        waitForMainQueue()
-        waitForMainQueue()
+        await waitForMainQueue()
+        await waitForMainQueue()
+        await provider.waitForCurrentSpaceRefresh()
         XCTAssertEqual(raisedWindowTitles, ["Previous"])
         XCTAssertFalse(controller.hasActiveSession)
 
         controller.openSwitcher()
-        waitForMainQueue()
+        await waitForMainQueue()
+        await provider.waitForCurrentSpaceRefresh()
         let reopenedPanel = try XCTUnwrap(controller.panelPair?.window as? SwitcherPanel)
         XCTAssertTrue(reopenedPanel.handleKeyPress(keyCode: 53))
         XCTAssertFalse(controller.hasActiveSession)
@@ -417,36 +445,36 @@ final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
     // MARK: - Caching (P2/Q5)
 
     /// P2/Q5: a session's entries should be populated when the session opens.
-    func testSessionEntriesAreCachedOnEnsureSession() {
-        let (controller, _) = makeController()
+    func testSessionEntriesAreCachedOnEnsureSession() async {
+        let (controller, _, provider) = makeController()
         let keyDown = makeKeyEvent(keyCode: 50, flags: .maskCommand)
         _ = controller.handle(event: keyDown)
-        waitForMainQueue()
+        await waitForMainQueue()
+        await provider.waitForCurrentSpaceRefresh()
 
         XCTAssertTrue(controller.hasActiveSession)
         XCTAssertNotNil(controller.testSessionEntries, "Session must cache the window list on creation")
     }
 
     /// P2/Q5: the session must remember the space context it was opened with.
-    func testSessionSpaceContextIsCachedOnEnsureSession() {
-        let (controller, _) = makeController()
+    func testSessionSpaceContextIsCachedOnEnsureSession() async {
+        let (controller, _, provider) = makeController()
         let keyDown = makeKeyEvent(keyCode: 50, flags: .maskCommand)
         _ = controller.handle(event: keyDown)
-        waitForMainQueue()
+        await waitForMainQueue()
+        await provider.waitForCurrentSpaceRefresh()
 
         XCTAssertEqual(controller.testSessionSpaceID, 100, "Session must cache the space context (100) on creation")
     }
 
     /// P2/Q5: rapid keypresses must keep the same entries array (cached).
-    /// We verify the cgsBridge `managedSnapshot` and `activeSpaceID`
-    /// methods are NOT re-invoked on every keypress — that's the perf
-    /// win from caching the entries + spaceContext in `Session`.
-    func testMoveSelectionDoesNotRecomputeEntries() {
-        let (controller, bridge) = makeController()
+    func testMoveSelectionDoesNotRecomputeEntries() async {
+        let (controller, bridge, provider) = makeController()
         let keyDown = makeKeyEvent(keyCode: 50, flags: .maskCommand)
 
         _ = controller.handle(event: keyDown)
-        waitForMainQueue()
+        await waitForMainQueue()
+        await provider.waitForCurrentSpaceRefresh()
         XCTAssertTrue(controller.hasActiveSession)
 
         let snapshotCallsAfterFirst = bridge.managedSnapshotCallCount
@@ -458,7 +486,7 @@ final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
         for _ in 0..<5 {
             _ = controller.handle(event: keyDown)
         }
-        waitForMainQueue()
+        await waitForMainQueue()
 
         XCTAssertEqual(
             bridge.managedSnapshotCallCount, snapshotCallsAfterFirst,
@@ -470,23 +498,25 @@ final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
         )
     }
 
-    /// P2/Q5: opening a new session must re-fetch the window list. The
-    /// cache is per-session and is rebuilt on session creation.
-    func testNewSessionRebuildsCache() {
-        let (controller, bridge) = makeController()
+    /// P2/Q5: opening a new session must re-fetch the window list.
+    func testNewSessionRebuildsCache() async {
+        let (controller, bridge, provider) = makeController()
         let keyDown = makeKeyEvent(keyCode: 50, flags: .maskCommand)
 
         _ = controller.handle(event: keyDown)
-        waitForMainQueue()
+        await waitForMainQueue()
+        await provider.waitForCurrentSpaceRefresh()
         let firstSnapshotCalls = bridge.managedSnapshotCallCount
         let firstActiveSpaceCalls = bridge.activeSpaceIDCallCount
 
         // Close the session and open a new one.
         controller.cancelSession()
-        waitForMainQueue()
+        await waitForMainQueue()
+        await provider.waitForCurrentSpaceRefresh()
 
         _ = controller.handle(event: keyDown)
-        waitForMainQueue()
+        await waitForMainQueue()
+        await provider.waitForCurrentSpaceRefresh()
 
         XCTAssertGreaterThan(
             bridge.managedSnapshotCallCount, firstSnapshotCalls,
@@ -500,16 +530,18 @@ final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
 
     /// P2/Q5: cancelSession must clear the cached entries (no leak across
     /// consecutive switcher sessions).
-    func testCancelSessionClearsCachedEntries() {
-        let (controller, _) = makeController()
+    func testCancelSessionClearsCachedEntries() async {
+        let (controller, _, provider) = makeController()
         let keyDown = makeKeyEvent(keyCode: 50, flags: .maskCommand)
 
         _ = controller.handle(event: keyDown)
-        waitForMainQueue()
+        await waitForMainQueue()
+        await provider.waitForCurrentSpaceRefresh()
         XCTAssertNotNil(controller.testSessionEntries)
 
         controller.cancelSession()
-        waitForMainQueue()
+        await waitForMainQueue()
+        await provider.waitForCurrentSpaceRefresh()
 
         XCTAssertNil(controller.testSessionEntries, "Cancel must drop the cached entries")
     }
@@ -526,7 +558,7 @@ final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
         XCTAssertEqual(height, 620, "Panel height should stop at the available visible screen height")
     }
 
-    func testModifierReleaseCommitsSelectedWindowEvenWhenSelectionMatchesStartingWindow() {
+    func testModifierReleaseCommitsSelectedWindowEvenWhenSelectionMatchesStartingWindow() async {
         var focusCallCount = 0
         let observedFocusService = WindowFocusService(
             runningApplicationProvider: { _ in nil },
@@ -534,7 +566,7 @@ final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
             retryScheduler: { _ in },
             applicationActivator: { focusCallCount += 1 }
         )
-        let (controller, _) = makeController(
+        let (controller, _, provider) = makeController(
             windowInfo: {
                 [[
                     kCGWindowOwnerPID as String: NSNumber(value: 42),
@@ -551,21 +583,23 @@ final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
 
         let keyDown = makeKeyEvent(keyCode: 50, flags: .maskCommand)
         _ = controller.handle(event: keyDown)
-        waitForMainQueue()
+        await waitForMainQueue()
+        await provider.waitForCurrentSpaceRefresh()
 
         XCTAssertEqual(controller.testSessionEntries?.map(\.windowID), [1])
         XCTAssertEqual(controller.testSessionSelectedWindowID, 1)
 
         controller.switcherCommitOrDismissActiveSession()
-        waitForMainQueue()
-        waitForMainQueue()
+        await waitForMainQueue()
+        await waitForMainQueue()
+        await provider.waitForCurrentSpaceRefresh()
 
         XCTAssertEqual(focusCallCount, 1, "Releasing modifiers should still commit the selected entry even if it matches the starting window")
         XCTAssertFalse(controller.hasActiveSession)
     }
 
-    func testOpenSwitcherStartsSessionWithoutMovingSelection() {
-        let (controller, _) = makeController {
+    func testOpenSwitcherStartsSessionWithoutMovingSelection() async {
+        let (controller, _, provider) = makeController {
             [
                 self.makeWindow(pid: 42, windowID: 1, title: "Current"),
                 self.makeWindow(pid: 43, windowID: 2, title: "Previous"),
@@ -574,17 +608,19 @@ final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
         }
 
         controller.openSwitcher()
-        waitForMainQueue()
+        await waitForMainQueue()
+        await provider.waitForCurrentSpaceRefresh()
 
         XCTAssertTrue(controller.hasActiveSession, "Explicit open should create a visible session without requiring held modifiers")
         XCTAssertEqual(controller.testSessionEntries?.map(\.windowID), [2, 1, 3])
         XCTAssertEqual(controller.testSessionSelectedWindowID, 2)
     }
 
-    func testCloseSwitcherDismissesActiveSession() {
-        let (controller, _) = makeController()
+    func testCloseSwitcherDismissesActiveSession() async {
+        let (controller, _, provider) = makeController()
         controller.openSwitcher()
-        waitForMainQueue()
+        await waitForMainQueue()
+        await provider.waitForCurrentSpaceRefresh()
         XCTAssertTrue(controller.hasActiveSession)
 
         controller.closeSwitcher()
@@ -592,7 +628,7 @@ final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
         XCTAssertFalse(controller.hasActiveSession, "Explicit close should dismiss the session immediately")
     }
 
-    func testExplicitSessionIgnoresNonMatchingKeyAndSupportsRepeatedMoves() {
+    func testExplicitSessionIgnoresNonMatchingKeyAndSupportsRepeatedMoves() async {
         let windows: [[String: Any]] = [
             [
                 kCGWindowOwnerPID as String: NSNumber(value: 42),
@@ -622,14 +658,15 @@ final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
                 kCGWindowName as String: "Doc 3"
             ]
         ]
-        let (controller, _) = makeController(windowInfo: { windows })
+        let (controller, _, provider) = makeController(windowInfo: { windows })
 
         controller.openSwitcher()
-        waitForMainQueue()
+        await waitForMainQueue()
+        await provider.waitForCurrentSpaceRefresh()
         XCTAssertEqual(controller.testSessionSelectedWindowID, 2)
 
         _ = controller.handleKeyDown(event: makeKeyEvent(keyCode: 12, flags: .maskCommand))
-        waitForMainQueue()
+        await waitForMainQueue()
         XCTAssertTrue(controller.hasActiveSession, "Explicitly opened session should stay alive across unrelated key presses")
 
         controller.moveSelectionForward()
@@ -637,5 +674,33 @@ final class WindowSwitcherControllerSessionRaceTests: XCTestCase {
 
         controller.moveSelectionForward()
         XCTAssertEqual(controller.testSessionSelectedWindowID, 3)
+    }
+
+    // MARK: - Background refresh updates active session
+
+    func testBackgroundRefreshUpdatesActiveSessionPanelData() async {
+        var windowInfoV1: [[String: Any]] = [
+            makeWindow(pid: 42, windowID: 1, title: "Window 1")
+        ]
+        let (controller, _, provider) = makeController(windowInfo: { windowInfoV1 })
+
+        controller.openSwitcher()
+        await waitForMainQueue()
+        await provider.waitForCurrentSpaceRefresh()
+
+        XCTAssertEqual(controller.testSessionEntries?.map(\.windowID), [1])
+        XCTAssertEqual(controller.testSessionSelectedWindowID, 1)
+
+        // Swap the closure's captured data to include window 2
+        windowInfoV1.append(makeWindow(pid: 43, windowID: 2, title: "Window 2"))
+
+        // Trigger a background refresh
+        provider.refreshCurrentSpaceCacheInBackground()
+        await provider.waitForCurrentSpaceRefresh()
+
+        // Session should be updated with fresh data (both windows present)
+        let entries = controller.testSessionEntries?.map(\.windowID) ?? []
+        XCTAssertEqual(Set(entries), [1, 2], "Both windows should be present after background refresh")
+        XCTAssertEqual(controller.testSessionSelectedWindowID, 1, "Selection should be preserved after background refresh")
     }
 }

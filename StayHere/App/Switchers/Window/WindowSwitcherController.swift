@@ -33,19 +33,19 @@ final class WindowSwitcherController {
     }
 
     internal var testSessionEntries: [WindowEntry]? {
-        coordinator.testSession?.flatEntries
+        coordinator.activeSession?.flatEntries
     }
 
     internal var testSessionSpaceID: Int? {
-        coordinator.testSession?.spaceGroups.first?.spaceID
+        coordinator.activeSession?.spaceGroups.first?.spaceID
     }
 
     internal var testSessionSpaceGroups: [SpaceWindowGroup]? {
-        coordinator.testSession?.spaceGroups
+        coordinator.activeSession?.spaceGroups
     }
 
     internal var testSessionSelectedWindowID: Int? {
-        coordinator.testSession?.selectedWindowID
+        coordinator.activeSession?.selectedWindowID
     }
 
     internal var testRecentWindowIDs: [Int] {
@@ -99,6 +99,10 @@ final class WindowSwitcherController {
 
         self.windowSwitchUseCase = windowSwitchUseCase
 
+        self.listProvider.onPerSpaceRefresh = { [weak self] context in
+            guard let self else { return }
+            self.applyFreshPerSpaceEntries(for: context)
+        }
     }
 
 
@@ -106,6 +110,7 @@ final class WindowSwitcherController {
         pendingCacheRefresh?.cancel()
         DispatchQueue.main.async { [listProvider] in
             listProvider.cancelAllSpacesRefresh()
+            listProvider.cancelCurrentSpaceRefresh()
         }
         if let launchObserver { NSWorkspace.shared.notificationCenter.removeObserver(launchObserver) }
         if let terminateObserver { NSWorkspace.shared.notificationCenter.removeObserver(terminateObserver) }
@@ -142,6 +147,7 @@ final class WindowSwitcherController {
         pendingCacheRefresh?.cancel()
         pendingCacheRefresh = nil
         listProvider.cancelAllSpacesRefresh()
+        listProvider.cancelCurrentSpaceRefresh()
         if let launchObserver { NSWorkspace.shared.notificationCenter.removeObserver(launchObserver); self.launchObserver = nil }
         if let terminateObserver { NSWorkspace.shared.notificationCenter.removeObserver(terminateObserver); self.terminateObserver = nil }
         coordinator.stop()
@@ -172,19 +178,17 @@ final class WindowSwitcherController {
         coordinator.handleFlagsChanged(event: event)
     }
 
-    /// Invalidate the window-list cache.
+    /// Refresh the current-space window-list cache in the background.
     ///
-    /// The current-space controller clears its cache on every session lifecycle
-    /// event (open/commit/cancel/close) so the next interaction reflects an
-    /// up-to-date per-space listing, which can change as windows switch spaces
-    /// or as the user focuses different apps.
+    /// The current-space controller kicks a background refresh on every session
+    /// lifecycle event (open/commit/cancel/close) so the next interaction reflects
+    /// an up-to-date per-space listing, which can change as windows switch spaces
+    /// or as the user focuses different apps. Serves stale cache immediately.
     ///
-    /// The all-spaces controller also invalidates at session end, but then
-    /// immediately rebuilds the cache in the background so the next menu open
-    /// is fast while still picking up newly created/closed windows.
+    /// The all-spaces controller also refreshes at session end in the background.
     private func invalidateListCache() {
         guard mode == .currentSpace else { return }
-        listProvider.invalidateCache()
+        listProvider.refreshCurrentSpaceCacheInBackground()
     }
 
     internal func cancelSession() {
@@ -302,10 +306,10 @@ extension WindowSwitcherController: @preconcurrency SwitcherSessionDelegate {
     }
 
     func sessionDidEnd() {
-        // For the current-space controller: cache is cold until the next open,
-        // which is fast anyway (single-space enumeration).
+        // For the current-space controller: kick a background refresh so the
+        // next open serves stale cache immediately and auto-populates.
         if mode == .currentSpace {
-            listProvider.invalidateCache()
+            listProvider.refreshCurrentSpaceCacheInBackground()
             return
         }
         // For the all-spaces controller: refresh the cache off-main. The
@@ -316,5 +320,28 @@ extension WindowSwitcherController: @preconcurrency SwitcherSessionDelegate {
 
     var keyboardShortcutKeyCodes: Set<CGKeyCode> {
         [shortcutProvider().keyCode]
+    }
+
+    /// Fresh per-space entries landed from the background refresh. If the
+    /// current-space session is still open on that space, swap in a freshly
+    /// built session (preserving selection) and re-present the panel.
+    private func applyFreshPerSpaceEntries(for context: WindowSpaceContext) {
+        guard mode == .currentSpace,
+              let session = coordinator.activeSession,
+              session.spaceGroups.first?.spaceID == context.spaceID,
+              let current = listProvider.currentContext(), current == context,
+              let source = listBuilder.makeSessionSource() else { return }
+        let selectedID = session.selectedWindowID.flatMap { selected in
+            source.flatEntries.contains { $0.windowID == selected } ? selected : nil
+        } ?? source.flatEntries.first?.windowID
+        let refreshed = WindowSwitcherSession(
+            startingWindowID: session.startingWindowID,
+            selectedWindowID: selectedID,
+            shortcut: session.shortcut,
+            spaceGroups: source.spaceGroups,
+            flatEntries: source.flatEntries,
+            trigger: session.trigger
+        )
+        coordinator.replaceActiveSession(with: refreshed)
     }
 }

@@ -104,7 +104,7 @@ final class SwitcherSessionControllerTests: XCTestCase {
         controller.openSwitcher()
         controller.moveSelectionForward()
 
-        XCTAssertEqual(controller.testSession?.selectedID, 2)
+        XCTAssertEqual(controller.activeSession?.selectedID, 2)
         XCTAssertEqual(presenter.presented, [
             FakeSnapshot(selectedID: 1),
             FakeSnapshot(selectedID: 2)
@@ -117,7 +117,7 @@ final class SwitcherSessionControllerTests: XCTestCase {
         controller.openSwitcher()
         controller.moveSelectionBackward()
 
-        XCTAssertEqual(controller.testSession?.selectedID, 0)
+        XCTAssertEqual(controller.activeSession?.selectedID, 0)
         XCTAssertEqual(presenter.presented.last, FakeSnapshot(selectedID: 0))
     }
 
@@ -179,7 +179,7 @@ final class SwitcherSessionControllerTests: XCTestCase {
 
         controller.switcherEnsureSessionAndMoveSelection(backward: false)
 
-        XCTAssertEqual(controller.testSession?.selectedID, 1)
+        XCTAssertEqual(controller.activeSession?.selectedID, 1)
         XCTAssertEqual(presenter.presented, [FakeSnapshot(selectedID: 1)])
     }
 
@@ -190,7 +190,39 @@ final class SwitcherSessionControllerTests: XCTestCase {
 
         controller.switcherEnsureSessionAndMoveSelection(backward: false)
 
-        XCTAssertEqual(controller.testSession?.selectedID, 2)
+        XCTAssertEqual(controller.activeSession?.selectedID, 2)
         XCTAssertEqual(presenter.presented, [FakeSnapshot(selectedID: 2)])
+    }
+
+    func testReplaceActiveSessionRepresentsUpdatedSnapshot() {
+        let controller = makeController()
+
+        controller.openSwitcher()
+        XCTAssertEqual(presenter.presented.count, 1)
+        XCTAssertTrue(controller.hasActiveSession)
+
+        // Replace with a new session that has a different selectedID
+        delegate.buildSessionImpl = { shortcut, trigger in
+            FakeSession(startingID: 1, selectedID: 5, shortcut: shortcut, trigger: trigger)
+        }
+        let newSession = FakeSession(startingID: 1, selectedID: 5, shortcut: SpaceSwitcherShortcut(keyCode: 48, modifiers: [.maskCommand]), trigger: .explicit)
+        controller.replaceActiveSession(with: newSession)
+
+        XCTAssertEqual(controller.activeSession?.selectedID, 5)
+        XCTAssertTrue(controller.hasActiveSession, "hasActiveSession should stay true after replace")
+        XCTAssertEqual(presenter.presented.last, FakeSnapshot(selectedID: 5), "Panel should be re-presented with updated snapshot")
+    }
+
+    func testReplaceActiveSessionIsNoopWithoutActiveSession() {
+        let controller = makeController()
+
+        let initialPresentedCount = presenter.presented.count
+
+        // Replace with no active session — should be a no-op
+        let newSession = FakeSession(startingID: 1, selectedID: 5, shortcut: SpaceSwitcherShortcut(keyCode: 48, modifiers: [.maskCommand]), trigger: .explicit)
+        controller.replaceActiveSession(with: newSession)
+
+        XCTAssertEqual(presenter.presented.count, initialPresentedCount, "No new presentation when there is no active session")
+        XCTAssertFalse(controller.hasActiveSession)
     }
 }

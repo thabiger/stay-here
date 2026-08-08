@@ -37,6 +37,20 @@ final class WindowFilter {
     }
 
     func filter(_ windows: [RawWindowInfo], in context: FilterContext) -> [FilteredWindow] {
+        filter(
+            windows,
+            in: context,
+            showHiddenWindows: settings.windowSwitcherShowHiddenWindows,
+            showMinimizedWindows: settings.windowSwitcherShowMinimizedWindows
+        )
+    }
+
+    func filter(
+        _ windows: [RawWindowInfo],
+        in context: FilterContext,
+        showHiddenWindows: Bool,
+        showMinimizedWindows: Bool
+    ) -> [FilteredWindow] {
         windows.compactMap { raw -> FilteredWindow? in
             guard raw.layer == 0 else { return nil }
 
@@ -52,8 +66,8 @@ final class WindowFilter {
             let application = runningApplicationProvider(raw.pid)
 
             if application?.isHidden == true {
-                if !settings.windowSwitcherShowHiddenWindows { return nil }
-            } else if !raw.isOnScreen && !settings.windowSwitcherShowMinimizedWindows {
+                if !showHiddenWindows { return nil }
+            } else if !raw.isOnScreen && !showMinimizedWindows {
                 return nil
             }
 

@@ -16,7 +16,8 @@ final class WindowListCache {
         return cached
     }
 
-    func updatePerSpace(with entries: [WindowEntry], context: WindowSpaceContext) {
+    func updatePerSpace(with entries: [WindowEntry], context: WindowSpaceContext, generation: Int) {
+        guard generation == cacheGeneration else { return }
         cachedEntriesContext = context
         cachedEntries = entries
     }

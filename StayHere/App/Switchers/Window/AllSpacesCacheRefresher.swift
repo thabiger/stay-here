@@ -10,7 +10,7 @@ final class AllSpacesCacheRefresher {
     private enum RefreshState {
         case idle
         case refreshing(task: Task<[SpaceWindowGroup]?, Never>, id: Int, generation: Int)
-        case pending(id: Int, generation: Int)
+        case pending(task: Task<[SpaceWindowGroup]?, Never>, id: Int, generation: Int)
     }
 
     private var state: RefreshState = .idle
@@ -31,8 +31,8 @@ final class AllSpacesCacheRefresher {
         switch state {
         case .idle:
             startRefresh()
-        case .refreshing(_, let id, let generation):
-            state = .pending(id: id, generation: generation)
+        case .refreshing(let task, let id, let generation):
+            state = .pending(task: task, id: id, generation: generation)
         case .pending:
             break
         }
@@ -44,9 +44,9 @@ final class AllSpacesCacheRefresher {
         let id = nextTaskID
         let generation = generationProvider()
         let task = Task.detached(priority: .userInitiated) { () -> [SpaceWindowGroup]? in
-            guard (try? Task.checkCancellation()) != nil else { return nil }
+            guard !Task.isCancelled else { return nil }
             let groups = computer.compute()
-            guard (try? Task.checkCancellation()) != nil else { return nil }
+            guard !Task.isCancelled else { return nil }
             return groups
         }
         state = .refreshing(task: task, id: id, generation: generation)
@@ -66,7 +66,7 @@ final class AllSpacesCacheRefresher {
                     self.onCompletion(groups, generation)
                 }
                 self.handleCompletion()
-            case .pending(let pendingID, let generation):
+            case .pending(_, let pendingID, let generation):
                 // A refresh() request arrived while this task was in flight, so
                 // the state moved to .pending before this callback ran. The
                 // completing task is still the current one: deliver its result
@@ -103,8 +103,11 @@ final class AllSpacesCacheRefresher {
     }
 
     func cancel() {
-        if case .refreshing(let task, _, _) = state {
+        switch state {
+        case .refreshing(let task, _, _), .pending(let task, _, _):
             task.cancel()
+        case .idle:
+            break
         }
         state = .idle
         resumeIdleContinuations()

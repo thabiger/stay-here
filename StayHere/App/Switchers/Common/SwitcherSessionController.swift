@@ -24,7 +24,9 @@ where Session.Selection == Selection {
 
     var hasActiveSession: Bool { session != nil }
 
-    var testSession: Session? { session }
+    /// The active session, if any. Read by the production refresh path
+    /// (WindowSwitcherController.applyFreshPerSpaceEntries) and by tests.
+    var activeSession: Session? { session }
 
     func start() {}
 
@@ -86,6 +88,15 @@ where Session.Selection == Selection {
 
     func closeSwitcher() {
         switcherCancelActiveSession()
+    }
+
+    /// Swaps the active session and re-presents the panel from a freshly built
+    /// snapshot. No-op when no session is active (e.g., a background refresh
+    /// completed after the switcher closed).
+    func replaceActiveSession(with session: Session) {
+        guard self.session != nil else { return }
+        self.session = session
+        showPanel()
     }
 
     private func moveSelection(offset: Int) {

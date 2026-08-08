@@ -22,7 +22,7 @@ final class SpaceSwitcherController {
     internal var hasActiveSession: Bool { coordinator.hasActiveSession }
 
     internal var testSessionSelectedSpaceID: Int? {
-        coordinator.testSession?.selectedSpaceID
+        coordinator.activeSession?.selectedSpaceID
     }
 
     init(

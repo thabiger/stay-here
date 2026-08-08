@@ -7,12 +7,15 @@ final class WindowListProvider {
     private let pipeline: WindowListPipeline
     private let cache: WindowListCache
     private let refresher: AllSpacesCacheRefresher
+    private let currentSpaceRefresher: CurrentSpaceCacheRefresher
     private let grouper: WindowGrouper
     private let registry: any SpaceRegistryProtocol
     private let cgsBridge: any CGSBridgeProtocol
     private let settings: WindowSwitcherSettings
     private let focusedWindowIDProvider: WindowListProviderTypes.FocusedWindowIDProvider
     private var lastSettingsVersion: Int?
+
+    var onPerSpaceRefresh: ((WindowSpaceContext) -> Void)?
 
     init(
         registry: any SpaceRegistryProtocol,
@@ -68,6 +71,27 @@ final class WindowListProvider {
             }
         )
 
+        self.currentSpaceRefresher = CurrentSpaceCacheRefresher(
+            computerFactory: { [weak registry, cgsBridge, enumerator, filter, titleResolver, iconProvider, settings] context in
+                Self.makeCurrentSpaceComputer(
+                    registry: registry,
+                    cgsBridge: cgsBridge,
+                    enumerator: enumerator,
+                    filter: filter,
+                    titleResolver: titleResolver,
+                    iconProvider: iconProvider,
+                    settings: settings,
+                    context: context
+                )
+            },
+            onCompletion: { [weak cache] context, entries, generation in
+                cache?.updatePerSpace(with: entries, context: context, generation: generation)
+            },
+            generationProvider: { [weak cache] in
+                cache?.cacheGeneration ?? 0
+            }
+        )
+
         self.grouper = WindowGrouper(
             orderedSpaceIDs: { [weak registry] in registry?.orderedSpaceIDs() ?? [] },
             spacesByID: { [weak registry] in
@@ -83,6 +107,10 @@ final class WindowListProvider {
                 registry?.namespaceLabel(for: spaceID) ?? ""
             }
         )
+
+        self.currentSpaceRefresher.setNotifyHandler { [weak self] context in
+            self?.onPerSpaceRefresh?(context)
+        }
     }
 
     private static func makeAllSpacesComputeContext(
@@ -144,6 +172,32 @@ final class WindowListProvider {
         )
     }
 
+    private static func makeCurrentSpaceComputer(
+        registry: (any SpaceRegistryProtocol)?,
+        cgsBridge: any CGSBridgeProtocol,
+        enumerator: WindowEnumerator,
+        filter: WindowFilter,
+        titleResolver: WindowTitleResolver,
+        iconProvider: @escaping WindowListProviderTypes.IconProvider,
+        settings: WindowSwitcherSettings,
+        context: WindowSpaceContext
+    ) -> CurrentSpaceWindowComputer {
+        let computeContext = CurrentSpaceWindowComputeContext(
+            spaceID: context.spaceID,
+            desktopNumber: context.desktopNumber,
+            showHiddenWindows: settings.windowSwitcherShowHiddenWindows,
+            showMinimizedWindows: settings.windowSwitcherShowMinimizedWindows
+        )
+        return CurrentSpaceWindowComputer(
+            enumerator: enumerator,
+            filter: filter,
+            titleResolver: titleResolver,
+            iconProvider: iconProvider,
+            spacesForWindow: { windowID in cgsBridge.spacesForWindow(windowID: windowID) },
+            context: computeContext
+        )
+    }
+
     private var settingsVersion: Int {
         var hasher = Hasher()
         hasher.combine(settings.windowSwitcherShowHiddenWindows)
@@ -185,13 +239,8 @@ final class WindowListProvider {
         if let cached = cache.perSpaceHit(for: context) {
             return cached
         }
-
-        let rawWindows = pipeline.enumerator.enumerate()
-        let filterContext = FilterContext(spaceID: context.spaceID, desktopNumber: context.desktopNumber)
-        let entries = pipeline.buildEntries(from: rawWindows, in: filterContext)
-
-        cache.updatePerSpace(with: entries, context: context)
-        return entries
+        refreshCurrentSpaceCacheInBackground(context: context)
+        return []
     }
 
     func focusedWindowID() -> Int? {
@@ -230,5 +279,22 @@ final class WindowListProvider {
 
     func waitForAllSpacesRefresh() async {
         await refresher.waitForIdle()
+    }
+
+    func refreshCurrentSpaceCacheInBackground() {
+        guard let context = currentContext() else { return }
+        currentSpaceRefresher.refresh(context: context)
+    }
+
+    func refreshCurrentSpaceCacheInBackground(context: WindowSpaceContext) {
+        currentSpaceRefresher.refresh(context: context)
+    }
+
+    func cancelCurrentSpaceRefresh() {
+        currentSpaceRefresher.cancel()
+    }
+
+    func waitForCurrentSpaceRefresh() async {
+        await currentSpaceRefresher.waitForIdle()
     }
 }
