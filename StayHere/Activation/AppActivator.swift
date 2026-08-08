@@ -82,7 +82,9 @@ public final class AppActivator {
             return
         }
 
-        let target = windows.first(where: isStandardWindow) ?? windows.first!
+        guard let target = windows.first(where: isStandardWindow) ?? windows.first else {
+            return
+        }
         AXUIElementPerformAction(target, kAXRaiseAction as CFString)
         AXUIElementSetAttributeValue(target, kAXMainAttribute as CFString, kCFBooleanTrue)
     }
