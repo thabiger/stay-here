@@ -104,7 +104,12 @@ final class WindowSwitcherController {
 
     deinit {
         pendingCacheRefresh?.cancel()
-        DispatchQueue.main.async { [listProvider] in
+        // Dispatch on the main queue (guaranteed main-actor context) rather than
+        // asserting isolation: keeps the defensive safety net even if this class
+        // ever loses its @MainActor annotation. Capture listProvider weakly so
+        // deinit never extends the provider's lifetime (CORR-1).
+        DispatchQueue.main.async { [weak listProvider] in
+            guard let listProvider else { return }
             listProvider.cancelAllSpacesRefresh()
             listProvider.cancelCurrentSpaceRefresh()
         }
