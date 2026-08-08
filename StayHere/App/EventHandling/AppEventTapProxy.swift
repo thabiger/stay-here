@@ -20,6 +20,7 @@ final class AppEventTapProxy: EventTapProxying {
     private var clients: [any CGEventTapClient] = []
     private var consecutiveDisableCount: Int = 0
     private var pendingReenableWork: DispatchWorkItem?
+    private var eventTapGeneration: Int = 0
 
     init(
         eventTapFactory: @escaping EventTapFactory = AppEventTapProxy.liveEventTapFactory,
@@ -68,6 +69,7 @@ final class AppEventTapProxy: EventTapProxying {
         }
 
         eventTap = tap
+        eventTapGeneration += 1
         let source = runLoopSourceFactory(tap)
         runLoopSource = source
         if let source {
@@ -86,6 +88,7 @@ final class AppEventTapProxy: EventTapProxying {
             removeRunLoopSource(runLoopSource)
         }
         eventTap = nil
+        eventTapGeneration += 1
         runLoopSource = nil
     }
 
@@ -95,9 +98,13 @@ final class AppEventTapProxy: EventTapProxying {
             consecutiveDisableCount += 1
             let delay = min(pow(2.0, Double(consecutiveDisableCount - 1)), 30.0)
             logger.info("event tap disabled by timeout (#\(consecutiveDisableCount)); re-enabling in \(delay)s")
+            let generation = eventTapGeneration
             let work = DispatchWorkItem { [weak self] in
                 guard let self else { return }
-                self.tapEnableHandler(self.eventTap, true)
+                guard let tap = self.eventTap, self.eventTapGeneration == generation else {
+                    return
+                }
+                self.tapEnableHandler(tap, true)
                 self.consecutiveDisableCount = 0
                 self.pendingReenableWork = nil
             }

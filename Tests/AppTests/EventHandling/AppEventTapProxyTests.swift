@@ -126,6 +126,41 @@ final class AppEventTapProxyTests: XCTestCase {
         XCTAssertTrue(client.handledEvents.isEmpty, "tap-disabled events should not be dispatched to clients")
     }
 
+    func testTapDisabledThenUnregisterDuringBackoffDoesNotReEnable() {
+        var enableCalls: [Bool] = []
+        let proxy = AppEventTapProxy(
+            eventTapFactory: { _, _ in self.makeDummyMachPort() },
+            runLoopSourceFactory: { _ in nil },
+            tapEnableHandler: { _, enabled in enableCalls.append(enabled) },
+            addRunLoopSource: { _ in },
+            removeRunLoopSource: { _ in },
+            logger: NoOpLogger()
+        )
+        let client = FakeClient()
+        proxy.register(client)
+        enableCalls.removeAll()
+
+        let disabledEvent = CGEvent(source: nil)!
+        disabledEvent.type = .tapDisabledByTimeout
+        _ = proxy.handle(proxy: dummyProxy, type: .tapDisabledByTimeout, event: disabledEvent)
+
+        // Tear down inside the 1s backoff window (SwitcherDirector.stop()/ActivationController.stop() path)
+        proxy.unregister(client)
+        XCTAssertEqual(enableCalls, [false]) // teardown disables; no re-enable yet
+
+        // Wait past the 1s backoff: the cancelled/no-op work item must NOT call enable(true)
+        let expectation = XCTestExpectation(description: "no re-enable after teardown")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { expectation.fulfill() }
+        wait(for: [expectation], timeout: 2.0)
+
+        XCTAssertEqual(enableCalls, [false], "must not re-enable a torn-down tap")
+
+        // Proxy must remain fully usable: a fresh register creates a new tap and enables it
+        let client2 = FakeClient()
+        proxy.register(client2)
+        XCTAssertEqual(enableCalls, [false, true], "re-register must enable a fresh tap")
+    }
+
     func testTapDisabledByUserInputDoesNotReEnable() {
         var enableCalls: [Bool] = []
         let proxy = AppEventTapProxy(
