@@ -24,6 +24,7 @@ StayHere depends on four private CoreGraphics (CGS) symbols resolved at runtime 
 
 - `switchByDesktopShortcut(index:)` uses **no** CGS symbols — only public `CGEvent` API — so it is unaffected by CGS symbol drift.
 - The code already demonstrates forward-compatibility awareness: `_CGSDefaultConnection` needed a `CGSMainConnectionID` fallback in a prior macOS release.
+- Symbols are resolved once per process (first access) and cached as lazy static function pointers; `dlsym` is never called on hot paths.
 
 ## Health Check
 

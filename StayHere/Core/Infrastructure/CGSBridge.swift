@@ -42,6 +42,13 @@ public struct CGSBridge: CGSBridgeProtocol {
         return dlopen("/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics", RTLD_NOW)
     }()
 
+    private static let defaultConnectionSymbol: MainConn? = symbol(CGSSymbol.defaultConnection, as: MainConn.self)
+    private static let mainConnectionFallbackSymbol: MainConn? = symbol(CGSSymbol.mainConnectionFallback, as: MainConn.self)
+    private static let mainConn: MainConn? = defaultConnectionSymbol ?? mainConnectionFallbackSymbol
+    private static let activeSpaceSymbol: GetActive? = symbol(CGSSymbol.getActiveSpace, as: GetActive.self)
+    private static let copyManagedSpacesSymbol: CopyManaged? = symbol(CGSSymbol.copyManagedDisplaySpaces, as: CopyManaged.self)
+    private static let copySpacesForWindowsSymbol: CopySpacesForWindows? = symbol(CGSSymbol.copySpacesForWindows, as: CopySpacesForWindows.self)
+
     public init() {}
 
     private static func symbol<T>(_ name: String, as _: T.Type) -> T? {
@@ -50,8 +57,8 @@ public struct CGSBridge: CGSBridgeProtocol {
     }
 
     public func activeSpaceID() -> Int? {
-        guard let main: MainConn = Self.symbol(CGSSymbol.defaultConnection, as: MainConn.self) ?? Self.symbol(CGSSymbol.mainConnectionFallback, as: MainConn.self),
-              let getActive: GetActive = Self.symbol(CGSSymbol.getActiveSpace, as: GetActive.self) else {
+        guard let main = Self.mainConn,
+              let getActive = Self.activeSpaceSymbol else {
             return nil
         }
 
@@ -112,8 +119,8 @@ public struct CGSBridge: CGSBridgeProtocol {
     }
 
     public func managedSnapshot() -> ManagedSnapshot {
-        guard let main: MainConn = Self.symbol(CGSSymbol.defaultConnection, as: MainConn.self) ?? Self.symbol(CGSSymbol.mainConnectionFallback, as: MainConn.self),
-              let copyManaged: CopyManaged = Self.symbol(CGSSymbol.copyManagedDisplaySpaces, as: CopyManaged.self),
+        guard let main = Self.mainConn,
+              let copyManaged = Self.copyManagedSpacesSymbol,
               let array = copyManaged(main())?.takeRetainedValue() as? [[String: Any]] else {
             return ManagedSnapshot(spaces: [], activeByDisplay: [:], orderedIDsByDisplay: [:])
         }
@@ -163,8 +170,8 @@ public struct CGSBridge: CGSBridgeProtocol {
     }
 
     public func spacesForWindow(windowID: Int) -> [Int] {
-        guard let main: MainConn = Self.symbol(CGSSymbol.defaultConnection, as: MainConn.self) ?? Self.symbol(CGSSymbol.mainConnectionFallback, as: MainConn.self),
-              let copySpaces: CopySpacesForWindows = Self.symbol(CGSSymbol.copySpacesForWindows, as: CopySpacesForWindows.self) else {
+        guard let main = Self.mainConn,
+              let copySpaces = Self.copySpacesForWindowsSymbol else {
             return []
         }
 
@@ -183,12 +190,10 @@ public struct CGSBridge: CGSBridgeProtocol {
     public func bridgeHealth() -> HealthReport {
         guard !RuntimeEnvironment.isAutomationSession else { return .notApplicable }
         let handleResolved = Self.handle != nil
-        let connectionResolved =
-            Self.symbol(CGSSymbol.defaultConnection, as: MainConn.self) != nil
-            || Self.symbol(CGSSymbol.mainConnectionFallback, as: MainConn.self) != nil
-        let getActiveResolved = Self.symbol(CGSSymbol.getActiveSpace, as: GetActive.self) != nil
-        let copyManagedResolved = Self.symbol(CGSSymbol.copyManagedDisplaySpaces, as: CopyManaged.self) != nil
-        let copySpacesResolved = Self.symbol(CGSSymbol.copySpacesForWindows, as: CopySpacesForWindows.self) != nil
+        let connectionResolved = Self.defaultConnectionSymbol != nil || Self.mainConnectionFallbackSymbol != nil
+        let getActiveResolved = Self.activeSpaceSymbol != nil
+        let copyManagedResolved = Self.copyManagedSpacesSymbol != nil
+        let copySpacesResolved = Self.copySpacesForWindowsSymbol != nil
         let snapshot = managedSnapshot()
         let probeOK = !snapshot.spaces.isEmpty
             || !snapshot.activeByDisplay.isEmpty
