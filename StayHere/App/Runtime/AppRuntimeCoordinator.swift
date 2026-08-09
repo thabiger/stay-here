@@ -101,15 +101,29 @@ final class AppRuntimeCoordinator: AppCoordinating {
     }
 
     func applicationDidFinishLaunching() {
-        updateController?.restoreCachedState()
+        restoreCachedState()
+        logBridgeHealth()
+        configureStatusBar()
+        bindObservationHandlers()
+        startSpaceObservation()
+        runLifecycleCoordinator()
+        scheduleUpdateCheck()
+    }
 
+    private func restoreCachedState() {
+        updateController?.restoreCachedState()
+    }
+
+    private func logBridgeHealth() {
         let bridgeHealth = services.cgsBridge.bridgeHealth()
         if bridgeHealth.isHealthy {
             services.logger.info("cgs-bridge healthy: \(bridgeHealth.degradedFeatureSummary)")
         } else {
             services.logger.error("cgs-bridge DEGRADED: \(bridgeHealth.degradedFeatureSummary)")
         }
+    }
 
+    private func configureStatusBar() {
         // Configure status bar with all menu actions
         statusBarCoordinator.configure(actions: StatusBarActions(
             onOpenSettings: { [weak self] in self?.windowCoordinator.showSettings() },
@@ -134,7 +148,10 @@ final class AppRuntimeCoordinator: AppCoordinating {
                 )
             }
         ))
+    }
 
+    // Must complete before startSpaceObservation(): handlers must be bound and HUD dedup initialized before observation begins.
+    private func bindObservationHandlers() {
         // Bind "settings open" state to observation
         statusBarCoordinator.bindSettingsOpen { [weak self] in
             self?.isSettingsOpen ?? false
@@ -177,10 +194,14 @@ final class AppRuntimeCoordinator: AppCoordinating {
 
         // Initialize HUD dedup to avoid HUD on first registry event at startup
         lastObservedActiveSpaceID = registry.activeSpaceID
+    }
 
+    private func startSpaceObservation() {
         // Start space observation (begins listening to NSWorkspace.activeSpaceDidChangeNotification)
         spaceObservationCoordinator.startObserving()
+    }
 
+    private func runLifecycleCoordinator() {
         // Run lifecycle coordinator - sets activation policy, starts timers, checks setup requirements
         lifecycleCoordinator.applicationDidFinishLaunching(
             isSettingsOpen: { [weak self] in self?.isSettingsOpen ?? false },
@@ -196,6 +217,9 @@ final class AppRuntimeCoordinator: AppCoordinating {
                 self?.setupRequirementsPresenter.presentSetupRequirementsWarning()
             }
         )
+    }
+
+    private func scheduleUpdateCheck() {
         updateController?.scheduleAutomaticCheck()
     }
 
