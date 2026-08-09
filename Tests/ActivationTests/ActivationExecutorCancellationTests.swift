@@ -18,9 +18,8 @@ final class ActivationExecutorCancellationTests: XCTestCase {
 
     /// Sanity check: `waitForActiveSpace` actually polls `currentSpaceID`.
     /// Without this, the cancellation test would pass trivially.
-    /// Note: `currentSpaceID() == nil` is the SUCCESS condition in the
-    /// original code, so we return a non-nil value that never matches the
-    /// target to make the chain keep polling.
+    /// Note: `currentSpaceID() == nil` is treated as unknown (keeps
+    /// polling). Only a confirmed match or timeout terminates the chain.
     func testPollingContinuesWithoutCancellation() {
         var currentSpaceIDCalls = 0
         let executor = ActivationExecutor(
@@ -48,15 +47,14 @@ final class ActivationExecutorCancellationTests: XCTestCase {
         XCTAssertGreaterThan(count2, count1, "polling should continue without cancellation")
     }
 
-    /// Sanity check: `then` is called after the timeout elapses.
-    /// Without this, the cancellation integration test below would be
-    /// ambiguous (we wouldn't know if 0 means "cancelled" or "not yet
-    /// timed out").
-    func testWaitForActiveSpaceThenIsCalledAfterTimeout() {
+    /// On timeout the `then` callback fires as a degraded fallback so the
+    /// app is still activated (primary goal), but the timeout seam records
+    /// that the space switch did not complete within the deadline.
+    func testWaitForActiveSpaceFiresThenAsFallbackOnTimeout() {
         let executor = ActivationExecutor(
             showSingleWindowHint: { _ in },
             switchToSpace: { _ in },
-            currentSpaceID: { 999 }  // never matches → 0.2s polling
+            currentSpaceID: { 999 }  // never matches → timeout
         )
 
         executor.waitForActiveSpace(1, timeout: 0.2) { }
@@ -66,7 +64,65 @@ final class ActivationExecutorCancellationTests: XCTestCase {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { exp.fulfill() }
         wait(for: [exp], timeout: 1.0)
 
-        XCTAssertEqual(executor.testThenCallCount, 1, "then should be called after timeout")
+        XCTAssertEqual(executor.testThenCallCount, 1, "then fires as degraded fallback on timeout")
+        XCTAssertEqual(executor.testTimeoutCallCount, 1, "timeout branch must execute once")
+    }
+
+    /// Success path: when `currentSpaceID()` eventually matches the
+    /// target space, `then` fires exactly once and no timeout is recorded.
+    func testWaitForActiveSpaceThenIsCalledWhenSpaceMatches() {
+        var calls = 0
+        let executor = ActivationExecutor(
+            showSingleWindowHint: { _ in },
+            switchToSpace: { _ in },
+            currentSpaceID: {
+                calls += 1
+                return calls >= 3 ? 1 : 999   // matches spaceID 1 on 3rd poll
+            }
+        )
+
+        executor.waitForActiveSpace(1, timeout: 5.0) { }
+
+        let exp = expectation(description: "success")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { exp.fulfill() }
+        wait(for: [exp], timeout: 1.0)
+
+        XCTAssertEqual(executor.testThenCallCount, 1, "then fires once when space matches")
+        XCTAssertEqual(executor.testTimeoutCallCount, 0, "no timeout on success")
+    }
+
+    /// nil from `currentSpaceID()` is treated as unknown (space detection
+    /// failed) — it must NOT fire `then()` prematurely. The poll chain
+    /// keeps going until the timeout elapses, at which point `then` fires
+    /// as a degraded fallback.
+    func testNilSpaceIDDoesNotFireThenPrematurely() {
+        var calls = 0
+        let executor = ActivationExecutor(
+            showSingleWindowHint: { _ in },
+            switchToSpace: { _ in },
+            currentSpaceID: {
+                calls += 1
+                return nil  // always nil — detection broken
+            }
+        )
+
+        executor.waitForActiveSpace(1, timeout: 0.2) { }
+
+        // Check at 0.15s — well before 0.2s timeout, then must NOT have fired.
+        let exp1 = expectation(description: "mid-poll")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { exp1.fulfill() }
+        wait(for: [exp1], timeout: 1.0)
+
+        XCTAssertEqual(executor.testThenCallCount, 0, "then must NOT fire while nil is returned")
+        XCTAssertGreaterThan(calls, 1, "polling must continue when nil is returned")
+
+        // Wait for timeout to elapse — then fires as degraded fallback.
+        let exp2 = expectation(description: "after timeout")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { exp2.fulfill() }
+        wait(for: [exp2], timeout: 1.0)
+
+        XCTAssertEqual(executor.testThenCallCount, 1, "then fires as degraded fallback after timeout")
+        XCTAssertEqual(executor.testTimeoutCallCount, 1, "timeout branch must execute once")
     }
 
     // MARK: - Direct cancellation: cancelAllPendingWork
@@ -183,16 +239,78 @@ final class ActivationExecutorCancellationTests: XCTestCase {
 
         _ = executor.execute(decision: .switchToSingleWindowSpace, context: context)
 
-        // Chain 1 was cancelled (its then will never fire). Chain 2
-        // will time out after ~1 s and call then once. Wait long enough
-        // for chain 2 to complete.
+        // Chain 1 was cancelled (its then will never fire). Chain 2 times
+        // out after ~1 s and fires then as a degraded fallback.
         let exp2 = expectation(description: "chain 2 timeout")
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) { exp2.fulfill() }
         wait(for: [exp2], timeout: 2.0)
 
         XCTAssertEqual(
             executor.testThenCallCount, 1,
-            "only chain 2's then should fire — chain 1 was cancelled"
+            "chain 1 cancelled, chain 2 fires then as degraded fallback on timeout"
         )
+        XCTAssertEqual(
+            executor.testTimeoutCallCount, 1,
+            "only chain 2's timeout branch fires"
+        )
+    }
+
+    /// A switch that completes around the deadline must be recorded as
+    /// success (either the top-of-poll match or the final verification
+    /// read observes the target space), never as a timeout.
+    func testSwitchCompletingAroundDeadlineCountsAsSuccess() {
+        var calls = 0
+        let executor = ActivationExecutor(
+            showSingleWindowHint: { _ in },
+            switchToSpace: { _ in },
+            currentSpaceID: {
+                calls += 1
+                // First call returns 999 (no match), all subsequent calls return 1 (match).
+                return calls == 1 ? 999 : 1
+            }
+        )
+
+        executor.waitForActiveSpace(1, timeout: 0.2) { }
+
+        let exp = expectation(description: "success")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { exp.fulfill() }
+        wait(for: [exp], timeout: 1.0)
+
+        XCTAssertEqual(executor.testThenCallCount, 1, "then fires once when space matches")
+        XCTAssertEqual(executor.testTimeoutCallCount, 0, "no timeout — switch completed around deadline counts as success")
+    }
+
+    /// Cancellation arriving mid-timeout-branch (after the top-of-poll guard
+    /// but before then() in the timeout fallback path) must NOT fire then()
+    /// and must not increment any counter. This tests the re-check guards
+    /// that close the TOCTOU window between the initial cancellation check
+    /// and every then() call.
+    func testCancellationMidTimeoutBranchPreventsThenAndCounters() {
+        let executor = ActivationExecutor(
+            showSingleWindowHint: { _ in },
+            switchToSpace: { _ in },
+            currentSpaceID: { 999 }  // never matches → timeout path
+        )
+
+        executor.waitForActiveSpace(1, timeout: 0.15) { }
+
+        // Cancel at ~0.12s — after some polls have run but before the
+        // 0.15s deadline elapses. The next poll tick (at ~0.15s+) would
+        // enter the timeout branch; the re-check guard must catch the
+        // cancellation and prevent then() + counter increments.
+        let exp1 = expectation(description: "cancel window")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+            executor.cancelAllPendingWork()
+            exp1.fulfill()
+        }
+        wait(for: [exp1], timeout: 1.0)
+
+        // Wait for any pending poll to complete.
+        let exp2 = expectation(description: "settle")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { exp2.fulfill() }
+        wait(for: [exp2], timeout: 1.0)
+
+        XCTAssertEqual(executor.testThenCallCount, 0, "then must NOT fire when cancelled mid-timeout-branch")
+        XCTAssertEqual(executor.testTimeoutCallCount, 0, "timeout counter must NOT increment when cancelled mid-timeout-branch")
     }
 }
