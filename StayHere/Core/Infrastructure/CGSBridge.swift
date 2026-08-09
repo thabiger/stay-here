@@ -7,10 +7,14 @@ public protocol CGSBridgeProtocol {
     func managedSpaces() -> [SpaceIdentity]
     func switchByDesktopShortcut(index: Int) -> Bool
     func spacesForWindow(windowID: Int) -> [Int]
+    func clearSpacesCache()
     func bridgeHealth() -> CGSBridge.HealthReport
 }
 
 extension CGSBridgeProtocol {
+    /// Default: no-op. Keeps test mocks compiling unchanged;
+    /// only the real CGSBridge clears its memoization cache.
+    public func clearSpacesCache() {}
     /// Default: not applicable. Keeps test mocks compiling unchanged;
     /// only the real CGSBridge reports actual symbol resolution.
     public func bridgeHealth() -> CGSBridge.HealthReport { .notApplicable }
@@ -37,6 +41,8 @@ public struct CGSBridge: CGSBridgeProtocol {
 
     public static let live = CGSBridge()
 
+    private static let spacesCache = CGSSpacesCache()
+
     private static let handle: UnsafeMutableRawPointer? = {
         if RuntimeEnvironment.isAutomationSession { return nil }
         return dlopen("/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics", RTLD_NOW)
@@ -50,6 +56,16 @@ public struct CGSBridge: CGSBridgeProtocol {
     private static let copySpacesForWindowsSymbol: CopySpacesForWindows? = symbol(CGSSymbol.copySpacesForWindows, as: CopySpacesForWindows.self)
 
     public init() {}
+
+    /// Clears the memoization cache. Called when space-filtering settings change
+    /// so stale CGS results are not served after invalidation.
+    public static func clearSpacesCache() {
+        spacesCache.clear()
+    }
+
+    public func clearSpacesCache() {
+        Self.clearSpacesCache()
+    }
 
     private static func symbol<T>(_ name: String, as _: T.Type) -> T? {
         guard let handle, let sym = dlsym(handle, name) else { return nil }
@@ -170,6 +186,10 @@ public struct CGSBridge: CGSBridgeProtocol {
     }
 
     public func spacesForWindow(windowID: Int) -> [Int] {
+        if let cached = Self.spacesCache.resolved(windowID: windowID) {
+            return cached
+        }
+
         guard let main = Self.mainConn,
               let copySpaces = Self.copySpacesForWindowsSymbol else {
             return []
@@ -182,7 +202,9 @@ public struct CGSBridge: CGSBridgeProtocol {
         }
 
         if let ids = raw as? [NSNumber] {
-            return ids.map(\.intValue)
+            let spaces = ids.map(\.intValue)
+            Self.spacesCache.store(windowID: windowID, spaces: spaces)
+            return spaces
         }
         return []
     }
@@ -279,5 +301,42 @@ public struct CGSBridge: CGSBridgeProtocol {
             }
         }
         return nil
+    }
+}
+
+/// Thread-safe short-TTL memoization cache for CGSCopySpacesForWindows results.
+/// Reduces redundant IPC round-trips when the same window is resolved multiple
+/// times within a brief window (e.g., filter + grouper, or rapid re-opens).
+final class CGSSpacesCache {
+    private let lock = NSLock()
+    private var entries: [Int: (spaces: [Int], fetchedAt: Date)] = [:]
+    private let ttl: TimeInterval = 3.0
+    private let now: () -> Date
+
+    init(now: @escaping () -> Date = Date.init) {
+        self.now = now
+    }
+
+    func resolved(windowID: Int) -> [Int]? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let entry = entries[windowID] else { return nil }
+        if entry.fetchedAt.timeIntervalSince(now()) < -ttl {
+            entries.removeValue(forKey: windowID)
+            return nil
+        }
+        return entry.spaces
+    }
+
+    func store(windowID: Int, spaces: [Int]) {
+        lock.lock()
+        defer { lock.unlock() }
+        entries[windowID] = (spaces: spaces, fetchedAt: now())
+    }
+
+    func clear() {
+        lock.lock()
+        defer { lock.unlock() }
+        entries.removeAll()
     }
 }

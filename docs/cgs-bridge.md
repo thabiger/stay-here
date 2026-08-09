@@ -25,6 +25,8 @@ StayHere depends on four private CoreGraphics (CGS) symbols resolved at runtime 
 - `switchByDesktopShortcut(index:)` uses **no** CGS symbols — only public `CGEvent` API — so it is unaffected by CGS symbol drift.
 - The code already demonstrates forward-compatibility awareness: `_CGSDefaultConnection` needed a `CGSMainConnectionID` fallback in a prior macOS release.
 - Symbols are resolved once per process (first access) and cached as lazy static function pointers; `dlsym` is never called on hot paths.
+- `CGSCopySpacesForWindows` returns a flat space list (union of spaces containing any of the given windows) — it does **not** support per-window batched lookups. Consequently, `spacesForWindow(windowID:)` remains one IPC call per window ID by design.
+- `spacesForWindow(windowID:)` is memoized with a 3 s TTL in `CGSSpacesCache` (thread-safe via `NSLock`, self-healing on expiry). This reduces redundant IPC when the same window is resolved multiple times within a brief window (e.g., filter + grouper, or rapid re-opens after settings-change invalidation).
 
 ## Health Check
 

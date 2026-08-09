@@ -80,4 +80,16 @@ final class WindowGrouper {
             namespaceLabelProvider: namespaceLabelProvider
         )
     }
+
+    func groupWindows(_ windows: [WindowEntry], preResolvedSpaceIDs: [Int: [Int]]) -> [SpaceWindowGroup] {
+        WindowSpaceGrouping.groupWindows(
+            windows,
+            orderedSpaceIDs: orderedSpaceIDs(),
+            spacesByID: spacesByID(),
+            spacesForWindow: spacesForWindow,
+            nameProvider: nameProvider,
+            namespaceLabelProvider: namespaceLabelProvider,
+            preResolvedSpaceIDs: preResolvedSpaceIDs
+        )
+    }
 }

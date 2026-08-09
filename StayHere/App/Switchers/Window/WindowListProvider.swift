@@ -230,6 +230,7 @@ final class WindowListProvider {
         guard lastSettingsVersion != version else { return }
         self.lastSettingsVersion = version
         cache.invalidate()
+        cgsBridge.clearSpacesCache()
     }
 
     func currentContext() -> WindowSpaceContext? {
@@ -275,9 +276,9 @@ final class WindowListProvider {
         // main-thread blocking. Windows with empty CGWindow names will show
         // nil titles (rendered as app name). A background refresh is kicked
         // below to self-heal titles for the next open.
-        let entries = pipeline.buildEntriesForAllSpaces(from: rawWindows, currentSpaceID: currentSpaceID, resolveAccessibilityTitles: false)
+        let (entries, preResolvedSpaceIDs) = pipeline.buildEntriesForAllSpaces(from: rawWindows, currentSpaceID: currentSpaceID, resolveAccessibilityTitles: false)
 
-        let groups = grouper.groupWindows(entries)
+        let groups = grouper.groupWindows(entries, preResolvedSpaceIDs: preResolvedSpaceIDs)
         // Note: Direct inline build always accepted (fresh data, current generation).
         // The background refresh path is generation-guarded and re-kicks on stale
         // discard so self-heal is guaranteed, not best-effort (ARCH-1).

@@ -47,7 +47,8 @@ struct AllSpacesWindowComputer {
         let withTitles = titleResolver.resolveTitles(for: filtered) { _ in nil }
 
         let preResolvedSpaceIDs = Dictionary(
-            uniqueKeysWithValues: filtered.map { ($0.windowID, $0.spaceIDs) }
+            filtered.map { ($0.windowID, $0.spaceIDs) },
+            uniquingKeysWith: { first, _ in first }
         )
 
         let entries = withTitles.map { window in

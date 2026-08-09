@@ -21,10 +21,14 @@ struct WindowListPipeline {
         }
     }
 
-    func buildEntriesForAllSpaces(from rawWindows: [RawWindowInfo], currentSpaceID: Int, resolveAccessibilityTitles: Bool = true) -> [WindowEntry] {
+    func buildEntriesForAllSpaces(from rawWindows: [RawWindowInfo], currentSpaceID: Int, resolveAccessibilityTitles: Bool = true) -> (entries: [WindowEntry], preResolvedSpaceIDs: [Int: [Int]]) {
         let filtered = filter.filterForAllSpaces(rawWindows, currentSpaceID: currentSpaceID)
+        let preResolvedSpaceIDs = Dictionary(
+            filtered.map { ($0.windowID, $0.spaceIDs) },
+            uniquingKeysWith: { first, _ in first }
+        )
         let withTitles = titleResolver.resolveTitles(for: filtered, fallbackNameProvider: { _ in nil }, includeAccessibilityTitles: resolveAccessibilityTitles)
-        return withTitles.map { window in
+        let entries = withTitles.map { window in
             WindowEntry(
                 windowID: window.windowID,
                 pid: window.pid,
@@ -33,5 +37,6 @@ struct WindowListPipeline {
                 icon: iconProvider(window.application)
             )
         }
+        return (entries: entries, preResolvedSpaceIDs: preResolvedSpaceIDs)
     }
 }

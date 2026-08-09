@@ -10,6 +10,22 @@ private final class WindowListProviderMockBridge: CGSBridgeProtocol {
     var managedSnapshotValue: CGSBridge.ManagedSnapshot
     var spacesForWindowValues: [Int: [Int]]
 
+    private let callLock = NSLock()
+    private var _spacesForWindowCallCount = 0
+    private var _clearSpacesCacheCallCount = 0
+
+    var spacesForWindowCallCount: Int {
+        callLock.lock()
+        defer { callLock.unlock() }
+        return _spacesForWindowCallCount
+    }
+
+    var clearSpacesCacheCallCount: Int {
+        callLock.lock()
+        defer { callLock.unlock() }
+        return _clearSpacesCacheCallCount
+    }
+
     init(
         activeSpaceIDValue: Int? = 100,
         managedSnapshotValue: CGSBridge.ManagedSnapshot,
@@ -24,7 +40,18 @@ private final class WindowListProviderMockBridge: CGSBridgeProtocol {
     func managedSnapshot() -> CGSBridge.ManagedSnapshot { managedSnapshotValue }
     func managedSpaces() -> [SpaceIdentity] { managedSnapshotValue.spaces }
     func switchByDesktopShortcut(index: Int) -> Bool { true }
-    func spacesForWindow(windowID: Int) -> [Int] { spacesForWindowValues[windowID] ?? [] }
+    func spacesForWindow(windowID: Int) -> [Int] {
+        callLock.lock()
+        _spacesForWindowCallCount += 1
+        callLock.unlock()
+        return spacesForWindowValues[windowID] ?? []
+    }
+
+    func clearSpacesCache() {
+        callLock.lock()
+        _clearSpacesCacheCallCount += 1
+        callLock.unlock()
+    }
 }
 
 private struct FakeWindowListApplication: WindowListApplication {
@@ -365,6 +392,75 @@ final class WindowListProviderTests: XCTestCase {
         let refreshedGroups = provider.entriesForAllSpaces()
         let refreshedEntry = try XCTUnwrap(refreshedGroups.flatMap(\.entries).first)
         XCTAssertEqual(refreshedEntry.windowTitle, "AX Title", "background refresh must self-heal titles")
+    }
+
+    func testAllSpacesInlineFallbackResolvesEachWindowExactlyOnce() async {
+        // 2 on-screen windows that both resolve to space 100 (the only managed space).
+        let bridge = WindowListProviderMockBridge(
+            managedSnapshotValue: makeSnapshot(),
+            spacesForWindowValues: [1: [100], 2: [100]]
+        )
+        let provider = makeProvider(
+            bridge: bridge,
+            windowInfo: {
+                [
+                    self.makeWindow(pid: 10, windowID: 1, workspace: 1, isOnScreen: true),
+                    self.makeWindow(pid: 10, windowID: 2, workspace: nil, isOnScreen: true)
+                ]
+            }
+        )
+
+        let groups = provider.entriesForAllSpaces()
+
+        // Both windows pass the filter and appear in groups under space 100.
+        let allWindowIDs = Set(groups.flatMap(\.entries).map(\.windowID))
+        XCTAssertEqual(allWindowIDs, [1, 2], "all windows should appear in groups")
+
+        // Wait for the kicked background refresh to complete.
+        await provider.waitForAllSpacesRefresh()
+
+        // Inline filter: 2 calls (one per window).
+        // Background refresh: 2 calls (one per window, via AllSpacesWindowComputer).
+        // Grouper: 0 calls (uses preResolvedSpaceIDs from the inline path).
+        // Before the fix: grouper would add 2 more calls → total 6.
+        XCTAssertEqual(bridge.spacesForWindowCallCount, 4,
+                       "filter + background refresh = 4 calls; grouper makes zero (pre-resolved)")
+    }
+
+    func testAllSpacesInlineFallbackGrouperMakesNoCGSCalls() async {
+        let bridge = WindowListProviderMockBridge(
+            managedSnapshotValue: makeSnapshot(),
+            spacesForWindowValues: [1: [100], 2: [100]]
+        )
+        let provider = makeProvider(
+            bridge: bridge,
+            windowInfo: {
+                [
+                    self.makeWindow(pid: 10, windowID: 1, workspace: 1, isOnScreen: true),
+                    self.makeWindow(pid: 10, windowID: 2, workspace: nil, isOnScreen: true)
+                ]
+            }
+        )
+
+        let groups = provider.entriesForAllSpaces()
+
+        // Both windows pass the filter and get spaceIDs resolved by the filter.
+        // The grouper should use preResolvedSpaceIDs — no additional CGS calls.
+        // Verify grouping is correct
+        guard let group = groups.first else {
+            XCTFail("expected at least one group")
+            return
+        }
+        XCTAssertEqual(group.spaceID, 100)
+        XCTAssertEqual(Set(group.entries.map(\.windowID)), [1, 2])
+
+        // Wait for background refresh to complete
+        await provider.waitForAllSpacesRefresh()
+
+        // 2 (inline filter) + 2 (background refresh) = 4 total.
+        // Before the fix: 2 (filter) + 2 (grouper) + 2 (background) = 6.
+        XCTAssertEqual(bridge.spacesForWindowCallCount, 4,
+                       "grouper must make zero CGS calls (uses pre-resolved map)")
     }
 
     // MARK: - ARCH-1: inline fallback refresh vs invalidate() race
@@ -712,5 +808,76 @@ final class WindowListProviderTests: XCTestCase {
         XCTAssertEqual(enumerateCount.pointee, 1, "no follow-up refresh may start after cancel")
         XCTAssertTrue(provider.entries(in: ctxA).isEmpty)
         XCTAssertTrue(provider.entries(in: ctxB).isEmpty)
+    }
+
+    // MARK: - Regression tests (round-3 fixes)
+
+    func testDuplicateWindowIDsDoNotCrashInAllSpacesPath() async {
+        // Two windows with the same windowID — the pre-resolved map must handle
+        // the collision deterministically without crashing (CORR-2/QUAL-2).
+        let bridge = WindowListProviderMockBridge(
+            managedSnapshotValue: makeSnapshot(),
+            spacesForWindowValues: [1: [100]]
+        )
+        let provider = makeProvider(
+            bridge: bridge,
+            windowInfo: {
+                [
+                    self.makeWindow(pid: 10, windowID: 1, workspace: 1, isOnScreen: true),
+                    self.makeWindow(pid: 20, windowID: 1, workspace: nil, isOnScreen: true)
+                ]
+            }
+        )
+
+        // Must not crash — Dictionary(uniquingKeysWith:) keeps first value
+        let groups = provider.entriesForAllSpaces()
+        XCTAssertFalse(groups.isEmpty, "groups must be non-empty with duplicate window IDs")
+
+        // The duplicate window ID is kept once in the pre-resolved map;
+        // both entries appear in the output (the pipeline preserves all filtered windows).
+        let allWindowIDs = groups.flatMap(\.entries).map(\.windowID)
+        XCTAssertEqual(Set(allWindowIDs), [1], "duplicate IDs collapse to a single key in grouping")
+
+        await provider.waitForAllSpacesRefresh()
+    }
+
+    func testSettingsChangeClearsCGSSpacesCache() async {
+        // Verify that changing a space-filtering setting triggers clearSpacesCache()
+        // on the injected bridge (not a hardcoded CGSBridge) so stale CGS memoization
+        // is not served after invalidation (CORR-1/ARCH-1).
+        let settings = FakeWindowListSettings()
+        settings.windowSwitcherShowMinimizedWindows = false
+
+        let bridge = WindowListProviderMockBridge(
+            managedSnapshotValue: makeSnapshot(),
+            spacesForWindowValues: [1: [100]]
+        )
+        let provider = makeProvider(
+            settings: settings,
+            bridge: bridge,
+            windowInfo: { [self.makeWindow(pid: 10, windowID: 1, isOnScreen: false)] }
+        )
+
+        // Initial call — minimized windows hidden
+        _ = provider.entries(in: WindowSpaceContext(spaceID: 100, desktopNumber: 1))
+        await provider.waitForCurrentSpaceRefresh()
+        XCTAssertTrue(provider.entries(in: WindowSpaceContext(spaceID: 100, desktopNumber: 1)).isEmpty)
+
+        // Change settings — this triggers invalidateCacheIfSettingsChanged() which
+        // calls clearSpacesCache() on the injected bridge instance.
+        settings.windowSwitcherShowMinimizedWindows = true
+
+        // Next call: cache invalidated (both WindowListCache and CGSSpacesCache cleared)
+        let afterChange = provider.entries(in: WindowSpaceContext(spaceID: 100, desktopNumber: 1))
+        XCTAssertTrue(afterChange.isEmpty, "settings change invalidates cache")
+
+        // Verify the injected bridge's clearSpacesCache() was called (DI-correct path)
+        XCTAssertEqual(bridge.clearSpacesCacheCallCount, 1, "settings change must call clearSpacesCache on the injected bridge")
+
+        await provider.waitForCurrentSpaceRefresh()
+
+        // After refresh: new settings respected with fresh CGS lookups
+        let final = provider.entries(in: WindowSpaceContext(spaceID: 100, desktopNumber: 1))
+        XCTAssertEqual(final.map(\.windowID), [1], "new settings must be respected after cache clear")
     }
 }
