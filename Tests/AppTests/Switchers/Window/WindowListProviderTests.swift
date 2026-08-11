@@ -728,12 +728,109 @@ final class WindowListProviderTests: XCTestCase {
         provider.invalidateCache()
         gate.signal()
         await provider.waitForCurrentSpaceRefresh()
-        // Kick a fresh refresh (cache is empty after stale discard) and wait for it
-        provider.refreshCurrentSpaceCacheInBackground(context: context)
-        await provider.waitForCurrentSpaceRefresh()
+        // CORR-4: self-heal is automatic — no manual re-kick needed.
+        // The stale (gen-0) enumeration was followed by exactly one self-heal enumeration.
+        XCTAssertEqual(enumerateCount.pointee, 2,
+                       "stale discard must trigger exactly one automatic self-heal refresh")
         XCTAssertEqual(provider.entries(in: context).map(\.windowID), [2],
-                       "fresh refresh repopulates cache; stale generation-0 result was discarded")
-        XCTAssertEqual(enumerateCount.pointee, 2)
+                       "cache repopulated by the self-heal; stale generation-0 result was discarded")
+        // Second entries(in:) is a cache hit — proves the cache is populated without
+        // another user-triggered refresh being required to self-heal.
+        let countBeforeCacheHit = enumerateCount.pointee
+        _ = provider.entries(in: context)
+        XCTAssertEqual(enumerateCount.pointee, countBeforeCacheHit,
+                       "post-self-heal entries(in:) must be a cache hit (no re-enumeration)")
+    }
+
+    func testCurrentSpaceSelfHealNotifiesPerSpaceRefresh() async {
+        let enumerateCount = UnsafeMutablePointer<Int>.allocate(capacity: 1)
+        enumerateCount.initialize(to: 0)
+        defer { enumerateCount.deallocate() }
+        let gate = DispatchSemaphore(value: 0)
+        let context = WindowSpaceContext(spaceID: 100, desktopNumber: 1)
+        let provider = makeProvider(windowInfo: {
+            enumerateCount.pointee += 1
+            if enumerateCount.pointee == 1 { gate.wait() }
+            return [self.makeWindow(pid: 10, windowID: enumerateCount.pointee, workspace: 1, isOnScreen: true)]
+        })
+
+        // Track onPerSpaceRefresh notifications
+        var notifyCount = 0
+        var lastNotifiedContext: WindowSpaceContext?
+        provider.onPerSpaceRefresh = { ctx in
+            notifyCount += 1
+            lastNotifiedContext = ctx
+        }
+
+        provider.refreshCurrentSpaceCacheInBackground(context: context)
+        let deadline = DispatchTime.now() + DispatchTimeInterval.seconds(5)
+        while enumerateCount.pointee < 1 {
+            Thread.sleep(forTimeInterval: 0.01)
+            if DispatchTime.now() >= deadline { break }
+        }
+        provider.invalidateCache()
+        gate.signal()
+        await provider.waitForCurrentSpaceRefresh()
+
+        // CORR-2: onPerSpaceRefresh fires only for accepted (non-stale) completions.
+        // The stale completion is discarded by updatePerSpace and does NOT notify.
+        // Only the self-heal result (accepted) triggers a notification.
+        XCTAssertEqual(notifyCount, 1, "notify fires only once — for the accepted self-heal result, not the stale discard")
+        XCTAssertEqual(lastNotifiedContext, context, "notification is for the self-healed context")
+        XCTAssertEqual(enumerateCount.pointee, 2, "self-heal enumeration completed")
+    }
+
+    func testSelfHealSkipsWhenUserSwitchesSpacesMidFlight() async {
+        // CORR-1: if the user switches spaces between the original refresh starting
+        // and the self-heal re-kick, the self-heal should skip (the old space is no
+        // longer relevant) rather than refreshing the wrong space.
+        let enumerateCount = UnsafeMutablePointer<Int>.allocate(capacity: 1)
+        enumerateCount.initialize(to: 0)
+        defer { enumerateCount.deallocate() }
+        let gate = DispatchSemaphore(value: 0)
+        let ctxA = WindowSpaceContext(spaceID: 100, desktopNumber: 1)
+        let _ctxB = WindowSpaceContext(spaceID: 200, desktopNumber: 2)
+        let bridge = WindowListProviderMockBridge(
+            activeSpaceIDValue: 200, // user switched to space B mid-flight
+            managedSnapshotValue: CGSBridge.ManagedSnapshot(
+                spaces: [
+                    SpaceIdentity(id: 100, display: "display-a", kind: .desktop),
+                    SpaceIdentity(id: 200, display: "display-a", kind: .desktop)
+                ],
+                activeByDisplay: ["display-a": 200],
+                orderedIDsByDisplay: ["display-a": [100, 200]]
+            ),
+            spacesForWindowValues: [1: [100], 2: [200]]
+        )
+        let provider = makeProvider(bridge: bridge, windowInfo: {
+            enumerateCount.pointee += 1
+            if enumerateCount.pointee == 1 { gate.wait() }
+            return [self.makeWindow(pid: 10, windowID: enumerateCount.pointee, workspace: enumerateCount.pointee, isOnScreen: true)]
+        })
+
+        // Start refresh for space A (gen-0)
+        provider.refreshCurrentSpaceCacheInBackground(context: ctxA)
+
+        // Wait for enumeration #1 to start and block on gate
+        let deadline = DispatchTime.now() + DispatchTimeInterval.seconds(5)
+        while enumerateCount.pointee < 1 {
+            Thread.sleep(forTimeInterval: 0.01)
+            if DispatchTime.now() >= deadline { break }
+        }
+
+        // Invalidate cache (bumps generation to 1) while refresh for A is in flight
+        provider.invalidateCache()
+
+        // Release gate — stale completion for space A arrives with gen-0, discarded.
+        // At re-kick time, currentContext() returns space B (200), not space A (100).
+        // Self-heal should SKIP because the user has moved on.
+        gate.signal()
+        await provider.waitForCurrentSpaceRefresh()
+
+        // Only one enumeration — the original for space A. No self-heal re-kick
+        // because current space changed from A to B mid-flight.
+        XCTAssertEqual(enumerateCount.pointee, 1,
+                       "self-heal must skip when user switched spaces mid-flight")
     }
 
     func testRapidSpaceSwitchesServeMostRecentRequest() async {

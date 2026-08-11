@@ -42,6 +42,9 @@ final class WindowListProvider {
         // ARCH-1: local variable captured by reference in onCompletion; set after
         // refresher is assigned so [weak self] is not needed during init.
         var allSpacesRefreshTrigger: (() -> Void)?
+        var currentSpaceRefreshTrigger: (() -> Void)?
+        var currentContextProvider: (() -> WindowSpaceContext?)?
+        var onNotifyHandler: ((WindowSpaceContext) -> Void)?
 
         self.refresher = Self.makeAllSpacesRefresher(
             registry: registry,
@@ -63,17 +66,19 @@ final class WindowListProvider {
             titleResolver: titleResolver,
             iconProvider: iconProvider,
             settings: settings,
-            cache: cache
+            cache: cache,
+            reKickTrigger: { currentSpaceRefreshTrigger?() },
+            currentContextProvider: { currentContextProvider?() },
+            onNotifyHandler: { context in onNotifyHandler?(context) }
         )
 
         self.grouper = Self.makeGrouper(registry: registry, cgsBridge: cgsBridge)
 
-        self.currentSpaceRefresher.setNotifyHandler { [weak self] context in
-            self?.onPerSpaceRefresh?(context)
-        }
-
         // ARCH-1: set the re-kick trigger after all stored properties are initialized.
         allSpacesRefreshTrigger = { [weak self] in self?.refreshAllSpacesCacheInBackground() }
+        currentSpaceRefreshTrigger = { [weak self] in self?.refreshCurrentSpaceCacheInBackground() }
+        currentContextProvider = { [weak self] in self?.currentContext() }
+        onNotifyHandler = { [weak self] context in self?.onPerSpaceRefresh?(context) }
     }
 
     // MARK: - Component factories
@@ -165,7 +170,10 @@ final class WindowListProvider {
         titleResolver: WindowTitleResolver,
         iconProvider: @escaping WindowListProviderTypes.IconProvider,
         settings: WindowSwitcherSettings,
-        cache: WindowListCache
+        cache: WindowListCache,
+        reKickTrigger: @escaping () -> Void,
+        currentContextProvider: @escaping () -> WindowSpaceContext?,
+        onNotifyHandler: @escaping (WindowSpaceContext) -> Void
     ) -> CurrentSpaceCacheRefresher {
         CurrentSpaceCacheRefresher(
             computerFactory: { [weak registry, cgsBridge, enumerator, filter, titleResolver, iconProvider, settings] context in
@@ -181,7 +189,25 @@ final class WindowListProvider {
                 )
             },
             onCompletion: { [weak cache] context, entries, generation in
-                cache?.updatePerSpace(with: entries, context: context, generation: generation)
+                guard let cache else { return }
+                if !cache.updatePerSpace(with: entries, context: context, generation: generation) {
+                    // ARCH-1/CORR-4: a refresh dispatched before invalidate() completed late
+                    // and its stale result was discarded. Re-dispatch with the current
+                    // generation so the per-space cache self-heals instead of staying empty
+                    // until the next user-triggered entries(in:). refresh() coalesces:
+                    // .idle -> start (fresh generation), .refreshing -> .pending
+                    // (handleCompletion re-dispatches with a fresh generation),
+                    // .pending -> updates nextContext (follow-up already queued).
+                    // CORR-1: validate the target space at re-kick time — if the user
+                    // switched spaces mid-flight, skip self-heal for the old space.
+                    if currentContextProvider()?.spaceID == context.spaceID {
+                        reKickTrigger()
+                    }
+                } else {
+                    // CORR-2: notify only on accepted (non-stale) completions so the UI
+                    // is never flashed with an empty/stale cache from a discard.
+                    onNotifyHandler(context)
+                }
             },
             generationProvider: { [weak cache] in
                 cache?.cacheGeneration ?? 0
