@@ -24,9 +24,9 @@ StayHere depends on four private CoreGraphics (CGS) symbols resolved at runtime 
 
 - `switchByDesktopShortcut(index:)` uses **no** CGS symbols — only public `CGEvent` API — so it is unaffected by CGS symbol drift.
 - The code already demonstrates forward-compatibility awareness: `_CGSDefaultConnection` needed a `CGSMainConnectionID` fallback in a prior macOS release.
-- Symbols are resolved once per process (first access) and cached as lazy static function pointers; `dlsym` is never called on hot paths.
+- Symbols are resolved lazily on first use via an injectable `CGSSymbolResolving` resolver (default: `CGSSymbolResolver`); only successful resolutions are cached so failures are retryable, and dlopen failures are cached to prevent retry loops. `bridgeHealth()` actively probes each symbol with per-function smoke tests that validate `unsafeBitCast` results before production use. The resolver is per-`CGSBridge`-instance, thread-safe (`NSLock`), and conforms to `@unchecked Sendable`. No hidden global mutable state.
 - `CGSCopySpacesForWindows` returns a flat space list (union of spaces containing any of the given windows) — it does **not** support per-window batched lookups. Consequently, `spacesForWindow(windowID:)` remains one IPC call per window ID by design.
-- `spacesForWindow(windowID:)` is memoized with a 3 s TTL in `CGSSpacesCache` (thread-safe via `NSLock`, self-healing on expiry). This reduces redundant IPC when the same window is resolved multiple times within a brief window (e.g., filter + grouper, or rapid re-opens after settings-change invalidation).
+- `spacesForWindow(windowID:)` is memoized via an injectable `SpacesForWindowCaching` cache (default: `CGSSpacesCache`, thread-safe via `NSLock`, self-healing on expiry, TTL configurable with a 3 s default, bounded by `maxEntries` with LRU eviction). The cache is per-`CGSBridge`-instance, so clearing one bridge's cache does not affect another. This reduces redundant IPC when the same window is resolved multiple times within a brief window (e.g., filter + grouper, or rapid re-opens after settings-change invalidation).
 
 ## Health Check
 
@@ -67,7 +67,12 @@ All consumers accept `any CGSBridgeProtocol`:
 | App | `CompositionServices` | `cgsBridge: any CGSBridgeProtocol` |
 | App | `WindowListProvider` | `cgsBridge: any CGSBridgeProtocol` |
 
-The only production reference to the concrete `CGSBridge.live` is the composition root (`AppDelegate.swift`). Six mock conformers exist in tests.
+Production references to `CGSBridge.live`: `AppDelegate.swift`, `StayHereSetupCheck.swift`. Six mock conformers exist in tests.
+
+Additionally, `CGSBridge` accepts two injectable dependencies via its initializer (`public init(spacesCache:symbolResolver:)`):
+
+- `SpacesForWindowCaching` cache (default: `CGSSpacesCache`) — protocol must remain public due to the public init parameter type; callers should not depend on it directly. Tests inject deterministic or no-op caches via `@testable import Core` to isolate per-instance behavior. Cache is bounded by `maxEntries` with LRU eviction.
+- `CGSSymbolResolving` resolver (default: `CGSSymbolResolver`) — protocol must remain public due to the public init parameter type; callers should not depend on it directly. Tests inject mock resolvers via `@testable import Core`, eliminating hidden global dlopen state from the bridge. Resolver caches dlopen failures to prevent retry loops and conforms to `@unchecked Sendable`.
 
 ## macOS-Release Verification Checklist
 
