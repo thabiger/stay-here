@@ -4,6 +4,11 @@ import Core
 
 struct AppSetupStatusSnapshot {
     let isSatisfied: Bool
+    /// Permissions (Accessibility, Input Monitoring) — gates the safety-net
+    /// refresh. Deliberately separate from `isSatisfied`: Mission Control
+    /// shortcuts only gate in-app switching, not HUD/menu freshness for
+    /// native switches (keyboard shortcut / Mission Control work regardless).
+    let permissionsSatisfied: Bool
     let missingDescriptionsCount: Int
 }
 
@@ -23,6 +28,7 @@ final class AppLifecycleCoordinator {
             let status = StayHereSetupStatus.current()
             return AppSetupStatusSnapshot(
                 isSatisfied: status.isSatisfied,
+                permissionsSatisfied: status.permissions.isSatisfied,
                 missingDescriptionsCount: status.missingDescriptions.count
             )
         },
@@ -90,7 +96,11 @@ final class AppLifecycleCoordinator {
         refreshSpacesSoon: () -> Void
     ) {
         guard !isSettingsOpen() else { return }
-        guard setupStatusProvider().isSatisfied else { return }
+        // Gate on permissions only, not Mission Control shortcut configuration.
+        // A user who switches natively (Ctrl+Arrow / Mission Control) without
+        // enabling the "Switch to Desktop N" shortcuts still needs the fallback
+        // refresh to keep the bar/HUD state fresh when a notification is missed.
+        guard setupStatusProvider().permissionsSatisfied else { return }
         refreshSpacesSoon()
     }
 

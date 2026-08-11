@@ -9,7 +9,7 @@ final class AppLifecycleCoordinatorTests: XCTestCase {
             appearanceManager: AppearanceManager(settings: UserDefaultsSettingsRepository()),
             applyAppearance: {},
             setupStatusProvider: {
-                AppSetupStatusSnapshot(isSatisfied: true, missingDescriptionsCount: 0)
+                AppSetupStatusSnapshot(isSatisfied: true, permissionsSatisfied: true, missingDescriptionsCount: 0)
             },
             setActivationPolicy: { _ in },
             logger: NoOpLogger()
@@ -35,7 +35,7 @@ final class AppLifecycleCoordinatorTests: XCTestCase {
             appearanceManager: AppearanceManager(settings: UserDefaultsSettingsRepository()),
             applyAppearance: {},
             setupStatusProvider: {
-                AppSetupStatusSnapshot(isSatisfied: false, missingDescriptionsCount: 1)
+                AppSetupStatusSnapshot(isSatisfied: false, permissionsSatisfied: false, missingDescriptionsCount: 1)
             },
             setActivationPolicy: { _ in },
             logger: NoOpLogger()
@@ -75,12 +75,12 @@ final class AppLifecycleCoordinatorTests: XCTestCase {
         XCTAssertEqual(refreshCount, 1)
     }
 
-    func testSafetyNetTickNoOpsWhenSetupUnsatisfied() {
+    func testSafetyNetTickNoOpsWhenPermissionsUnsatisfied() {
         let coordinator = AppLifecycleCoordinator(
             appearanceManager: AppearanceManager(settings: UserDefaultsSettingsRepository()),
             applyAppearance: {},
             setupStatusProvider: {
-                AppSetupStatusSnapshot(isSatisfied: false, missingDescriptionsCount: 1)
+                AppSetupStatusSnapshot(isSatisfied: false, permissionsSatisfied: false, missingDescriptionsCount: 1)
             },
             setActivationPolicy: { _ in },
             logger: NoOpLogger()
@@ -94,12 +94,34 @@ final class AppLifecycleCoordinatorTests: XCTestCase {
         XCTAssertEqual(refreshCount, 0)
     }
 
+    /// Mission Control shortcut configuration must not disable the safety-net
+    /// refresh: native switches (Ctrl+Arrow / Mission Control) work without
+    /// those shortcuts, and the HUD/bar still depend on fresh state.
+    func testSafetyNetTickRefreshesWhenOnlyMissionControlShortcutsUnsatisfied() {
+        let coordinator = AppLifecycleCoordinator(
+            appearanceManager: AppearanceManager(settings: UserDefaultsSettingsRepository()),
+            applyAppearance: {},
+            setupStatusProvider: {
+                AppSetupStatusSnapshot(isSatisfied: false, permissionsSatisfied: true, missingDescriptionsCount: 1)
+            },
+            setActivationPolicy: { _ in },
+            logger: NoOpLogger()
+        )
+        var refreshCount = 0
+
+        coordinator.safetyNetTick(isSettingsOpen: { false }) {
+            refreshCount += 1
+        }
+
+        XCTAssertEqual(refreshCount, 1)
+    }
+
     func testSafetyNetTickRefreshesWhenSetupSatisfied() {
         let coordinator = AppLifecycleCoordinator(
             appearanceManager: AppearanceManager(settings: UserDefaultsSettingsRepository()),
             applyAppearance: {},
             setupStatusProvider: {
-                AppSetupStatusSnapshot(isSatisfied: true, missingDescriptionsCount: 0)
+                AppSetupStatusSnapshot(isSatisfied: true, permissionsSatisfied: true, missingDescriptionsCount: 0)
             },
             setActivationPolicy: { _ in },
             logger: NoOpLogger()
@@ -118,7 +140,7 @@ final class AppLifecycleCoordinatorTests: XCTestCase {
             appearanceManager: AppearanceManager(settings: UserDefaultsSettingsRepository()),
             applyAppearance: {},
             setupStatusProvider: {
-                AppSetupStatusSnapshot(isSatisfied: true, missingDescriptionsCount: 0)
+                AppSetupStatusSnapshot(isSatisfied: true, permissionsSatisfied: true, missingDescriptionsCount: 0)
             },
             setActivationPolicy: { _ in },
             logger: NoOpLogger()
