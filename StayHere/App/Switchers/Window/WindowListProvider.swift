@@ -32,30 +32,102 @@ final class WindowListProvider {
         self.settings = settings
         self.focusedWindowIDProvider = focusedWindowIDProvider
 
-        let enumerator = WindowEnumerator(provider: windowInfoProvider)
-        let filter = WindowFilter(
-            settings: settings,
-            runningApplicationProvider: runningApplicationProvider,
-            spacesForWindow: { windowID in
-                cgsBridge.spacesForWindow(windowID: windowID)
-            }
-        )
-        let titleResolver = WindowTitleResolver(titleProvider: accessibilityWindowTitlesProvider)
+        let enumerator = Self.makeEnumerator(windowInfoProvider: windowInfoProvider)
+        let filter = Self.makeFilter(settings: settings, runningApplicationProvider: runningApplicationProvider, cgsBridge: cgsBridge)
+        let titleResolver = Self.makeTitleResolver(accessibilityWindowTitlesProvider: accessibilityWindowTitlesProvider)
 
-        self.pipeline = WindowListPipeline(
-            enumerator: enumerator,
-            filter: filter,
-            titleResolver: titleResolver,
-            iconProvider: iconProvider
-        )
-
+        self.pipeline = Self.makePipeline(enumerator: enumerator, filter: filter, titleResolver: titleResolver, iconProvider: iconProvider)
         self.cache = WindowListCache()
 
         // ARCH-1: local variable captured by reference in onCompletion; set after
         // refresher is assigned so [weak self] is not needed during init.
         var allSpacesRefreshTrigger: (() -> Void)?
 
-        self.refresher = AllSpacesCacheRefresher(
+        self.refresher = Self.makeAllSpacesRefresher(
+            registry: registry,
+            cgsBridge: cgsBridge,
+            enumerator: enumerator,
+            filter: filter,
+            titleResolver: titleResolver,
+            iconProvider: iconProvider,
+            settings: settings,
+            cache: cache,
+            reKickTrigger: { allSpacesRefreshTrigger?() }
+        )
+
+        self.currentSpaceRefresher = Self.makeCurrentSpaceRefresher(
+            registry: registry,
+            cgsBridge: cgsBridge,
+            enumerator: enumerator,
+            filter: filter,
+            titleResolver: titleResolver,
+            iconProvider: iconProvider,
+            settings: settings,
+            cache: cache
+        )
+
+        self.grouper = Self.makeGrouper(registry: registry, cgsBridge: cgsBridge)
+
+        self.currentSpaceRefresher.setNotifyHandler { [weak self] context in
+            self?.onPerSpaceRefresh?(context)
+        }
+
+        // ARCH-1: set the re-kick trigger after all stored properties are initialized.
+        allSpacesRefreshTrigger = { [weak self] in self?.refreshAllSpacesCacheInBackground() }
+    }
+
+    // MARK: - Component factories
+
+    private static func makeEnumerator(windowInfoProvider: @escaping WindowListProviderTypes.WindowInfoProvider) -> WindowEnumerator {
+        WindowEnumerator(provider: windowInfoProvider)
+    }
+
+    private static func makeFilter(
+        settings: WindowSwitcherSettings,
+        runningApplicationProvider: @escaping WindowListProviderTypes.RunningApplicationProvider,
+        cgsBridge: any CGSBridgeProtocol
+    ) -> WindowFilter {
+        WindowFilter(
+            settings: settings,
+            runningApplicationProvider: runningApplicationProvider,
+            spacesForWindow: { windowID in
+                cgsBridge.spacesForWindow(windowID: windowID)
+            }
+        )
+    }
+
+    private static func makeTitleResolver(
+        accessibilityWindowTitlesProvider: @escaping WindowListProviderTypes.AccessibilityWindowTitlesProvider
+    ) -> WindowTitleResolver {
+        WindowTitleResolver(titleProvider: accessibilityWindowTitlesProvider)
+    }
+
+    private static func makePipeline(
+        enumerator: WindowEnumerator,
+        filter: WindowFilter,
+        titleResolver: WindowTitleResolver,
+        iconProvider: @escaping WindowListProviderTypes.IconProvider
+    ) -> WindowListPipeline {
+        WindowListPipeline(
+            enumerator: enumerator,
+            filter: filter,
+            titleResolver: titleResolver,
+            iconProvider: iconProvider
+        )
+    }
+
+    private static func makeAllSpacesRefresher(
+        registry: (any SpaceRegistryProtocol)?,
+        cgsBridge: any CGSBridgeProtocol,
+        enumerator: WindowEnumerator,
+        filter: WindowFilter,
+        titleResolver: WindowTitleResolver,
+        iconProvider: @escaping WindowListProviderTypes.IconProvider,
+        settings: WindowSwitcherSettings,
+        cache: WindowListCache,
+        reKickTrigger: @escaping () -> Void
+    ) -> AllSpacesCacheRefresher {
+        AllSpacesCacheRefresher(
             computerFactory: { [weak registry, cgsBridge, enumerator, filter, titleResolver, iconProvider, settings] in
                 Self.makeAllSpacesComputer(
                     registry: registry,
@@ -76,15 +148,26 @@ final class WindowListProvider {
                     // not best-effort. refresh() coalesces: .idle -> start (fresh
                     // generation), .refreshing -> .pending (handleCompletion re-dispatches
                     // with a fresh generation), .pending -> no-op (follow-up queued).
-                    allSpacesRefreshTrigger?()
+                    reKickTrigger()
                 }
             },
             generationProvider: { [weak cache] in
                 cache?.cacheGeneration ?? 0
             }
         )
+    }
 
-        self.currentSpaceRefresher = CurrentSpaceCacheRefresher(
+    private static func makeCurrentSpaceRefresher(
+        registry: (any SpaceRegistryProtocol)?,
+        cgsBridge: any CGSBridgeProtocol,
+        enumerator: WindowEnumerator,
+        filter: WindowFilter,
+        titleResolver: WindowTitleResolver,
+        iconProvider: @escaping WindowListProviderTypes.IconProvider,
+        settings: WindowSwitcherSettings,
+        cache: WindowListCache
+    ) -> CurrentSpaceCacheRefresher {
+        CurrentSpaceCacheRefresher(
             computerFactory: { [weak registry, cgsBridge, enumerator, filter, titleResolver, iconProvider, settings] context in
                 Self.makeCurrentSpaceComputer(
                     registry: registry,
@@ -104,8 +187,13 @@ final class WindowListProvider {
                 cache?.cacheGeneration ?? 0
             }
         )
+    }
 
-        self.grouper = WindowGrouper(
+    private static func makeGrouper(
+        registry: (any SpaceRegistryProtocol)?,
+        cgsBridge: any CGSBridgeProtocol
+    ) -> WindowGrouper {
+        WindowGrouper(
             orderedSpaceIDs: { [weak registry] in registry?.orderedSpaceIDs() ?? [] },
             spacesByID: { [weak registry] in
                 Dictionary(uniqueKeysWithValues: (registry?.spaces ?? []).map { ($0.id, $0) })
@@ -120,13 +208,6 @@ final class WindowListProvider {
                 registry?.namespaceLabel(for: spaceID) ?? ""
             }
         )
-
-        self.currentSpaceRefresher.setNotifyHandler { [weak self] context in
-            self?.onPerSpaceRefresh?(context)
-        }
-
-        // ARCH-1: set the re-kick trigger after all stored properties are initialized.
-        allSpacesRefreshTrigger = { [weak self] in self?.refreshAllSpacesCacheInBackground() }
     }
 
     private static func makeAllSpacesComputeContext(
