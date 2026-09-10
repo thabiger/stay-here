@@ -15,7 +15,7 @@ final class AppRuntimeCoordinatorUpdateTests: XCTestCase {
             appearanceManager: appearanceManager,
             applyAppearance: {},
             setupStatusProvider: {
-                AppSetupStatusSnapshot(isSatisfied: true, missingDescriptionsCount: 0)
+                AppSetupStatusSnapshot(isSatisfied: true, permissionsSatisfied: true, missingDescriptionsCount: 0)
             },
             setActivationPolicy: { _ in },
             logger: logger

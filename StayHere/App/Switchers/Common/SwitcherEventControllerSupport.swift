@@ -2,6 +2,7 @@ import CoreGraphics
 import Core
 import Foundation
 
+@MainActor
 protocol SwitcherEventSessionHandling: AnyObject {
     func switcherConfiguredShortcut() -> SpaceSwitcherShortcut
     func switcherHasActiveSession() -> Bool
@@ -11,6 +12,7 @@ protocol SwitcherEventSessionHandling: AnyObject {
     func switcherCancelActiveSession()
 }
 
+@MainActor
 final class SwitcherEventControllerSupport {
     private weak var handler: (any SwitcherEventSessionHandling)?
 
@@ -38,8 +40,9 @@ final class SwitcherEventControllerSupport {
 
         guard keycode == configuredShortcut.keyCode else {
             if handler.switcherHasActiveSession(), handler.switcherSessionModifiers() != nil {
-                DispatchQueue.main.async { [weak handler] in
-                    handler?.switcherCancelActiveSession()
+                let weakHandler = handler
+                DispatchQueue.main.async {
+                    MainActor.assumeIsolated { weakHandler.switcherCancelActiveSession() }
                 }
                 return nil
             }
@@ -51,8 +54,9 @@ final class SwitcherEventControllerSupport {
         }
 
         let shouldGoBackward = shouldMoveBackward(event: event, shortcut: configuredShortcut)
-        DispatchQueue.main.async { [weak handler] in
-            handler?.switcherEnsureSessionAndMoveSelection(backward: shouldGoBackward)
+        let weakHandler = handler
+        DispatchQueue.main.async {
+            MainActor.assumeIsolated { weakHandler.switcherEnsureSessionAndMoveSelection(backward: shouldGoBackward) }
         }
         return nil
     }
@@ -68,8 +72,9 @@ final class SwitcherEventControllerSupport {
             return Unmanaged.passUnretained(event)
         }
 
-        DispatchQueue.main.async { [weak handler] in
-            handler?.switcherCommitOrDismissActiveSession()
+        let weakHandler = handler
+        DispatchQueue.main.async {
+            MainActor.assumeIsolated { weakHandler.switcherCommitOrDismissActiveSession() }
         }
         return nil
     }

@@ -1,6 +1,6 @@
 import Foundation
 
-public final class UserDefaultsWindowSwitcherSettings: WindowSwitcherSettings {
+public final class UserDefaultsWindowSwitcherSettings: SettingsBackingStore, WindowSwitcherSettings {
     private enum Key {
         static let windowSwitcherEnabled = "windowSwitcher.enabled"
         static let windowSwitcherShortcut = "windowSwitcher.shortcut"
@@ -17,69 +17,28 @@ public final class UserDefaultsWindowSwitcherSettings: WindowSwitcherSettings {
         static let windowSwitcherShowHiddenWindows: Bool = false
     }
 
-    private let defaults: UserDefaults
-
-    public init(defaults: UserDefaults = .standard) {
-        self.defaults = defaults
-    }
-
     public var windowSwitcherEnabled: Bool {
-        get {
-            if defaults.object(forKey: Key.windowSwitcherEnabled) != nil {
-                return defaults.bool(forKey: Key.windowSwitcherEnabled)
-            }
-            return Defaults.windowSwitcherEnabled
-        }
-        set {
-            defaults.set(newValue, forKey: Key.windowSwitcherEnabled)
-        }
+        get { defaults[setting: Key.windowSwitcherEnabled, default: Defaults.windowSwitcherEnabled] }
+        set { defaults[setting: Key.windowSwitcherEnabled, default: Defaults.windowSwitcherEnabled] = newValue }
     }
 
     public var windowSwitcherShortcutText: String {
-        get {
-            if let stored = defaults.string(forKey: Key.windowSwitcherShortcut),
-               !stored.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                return stored
-            }
-            return Defaults.windowSwitcherShortcut
-        }
-        set {
-            defaults.set(newValue.trimmingCharacters(in: .whitespacesAndNewlines), forKey: Key.windowSwitcherShortcut)
-        }
+        get { defaults[settingTrimmed: Key.windowSwitcherShortcut, default: Defaults.windowSwitcherShortcut] }
+        set { defaults[settingTrimmed: Key.windowSwitcherShortcut, default: Defaults.windowSwitcherShortcut] = newValue }
     }
 
     public var windowSwitcherTitleFormat: WindowSwitcherTitleFormat {
-        get {
-            if let stored = defaults.string(forKey: Key.windowSwitcherTitleFormat),
-               let format = WindowSwitcherTitleFormat(rawValue: stored) {
-                return format
-            }
-            return Defaults.windowSwitcherTitleFormat
-        }
-        set {
-            defaults.set(newValue.rawValue, forKey: Key.windowSwitcherTitleFormat)
-        }
+        get { defaults[setting: Key.windowSwitcherTitleFormat, default: Defaults.windowSwitcherTitleFormat] }
+        set { defaults[setting: Key.windowSwitcherTitleFormat, default: Defaults.windowSwitcherTitleFormat] = newValue }
     }
 
     public var windowSwitcherShowMinimizedWindows: Bool {
-        get {
-            defaults.object(forKey: Key.windowSwitcherShowMinimizedWindows) != nil
-                ? defaults.bool(forKey: Key.windowSwitcherShowMinimizedWindows)
-                : Defaults.windowSwitcherShowMinimizedWindows
-        }
-        set {
-            defaults.set(newValue, forKey: Key.windowSwitcherShowMinimizedWindows)
-        }
+        get { defaults[setting: Key.windowSwitcherShowMinimizedWindows, default: Defaults.windowSwitcherShowMinimizedWindows] }
+        set { defaults[setting: Key.windowSwitcherShowMinimizedWindows, default: Defaults.windowSwitcherShowMinimizedWindows] = newValue }
     }
 
     public var windowSwitcherShowHiddenWindows: Bool {
-        get {
-            defaults.object(forKey: Key.windowSwitcherShowHiddenWindows) != nil
-                ? defaults.bool(forKey: Key.windowSwitcherShowHiddenWindows)
-                : Defaults.windowSwitcherShowHiddenWindows
-        }
-        set {
-            defaults.set(newValue, forKey: Key.windowSwitcherShowHiddenWindows)
-        }
+        get { defaults[setting: Key.windowSwitcherShowHiddenWindows, default: Defaults.windowSwitcherShowHiddenWindows] }
+        set { defaults[setting: Key.windowSwitcherShowHiddenWindows, default: Defaults.windowSwitcherShowHiddenWindows] = newValue }
     }
 }

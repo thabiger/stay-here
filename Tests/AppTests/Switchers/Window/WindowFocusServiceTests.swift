@@ -165,6 +165,19 @@ final class WindowFocusServiceTests: XCTestCase {
         XCTAssertEqual(operations, ["unminimize", "raise", "main"])
     }
 
+    func testEmptyWindowsListIsNoOp() {
+        let app = FakeRunningApplication(isActive: true, activateResults: [true])
+        let service = WindowFocusService(
+            runningApplicationProvider: { _ in app },
+            accessibilityWindowsProvider: { _ in [] },
+            retryScheduler: { _ in },
+            applicationActivator: {}
+        )
+
+        service.focusWindow(entry: WindowEntry(windowID: 1, pid: 55, appName: "Notes", windowTitle: "Doc", icon: NSImage()))
+        waitForMainQueue()
+    }
+
     func testFallsBackToFirstWindowWhenTitleDoesNotMatch() {
         let app = FakeRunningApplication(isActive: true, activateResults: [true])
         var firstRaised = false

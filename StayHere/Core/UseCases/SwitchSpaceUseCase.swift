@@ -6,7 +6,7 @@ public final class SwitchSpaceUseCase {
 
     public init(
         cgsBridge: any CGSBridgeProtocol,
-        repository: SpaceStateManager,
+        repository: any SpaceSwitchSnapshotProviding,
         switcherService: SpaceSwitcherService? = nil,
         refreshUseCase: RefreshSpacesUseCase,
         logger: any Logging
@@ -23,7 +23,7 @@ public final class SwitchSpaceUseCase {
             },
             scheduleRefreshSoon: {
                 Task { @MainActor in
-                    refreshUseCase.refreshWithRetry()
+                    refreshUseCase.refreshSoon()
                 }
             },
             logger: logger

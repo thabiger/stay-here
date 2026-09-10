@@ -4,7 +4,7 @@ import Foundation
 protocol WindowSwitcherSessionProtocol: SwitcherSession where Selection == Int {
     var startingWindowID: Int? { get }
     var selectedWindowID: Int? { get set }
-    var spaceGroups: [WindowListProvider.SpaceWindowGroup] { get }
+    var spaceGroups: [SpaceWindowGroup] { get }
     var flatEntries: [WindowEntry] { get }
 }
 
@@ -23,7 +23,7 @@ struct WindowSwitcherSession: WindowSwitcherSessionProtocol {
     let startingWindowID: Int?
     var selectedWindowID: Int?
     let shortcut: SpaceSwitcherShortcut
-    let spaceGroups: [WindowListProvider.SpaceWindowGroup]
+    let spaceGroups: [SpaceWindowGroup]
     let flatEntries: [WindowEntry]
     let trigger: SwitcherSessionTrigger
 }
@@ -43,42 +43,5 @@ enum WindowSwitcherSelection {
             return orderedWindowIDs.last
         }
         return orderedWindowIDs[(index - 1 + orderedWindowIDs.count) % orderedWindowIDs.count]
-    }
-
-    static func sessionOrder(fromRecentEntries entries: [WindowEntry]) -> [WindowEntry] {
-        guard entries.count > 1 else { return entries }
-        return [entries[1], entries[0]] + Array(entries.dropFirst(2))
-    }
-
-    static func recentOrder(fromSessionEntries entries: [WindowEntry], startingWindowID: Int?) -> [Int] {
-        let ids = entries.map(\.windowID)
-        guard let startingWindowID, ids.contains(startingWindowID) else { return ids }
-        return [startingWindowID] + ids.filter { $0 != startingWindowID }
-    }
-
-    static func recordSelection(
-        _ selectedWindowID: Int,
-        in activeSession: (any WindowSwitcherSessionProtocol)?,
-        recentWindowIDs: inout [Int]
-    ) {
-        guard let activeSession else {
-            recentWindowIDs.removeAll { $0 == selectedWindowID }
-            recentWindowIDs.insert(selectedWindowID, at: 0)
-            return
-        }
-
-        let previousRecentIDs = Self.recentOrder(
-            fromSessionEntries: activeSession.flatEntries,
-            startingWindowID: activeSession.startingWindowID
-        )
-        var orderedIDs = [selectedWindowID]
-        if let startingWindowID = activeSession.startingWindowID,
-           startingWindowID != selectedWindowID {
-            orderedIDs.append(startingWindowID)
-        }
-        orderedIDs += previousRecentIDs.filter { id in
-            id != selectedWindowID && id != activeSession.startingWindowID
-        }
-        recentWindowIDs = orderedIDs
     }
 }

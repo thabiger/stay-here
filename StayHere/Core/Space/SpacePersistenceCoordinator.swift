@@ -1,68 +1,47 @@
 import Foundation
 
-/// Owns the `SpaceLabelStore` and coordinates persistence operations
-/// with `SpaceStateStore`, encapsulating the label-store → sync-persistence → persist-now
-/// pattern that was duplicated across multiple methods in `SpaceStateManager`.
+/// Owns the `SpaceLabelStore` and coordinates persistence operations,
+/// encapsulating the label-store → persist-now pattern.
 @MainActor
 public final class SpacePersistenceCoordinator {
     let labelStore: SpaceLabelStore
-    private let stateStore: SpaceStateStore
 
     public init(
         store: SpaceStore = SpaceStore(),
-        stateStore: SpaceStateStore,
         labelStore: SpaceLabelStore? = nil,
         logger: any Logging
     ) {
         self.labelStore = labelStore ?? SpaceLabelStore(store: store, logger: logger)
-        self.stateStore = stateStore
-        syncPersistenceState()
     }
 
     // MARK: Public API
 
-    public func rename(spaceID: Int, name: String, orderedSpaceIDs: [Int]) {
-        labelStore.rename(spaceID: spaceID, name: name, orderedSpaceIDs: orderedSpaceIDs)
-        syncPersistenceState()
-        persistNow(orderedSpaceIDs: orderedSpaceIDs)
+    @discardableResult
+    public func rename(
+        spaceID: Int,
+        name: String
+    ) -> [Int: SpaceLabel] {
+        labelStore.rename(spaceID: spaceID, name: name)
+        persistNow()
+        return labelStore.persistenceSnapshot()
     }
 
-    public func moveDisplayOrder(
-        fromOffsets: IndexSet,
-        toOffset: Int,
-        currentOrderedSpaceIDs: [Int]
-    ) {
-        labelStore.moveDisplayOrder(
-            fromOffsets: fromOffsets,
-            toOffset: toOffset,
-            currentOrderedSpaceIDs: currentOrderedSpaceIDs
-        )
-        syncPersistenceState()
-        persistNow(orderedSpaceIDs: currentOrderedSpaceIDs)
+    public func persistNow() {
+        labelStore.persistNow()
     }
 
-    public func persistNow(orderedSpaceIDs: [Int]) {
-        labelStore.persistNow(orderedSpaceIDs: orderedSpaceIDs)
+    @discardableResult
+    public func observe(
+        spaces: [SpaceIdentity],
+        observedDisplays: Set<String>
+    ) -> [Int: SpaceLabel] {
+        labelStore.observe(spaces: spaces, observedDisplays: observedDisplays)
+        return labelStore.persistenceSnapshot()
     }
 
-    public func reconcileLabels(
-        for spaces: [SpaceIdentity],
-        orderedSpaceIDs: [Int]
-    ) {
-        labelStore.reconcileLabels(for: spaces, orderedSpaceIDs: orderedSpaceIDs)
-        syncPersistenceState()
-    }
+    // MARK: Snapshot
 
-    // MARK: Internal
-
-    /// Copies current labels/displayOrder from the label store into the state store
-    /// so that the rest of the system sees a consistent view.
-    func syncPersistenceState() {
-        let snapshot = labelStore.persistenceSnapshot()
-        stateStore.syncPersistenceState(
-            labels: snapshot.labels,
-            displayOrder: snapshot.displayOrder,
-            usesCustomDisplayOrder: snapshot.usesCustomDisplayOrder
-        )
+    public func persistenceSnapshot() -> [Int: SpaceLabel] {
+        labelStore.persistenceSnapshot()
     }
 }

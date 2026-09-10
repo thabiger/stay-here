@@ -42,3 +42,23 @@ final class WindowSwitcherPanelPresenter {
         panelManager.release()
     }
 }
+
+extension WindowSwitcherPanelPresenter: SwitcherPanelPresenting {
+    func presentSnapshot(_ snapshot: WindowSwitcherSnapshot, actions: SwitcherPanelActions<Int>, updateInfo: UpdateInfo?) {
+        present(
+            snapshot: snapshot,
+            onSelect: { entry in actions.onSelect(entry.windowID) },
+            onFocusLost: actions.onFocusLost,
+            onCommit: actions.onCommit,
+            onCancel: actions.onCancel,
+            onMoveUp: actions.onMoveUp,
+            onMoveDown: actions.onMoveDown,
+            updateInfo: updateInfo,
+            onOpenUpdate: actions.onOpenUpdate
+        )
+    }
+
+    func dismissPanel() { dismiss() }
+
+    func releasePanel() { release() }
+}

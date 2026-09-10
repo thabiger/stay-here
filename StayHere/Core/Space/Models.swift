@@ -47,10 +47,47 @@ public struct SpaceLabel: Codable, Hashable {
     }
 }
 
+/// Single source of truth for a persisted space label: the label, the display the
+/// space was last positively observed on, and (in-memory only) the absence-evidence
+/// budget used by `SpaceLabelStore`. Persisted form carries only `label` + `display`.
+public struct SpaceLabelRecord: Codable, Hashable {
+    public var label: SpaceLabel
+    public var display: String?
+    public var absenceCount: Int = 0
+    public var firstAbsenceAt: Date?
+
+    enum CodingKeys: String, CodingKey { case label, display }
+
+    public init(
+        label: SpaceLabel,
+        display: String? = nil,
+        absenceCount: Int = 0,
+        firstAbsenceAt: Date? = nil
+    ) {
+        self.label = label
+        self.display = display
+        self.absenceCount = absenceCount
+        self.firstAbsenceAt = firstAbsenceAt
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        label = try c.decode(SpaceLabel.self, forKey: .label)
+        display = try c.decodeIfPresent(String.self, forKey: .display)
+        absenceCount = 0
+        firstAbsenceAt = nil
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(label, forKey: .label)
+        try c.encodeIfPresent(display, forKey: .display)
+    }
+}
+
 public struct SpaceStateSnapshot: Codable {
     public var timestampISO8601: String
     public var activeSpaceID: Int?
     public var spaces: [SpaceIdentity]
     public var labels: [Int: SpaceLabel]
-    public var displayOrder: [Int]
 }

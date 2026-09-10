@@ -2,6 +2,7 @@ import XCTest
 import AppKit
 import SwiftUI
 import Core
+import TestHelpers
 @testable import StayHereApp
 
 private final class LocalMockCGSBridge: CGSBridgeProtocol {
@@ -22,13 +23,8 @@ private final class LocalMockCGSBridge: CGSBridgeProtocol {
 @MainActor
 final class SwitcherPanelReleaseTests: XCTestCase {
     private func makeSpaceController() -> SpaceSwitcherController {
-        let fileURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("SwitcherPanelReleaseTests-Space")
-            .appendingPathComponent(UUID().uuidString)
-            .appendingPathComponent("spaces.json")
-        let store = SpaceStore(fileURL: fileURL)
         let bridge = LocalMockCGSBridge()
-        let registry = SpaceStateManager(store: store, cgsBridge: bridge, logger: NoOpLogger())
+        let registry = SpaceStateManagerFactory.makePair(cgsBridge: bridge).queryService
         return SpaceSwitcherController(
             settings: UserDefaultsSettingsRepository(),
             registry: registry,
@@ -37,17 +33,12 @@ final class SwitcherPanelReleaseTests: XCTestCase {
     }
 
     private func makeWindowController() -> WindowSwitcherController {
-        let fileURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("SwitcherPanelReleaseTests-Window")
-            .appendingPathComponent(UUID().uuidString)
-            .appendingPathComponent("spaces.json")
-        let store = SpaceStore(fileURL: fileURL)
         let bridge = LocalMockCGSBridge()
-        let repository = SpaceStateManager(store: store, cgsBridge: bridge, logger: NoOpLogger())
-        let refreshSpaces = RefreshSpacesUseCase(repository: repository, logger: NoOpLogger())
-        let switchSpace = SwitchSpaceUseCase(cgsBridge: bridge, repository: repository, refreshUseCase: refreshSpaces, logger: NoOpLogger())
+        let pair = SpaceStateManagerFactory.makePair(cgsBridge: bridge)
+        let refreshSpaces = RefreshSpacesUseCase(repository: pair.manager, logger: NoOpLogger())
+        let switchSpace = SwitchSpaceUseCase(cgsBridge: bridge, repository: pair.queryService, refreshUseCase: refreshSpaces, logger: NoOpLogger())
         let listProvider = WindowListProvider(
-            registry: repository,
+            registry: pair.queryService,
             cgsBridge: bridge,
             settings: UserDefaultsSettingsRepository(),
             windowInfoProvider: { nil },
@@ -65,11 +56,11 @@ final class SwitcherPanelReleaseTests: XCTestCase {
         ))
         return WindowSwitcherController(
             settings: UserDefaultsSettingsRepository(),
-            registry: repository,
+            registry: pair.queryService,
             mode: .currentSpace,
             windowSwitchUseCase: windowSwitchUseCase,
             cgsBridge: bridge,
-            listProvider: listProvider
+            dependencies: WindowSwitcherDependencies(listProvider: listProvider)
         )
     }
 

@@ -5,10 +5,9 @@ public struct SpaceState: Equatable {
     public var spaces: [SpaceIdentity] = []
     public var activeSpaceID: Int?
     public var labels: [Int: SpaceLabel] = [:]
-    public var displayOrder: [Int] = []
-    public var usesCustomDisplayOrder: Bool = false
     public var desktopNumberBySpaceID: [Int: Int] = [:]
     public var nativeOrderByDisplay: [String: [Int]] = [:]
+    public var isStaleSnapshot: Bool = false
 
     public init() {}
 
@@ -16,18 +15,16 @@ public struct SpaceState: Equatable {
         spaces: [SpaceIdentity],
         activeSpaceID: Int?,
         labels: [Int: SpaceLabel],
-        displayOrder: [Int],
-        usesCustomDisplayOrder: Bool,
         desktopNumberBySpaceID: [Int: Int],
-        nativeOrderByDisplay: [String: [Int]]
+        nativeOrderByDisplay: [String: [Int]],
+        isStaleSnapshot: Bool = false
     ) {
         self.spaces = spaces
         self.activeSpaceID = activeSpaceID
         self.labels = labels
-        self.displayOrder = displayOrder
-        self.usesCustomDisplayOrder = usesCustomDisplayOrder
         self.desktopNumberBySpaceID = desktopNumberBySpaceID
         self.nativeOrderByDisplay = nativeOrderByDisplay
+        self.isStaleSnapshot = isStaleSnapshot
     }
 }
 
@@ -37,46 +34,46 @@ public final class SpaceStateStore: ObservableObject {
     public var spaces: [SpaceIdentity] { state.spaces }
     public var activeSpaceID: Int? { state.activeSpaceID }
     public var labels: [Int: SpaceLabel] { state.labels }
-    public var displayOrder: [Int] { state.displayOrder }
-    public var usesCustomDisplayOrder: Bool { state.usesCustomDisplayOrder }
     public var desktopNumberBySpaceID: [Int: Int] { state.desktopNumberBySpaceID }
     public var nativeOrderByDisplay: [String: [Int]] { state.nativeOrderByDisplay }
+    public var isStaleSnapshot: Bool { state.isStaleSnapshot }
 
     public init() {}
 
     public func syncPersistenceState(
-        labels: [Int: SpaceLabel],
-        displayOrder: [Int],
-        usesCustomDisplayOrder: Bool
+        labels: [Int: SpaceLabel]
     ) {
-        state = SpaceState(
+        let nextState = SpaceState(
             spaces: state.spaces,
             activeSpaceID: state.activeSpaceID,
             labels: labels,
-            displayOrder: displayOrder,
-            usesCustomDisplayOrder: usesCustomDisplayOrder,
             desktopNumberBySpaceID: state.desktopNumberBySpaceID,
-            nativeOrderByDisplay: state.nativeOrderByDisplay
+            nativeOrderByDisplay: state.nativeOrderByDisplay,
+            isStaleSnapshot: state.isStaleSnapshot
         )
+        guard nextState != state else { return }
+        state = nextState
     }
 
     public func applyDerivedState(_ derivedState: SpaceRegistryDerivedState) {
-        state = SpaceState(
+        let nextState = SpaceState(
             spaces: derivedState.spaces,
             activeSpaceID: derivedState.activeSpaceID,
             labels: state.labels,
-            displayOrder: state.displayOrder,
-            usesCustomDisplayOrder: state.usesCustomDisplayOrder,
             desktopNumberBySpaceID: derivedState.desktopNumberBySpaceID,
-            nativeOrderByDisplay: derivedState.nativeOrderByDisplay
+            nativeOrderByDisplay: derivedState.nativeOrderByDisplay,
+            isStaleSnapshot: derivedState.isStaleSnapshot
         )
+        guard nextState != state else { return }
+        state = nextState
     }
 
     public func currentSwitchSnapshot() -> SpaceSwitchSnapshot {
         SpaceSwitchSnapshot(
             activeSpaceID: activeSpaceID,
             spaces: spaces,
-            nativeOrderByDisplay: nativeOrderByDisplay
+            nativeOrderByDisplay: nativeOrderByDisplay,
+            isStaleSnapshot: isStaleSnapshot
         )
     }
 }

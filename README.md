@@ -69,6 +69,10 @@ The goal here is to deliver a focus-first experience to your workflow. Therefore
 - Settings -> Desktop & Dock -> Displays have separate Spaces -> Off (it messes with Space locations across displays when a display disconnects)
 - Settings -> Desktop & Dock -> Show suggested and recent apps in Dock -> Off (you should only see what you need to get work done in your Space)
 
+## Technical Notes
+
+- [CGS Bridge — Private API Surface & Health Check](docs/cgs-bridge.md) — documents the private CoreGraphics symbols StayHere depends on, failure semantics, and the runtime health-check mechanism.
+
 ## Distribution Model
 
 The release model is direct download from GitHub Releases.

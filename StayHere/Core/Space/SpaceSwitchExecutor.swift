@@ -3,7 +3,7 @@ import Foundation
 @MainActor
 public final class SpaceSwitchExecutor {
     private let cgsBridge: any CGSBridgeProtocol
-    private let repository: SpaceStateManager
+    private let repository: any SpaceSwitchSnapshotProviding
     private let switcherService: SpaceSwitcherService
     private let refreshSpaces: @Sendable () async -> SpaceSwitchSnapshot
     private let scheduleRefreshSoon: @Sendable () -> Void
@@ -11,7 +11,7 @@ public final class SpaceSwitchExecutor {
 
     public init(
         cgsBridge: any CGSBridgeProtocol,
-        repository: SpaceStateManager,
+        repository: any SpaceSwitchSnapshotProviding,
         switcherService: SpaceSwitcherService,
         refreshSpaces: @escaping @Sendable () async -> SpaceSwitchSnapshot,
         scheduleRefreshSoon: @escaping @Sendable () -> Void,
@@ -31,7 +31,7 @@ public final class SpaceSwitchExecutor {
             snapshot: repository.currentSwitchSnapshot(),
             refreshSpaces: { [weak self] in
                 guard let self else {
-                    return SpaceSwitchSnapshot(activeSpaceID: nil, spaces: [], nativeOrderByDisplay: [:])
+                    return SpaceSwitchSnapshot(activeSpaceID: nil, spaces: [], nativeOrderByDisplay: [:], isStaleSnapshot: true)
                 }
                 return await self.refreshSpaces()
             },
@@ -50,6 +50,10 @@ public final class SpaceSwitchExecutor {
     }
 
     private func switchToAdjacentSpace(offset: Int) async {
+        guard !repository.currentSwitchSnapshot().isStaleSnapshot else {
+            logger.info("switch-space cycle skipped=stale")
+            return
+        }
         let ordered = repository.orderedSpaceIDs()
         let target = offset > 0
             ? SpaceCycling.nextSpaceID(currentSpaceID: repository.activeSpaceID, orderedSpaceIDs: ordered)

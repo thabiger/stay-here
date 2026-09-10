@@ -1,6 +1,7 @@
 import Foundation
 import AppKit
 import Core
+import OSLog
 
 public final class ActivationExecutor {
     private let showSingleWindowHint: (String) -> Void
@@ -8,6 +9,11 @@ public final class ActivationExecutor {
     private let currentSpaceID: () -> Int?
     private let appActivator: AppActivator
     private let shortcutPoster: ShortcutPoster
+
+    private static let activationLog = Logger(
+        subsystem: "com.stayhere.StayHere",
+        category: "activation-executor"
+    )
 
     private final class CancellationFlag {
         private let _lock = NSLock()
@@ -29,10 +35,16 @@ public final class ActivationExecutor {
     private var pendingWaitFlag: CancellationFlag?
     private var pendingRetryTask: Task<Void, Never>?
 
-    /// Test seam — counts how many times the `then` callback of
-    /// `waitForActiveSpace` has been invoked. A chain that was
-    /// cancelled should NOT increment this counter.
+    /// Test seam — fires on **confirmed space match**, or as an
+    /// **explicit degraded fallback** after a confirmed timeout (final
+    /// verification read still unmatched). A cancelled chain increments
+    /// nothing.
     internal var testThenCallCount: Int = 0
+
+    /// Test seam — counts only confirmed timeouts (deadline passed +
+    /// verification read unmatched). A cancelled chain increments
+    /// nothing.
+    internal var testTimeoutCallCount: Int = 0
 
     public init(
         showSingleWindowHint: @escaping (String) -> Void = { _ in },
@@ -122,11 +134,34 @@ public final class ActivationExecutor {
     internal func waitForActiveSpace(_ spaceID: Int, timeout: TimeInterval, then: @escaping @Sendable () -> Void) {
         let flag = CancellationFlag()
         pendingWaitFlag = flag
-        let started = Date()
+        let deadline = Date().addingTimeInterval(timeout)
 
         func poll() {
-            if flag.isCancelled { return }
-            if currentSpaceID() == nil || currentSpaceID() == spaceID || Date().timeIntervalSince(started) >= timeout {
+            guard !flag.isCancelled else { return }
+            // Confirmed success — checked first so a switch that lands at/after
+            // the deadline is still success, never timeout.
+            if currentSpaceID() == spaceID {
+                guard !flag.isCancelled else { return }
+                testThenCallCount += 1
+                then()
+                return
+            }
+            guard Date() < deadline else {
+                // Deadline elapsed with no match. One final verification read:
+                // give a late-arriving switch a last chance to land before we
+                // declare the outcome undetermined. nil is *unknown* here, so it
+                // falls through to the timeout path — nil never fires then() early.
+                if currentSpaceID() == spaceID {
+                    guard !flag.isCancelled else { return }
+                    testThenCallCount += 1
+                    then()
+                    return
+                }
+                guard !flag.isCancelled else { return }
+                testTimeoutCallCount += 1
+                Self.activationLog.error(
+                    "Space switch to \(spaceID, privacy: .public) did not complete within \(timeout, privacy: .public)s; activating app on the current space as degraded fallback"
+                )
                 testThenCallCount += 1
                 then()
                 return

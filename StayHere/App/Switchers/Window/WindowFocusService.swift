@@ -62,9 +62,8 @@ final class WindowFocusService {
 
     private func raiseWindow(pid: pid_t, title: String) {
         let windows = accessibilityWindowsProvider(pid)
-        guard !windows.isEmpty else { return }
+        guard let target = windows.first(where: { $0.title == title }) ?? windows.first else { return }
 
-        let target = windows.first(where: { $0.title == title }) ?? windows.first!
         target.unminimize()
         target.raise()
         target.makeMain()

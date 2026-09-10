@@ -1,5 +1,6 @@
 import XCTest
 import Core
+import TestHelpers
 @testable import StayHereApp
 
 @MainActor
@@ -27,7 +28,7 @@ final class StatusBarControllerTests: XCTestCase {
         func spacesForWindow(windowID: Int) -> [Int] { [] }
     }
 
-    private func makeRegistry() -> SpaceStateManager {
+    private func makeRegistry() -> any SpaceRegistryProtocol {
         let bridge = MockBridge(
             activeSpaceIDValue: 1,
             managedSnapshotValue: CGSBridge.ManagedSnapshot(
@@ -36,8 +37,21 @@ final class StatusBarControllerTests: XCTestCase {
                 orderedIDsByDisplay: ["Main": [1]]
             )
         )
-        let store = SpaceStore()
-        return SpaceStateManager(store: store, cgsBridge: bridge, logger: NoOpLogger())
+        return SpaceStateManagerFactory.makePair(cgsBridge: bridge).queryService
+    }
+
+    private func makeNoopActions() -> StatusBarActions {
+        StatusBarActions(
+            onOpenSettings: {},
+            onOpenAbout: {},
+            onCheckForUpdates: {},
+            onOpenAvailableUpdate: {},
+            onCopyState: {},
+            onOpenLogs: {},
+            onQuit: {},
+            onSelectSpace: { _ in },
+            onRenameSpace: { _, _ in }
+        )
     }
 
     func testMenuContainsCheckForUpdatesByDefault() {
@@ -49,15 +63,7 @@ final class StatusBarControllerTests: XCTestCase {
 
         controller.configure(
             registry: makeRegistry(),
-            onOpenSettings: {},
-            onOpenAbout: {},
-            onCheckForUpdates: {},
-            onOpenAvailableUpdate: {},
-            onCopyState: {},
-            onOpenLogs: {},
-            onQuit: {},
-            onSelectSpace: { _ in },
-            onRenameSpace: { _, _ in }
+            actions: makeNoopActions()
         )
 
         XCTAssertTrue(controller.debugMenuItemTitles.contains("Check for Updates…"))
@@ -73,15 +79,7 @@ final class StatusBarControllerTests: XCTestCase {
 
         controller.configure(
             registry: makeRegistry(),
-            onOpenSettings: {},
-            onOpenAbout: {},
-            onCheckForUpdates: {},
-            onOpenAvailableUpdate: {},
-            onCopyState: {},
-            onOpenLogs: {},
-            onQuit: {},
-            onSelectSpace: { _ in },
-            onRenameSpace: { _, _ in }
+            actions: makeNoopActions()
         )
 
         controller.setAvailableUpdate(

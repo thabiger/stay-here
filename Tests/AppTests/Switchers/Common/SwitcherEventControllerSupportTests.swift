@@ -19,6 +19,7 @@ private final class FakeSwitcherHandler: SwitcherEventSessionHandling {
     func switcherCancelActiveSession() { cancelCount += 1 }
 }
 
+@MainActor
 final class SwitcherEventControllerSupportTests: XCTestCase {
     private func makeKeyEvent(keyCode: CGKeyCode, flags: CGEventFlags = []) -> CGEvent {
         let event = CGEvent(keyboardEventSource: nil, virtualKey: keyCode, keyDown: true)!

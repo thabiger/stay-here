@@ -3,6 +3,7 @@ import CoreGraphics
 import AppKit
 import Activation
 import Core
+import TestHelpers
 @testable import StayHereApp
 
 private final class MockCGSBridge: CGSBridgeProtocol {
@@ -67,16 +68,11 @@ final class AllSpacesWindowSwitcherControllerTests: XCTestCase {
         )
         bridge.spacesForWindowMap = spacesForWindowMap
 
-        let fileURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("AllSpacesWindowSwitcherControllerTests")
-            .appendingPathComponent(UUID().uuidString)
-            .appendingPathComponent("spaces.json")
-        let store = SpaceStore(fileURL: fileURL)
-        let repository = SpaceStateManager(store: store, cgsBridge: bridge, logger: NoOpLogger())
-        let refreshSpaces = RefreshSpacesUseCase(repository: repository, logger: NoOpLogger())
-        let switchSpace = SwitchSpaceUseCase(cgsBridge: bridge, repository: repository, refreshUseCase: refreshSpaces, logger: NoOpLogger())
+        let repository = SpaceStateManagerFactory.makePair(cgsBridge: bridge)
+        let refreshSpaces = RefreshSpacesUseCase(repository: repository.manager, logger: NoOpLogger())
+        let switchSpace = SwitchSpaceUseCase(cgsBridge: bridge, repository: repository.queryService, refreshUseCase: refreshSpaces, logger: NoOpLogger())
         let listProvider = WindowListProvider(
-            registry: repository,
+            registry: repository.queryService,
             cgsBridge: bridge,
             settings: UserDefaultsSettingsRepository(),
             windowInfoProvider: windowInfo,
@@ -95,11 +91,11 @@ final class AllSpacesWindowSwitcherControllerTests: XCTestCase {
         ))
         let controller = WindowSwitcherController(
             settings: UserDefaultsSettingsRepository(),
-            registry: repository,
+            registry: repository.queryService,
             mode: .allSpaces,
             windowSwitchUseCase: windowSwitchUseCase,
             cgsBridge: bridge,
-            listProvider: listProvider
+            dependencies: WindowSwitcherDependencies(listProvider: listProvider)
         )
         return (controller, bridge)
     }

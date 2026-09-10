@@ -10,9 +10,9 @@ final class CompositionServices {
     let lifecycleCoordinator: AppLifecycleCoordinator
     let updateService: any UpdateService
     let repository: SpaceStateManager
+    let queryService: SpaceQueryService
     let refreshSpaces: RefreshSpacesUseCase
     let renameSpace: RenameSpaceUseCase
-    let reorderSpaces: ReorderSpacesUseCase
     let switchSpace: SwitchSpaceUseCase
     let buildSpaceSnapshot: BuildSpaceSnapshotUseCase
     let logger: any Logging
@@ -33,19 +33,41 @@ final class CompositionServices {
             appearanceManager: self.appearanceManager,
             logger: logger
         )
-        self.repository = SpaceStateManager(cgsBridge: cgsBridge, logger: logger)
+        let stateStore = SpaceStateStore()
+        let orderingService = SpaceOrderingService()
+        let nameProvider = SpaceDisplayNameProvider()
+        let snapshotBuilder = SpaceSnapshotBuilder()
+        let persistenceCoordinator = SpacePersistenceCoordinator(
+            store: SpaceStore(),
+            labelStore: nil,
+            logger: logger
+        )
+        self.repository = SpaceStateManager(
+            cgsBridge: cgsBridge,
+            stateStore: stateStore,
+            persistenceCoordinator: persistenceCoordinator,
+            orderingService: orderingService,
+            logger: logger
+        )
+        self.queryService = SpaceQueryService(
+            stateStore: stateStore,
+            orderingService: orderingService,
+            nameProvider: nameProvider,
+            snapshotBuilder: snapshotBuilder
+        )
         self.refreshSpaces = RefreshSpacesUseCase(
             repository: self.repository,
             logger: logger
         )
-        self.renameSpace = RenameSpaceUseCase(repository: self.repository)
-        self.reorderSpaces = ReorderSpacesUseCase(repository: self.repository)
+        self.renameSpace = RenameSpaceUseCase(renamer: self.repository)
         self.switchSpace = SwitchSpaceUseCase(
             cgsBridge: cgsBridge,
-            repository: self.repository,
+            repository: self.queryService,
             refreshUseCase: self.refreshSpaces,
             logger: logger
         )
-        self.buildSpaceSnapshot = BuildSpaceSnapshotUseCase(repository: self.repository)
+        self.buildSpaceSnapshot = BuildSpaceSnapshotUseCase(builder: self.queryService)
+        // QUAL-7: SpaceStateManager.init no longer refreshes — bootstrap explicitly.
+        self.repository.start()
     }
 }

@@ -8,23 +8,27 @@ final class SpaceObservationCoordinator {
     private let switchSpace: SwitchSpaceUseCase
     private let buildSpaceSnapshot: BuildSpaceSnapshotUseCase
     private let switchPresentationHelper: SpaceSwitchPresentationHelper
+    private let notificationCenter: NotificationCenter
 
     private var cancellables: Set<AnyCancellable> = []
     private var activeSpaceObserver: NSObjectProtocol?
     private var isSettingsOpen: () -> Bool = { false }
     private var onActiveSpaceChanged: (() -> Void)?
     private var onScheduleMenuRebuild: (() -> Void)?
+    private var onRefreshSpaces: (() -> Void)?
 
     init(
         registry: any SpaceRegistryProtocol,
         switchSpace: SwitchSpaceUseCase,
         buildSpaceSnapshot: BuildSpaceSnapshotUseCase,
-        switchPresentationHelper: SpaceSwitchPresentationHelper
+        switchPresentationHelper: SpaceSwitchPresentationHelper,
+        notificationCenter: NotificationCenter = NSWorkspace.shared.notificationCenter
     ) {
         self.registry = registry
         self.switchSpace = switchSpace
         self.buildSpaceSnapshot = buildSpaceSnapshot
         self.switchPresentationHelper = switchPresentationHelper
+        self.notificationCenter = notificationCenter
     }
 
     func bindSettingsOpen(_ isSettingsOpen: @escaping () -> Bool) {
@@ -37,6 +41,10 @@ final class SpaceObservationCoordinator {
 
     func bindMenuRebuildHandler(_ handler: @escaping () -> Void) {
         self.onScheduleMenuRebuild = handler
+    }
+
+    func bindRefreshSpacesHandler(_ handler: @escaping () -> Void) {
+        self.onRefreshSpaces = handler
     }
 
     func startObserving() {
@@ -68,7 +76,14 @@ final class SpaceObservationCoordinator {
 
     private func observeActiveSpaceChanges() {
         guard activeSpaceObserver == nil else { return }
-        activeSpaceObserver = NotificationCenter.default.addObserver(
+        // IMPORTANT: NSWorkspace.activeSpaceDidChangeNotification is delivered ONLY on
+        // NSWorkspace.shared.notificationCenter — NOT on NotificationCenter.default.
+        // Apple: "To receive this notification, use NSWorkspace.notificationCenter to
+        // register for it. If you use a different notification center to register, you
+        // won't receive the notification." Registering on the default center silently
+        // breaks all native space-switch detection (HUD, bar title, refresh). The
+        // center is injectable so tests can assert this contract.
+        activeSpaceObserver = notificationCenter.addObserver(
             forName: NSWorkspace.activeSpaceDidChangeNotification,
             object: NSWorkspace.shared,
             queue: .main
@@ -82,11 +97,12 @@ final class SpaceObservationCoordinator {
     private func handleActiveSpaceChanged() {
         guard !isSettingsOpen() else { return }
         onActiveSpaceChanged?()
+        onRefreshSpaces?()
     }
 
     func stopObserving() {
         if let observer = activeSpaceObserver {
-            NotificationCenter.default.removeObserver(observer)
+            notificationCenter.removeObserver(observer)
             activeSpaceObserver = nil
         }
     }

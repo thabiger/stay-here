@@ -186,6 +186,31 @@ final class UserDefaultsSettingsRepositoryTests: XCTestCase {
         XCTAssertEqual(reader.activationSingleWindowAppBundleIDs, ["com.example.A", "com.example.B"])
     }
 
+    func testSpaceSwitcherShortcutWhitespaceOnlyReadsAsDefault() {
+        let defaults = makeDefaults()
+        defaults.set("   ", forKey: "spaceSwitcher.shortcut")
+        let settings = UserDefaultsSettingsRepository(defaults: defaults)
+
+        XCTAssertEqual(settings.spaceSwitcherShortcutText, "command+tab")
+    }
+
+    func testSpaceSwitcherShortcutSetterTrimsWhitespace() {
+        let defaults = makeDefaults()
+        let writer = UserDefaultsSettingsRepository(defaults: defaults)
+        writer.spaceSwitcherShortcutText = "  control+space  "
+
+        let reader = UserDefaultsSettingsRepository(defaults: defaults)
+        XCTAssertEqual(reader.spaceSwitcherShortcutText, "control+space")
+    }
+
+    func testHotCornerInvalidRawValueFallsBackToNone() {
+        let defaults = makeDefaults()
+        defaults.set("banana", forKey: "hotCorner.topLeft.action")
+        let settings = UserDefaultsSettingsRepository(defaults: defaults)
+
+        XCTAssertEqual(settings.hotCornerTopLeftAction, .none)
+    }
+
     private func makeDefaults() -> UserDefaults {
         let suiteName = "UserDefaultsSettingsRepositoryTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!

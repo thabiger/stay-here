@@ -1,5 +1,6 @@
 import XCTest
 @testable import Core
+import TestHelpers
 
 @MainActor
 final class SpaceSwitchExecutorTests: XCTestCase {
@@ -75,13 +76,6 @@ final class SpaceSwitchExecutorTests: XCTestCase {
         }
 
         let (repository, executor) = makeFixtures(bridge: bridge)
-        repository.stateStore.syncPersistenceState(
-            labels: [:],
-            displayOrder: [103, 101, 102],
-            usesCustomDisplayOrder: true
-        )
-        repository.refreshSpaces()
-
         await executor.switchToNextSpace()
         bridge.activeSpaceIDValue = 101
         bridge.managedSnapshotValue = CGSBridge.ManagedSnapshot(
@@ -149,10 +143,10 @@ final class SpaceSwitchExecutorTests: XCTestCase {
         switcherService: SpaceSwitcherService? = nil,
         scheduleRefreshSoon: @escaping () -> Void = {}
     ) -> (SpaceStateManager, SpaceSwitchExecutor) {
-        let repository = SpaceStateManager(cgsBridge: bridge, logger: NoOpLogger())
+        let pair = SpaceStateManagerFactory.makePair(cgsBridge: bridge)
         let executor = SpaceSwitchExecutor(
             cgsBridge: bridge,
-            repository: repository,
+            repository: pair.queryService,
             switcherService: switcherService ?? SpaceSwitcherService(
                 cgsBridge: bridge,
                 refreshRetryLimit: 0,
@@ -160,13 +154,13 @@ final class SpaceSwitchExecutorTests: XCTestCase {
             ),
             refreshSpaces: {
                 await MainActor.run {
-                    repository.applyManagedSnapshot(bridge.managedSnapshot())
-                    return repository.currentSwitchSnapshot()
+                    pair.manager.applyManagedSnapshot(bridge.managedSnapshot())
+                    return pair.queryService.currentSwitchSnapshot()
                 }
             },
             scheduleRefreshSoon: scheduleRefreshSoon,
             logger: NoOpLogger()
         )
-        return (repository, executor)
+        return (pair.manager, executor)
     }
 }

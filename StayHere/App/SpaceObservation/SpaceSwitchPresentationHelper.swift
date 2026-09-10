@@ -34,8 +34,13 @@ final class SpaceSwitchPresentationHelper {
 
     func warningPayload(for result: SpaceSwitchResult) -> WarningPayload? {
         switch result {
-        case .switched, .alreadyActive, .unknownSpace:
+        case .switched, .alreadyActive:
             return nil
+        case .unknownSpace:
+            return WarningPayload(
+                title: "Space couldn't be switched",
+                message: "StayHere doesn't have reliable space information right now. Try again in a moment."
+            )
         case .unsupportedSpaceKind:
             return WarningPayload(
                 title: "This space can't be switched",

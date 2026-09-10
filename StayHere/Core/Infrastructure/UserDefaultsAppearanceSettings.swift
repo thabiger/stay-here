@@ -1,6 +1,6 @@
 import Foundation
 
-public final class UserDefaultsAppearanceSettings: AppearanceSettings {
+public final class UserDefaultsAppearanceSettings: SettingsBackingStore, AppearanceSettings {
     private enum Key {
         static let appearanceMode = "appearance.mode"
     }
@@ -9,22 +9,8 @@ public final class UserDefaultsAppearanceSettings: AppearanceSettings {
         static let appearanceMode: AppearanceMode = .system
     }
 
-    private let defaults: UserDefaults
-
-    public init(defaults: UserDefaults = .standard) {
-        self.defaults = defaults
-    }
-
     public var appearanceMode: AppearanceMode {
-        get {
-            guard let rawValue = defaults.string(forKey: Key.appearanceMode),
-                  let mode = AppearanceMode(rawValue: rawValue) else {
-                return Defaults.appearanceMode
-            }
-            return mode
-        }
-        set {
-            defaults.set(newValue.rawValue, forKey: Key.appearanceMode)
-        }
+        get { defaults[setting: Key.appearanceMode, default: Defaults.appearanceMode] }
+        set { defaults[setting: Key.appearanceMode, default: Defaults.appearanceMode] = newValue }
     }
 }

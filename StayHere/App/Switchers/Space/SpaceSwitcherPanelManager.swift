@@ -36,3 +36,23 @@ final class SpaceSwitcherPanelManager: BaseSwitcherPanelManager<SpaceSwitcherSna
         panelPair.window.setFrame(frame, display: true)
     }
 }
+
+extension SpaceSwitcherPanelManager: SwitcherPanelPresenting {
+    func presentSnapshot(_ snapshot: SpaceSwitcherSnapshot, actions: SwitcherPanelActions<Int>, updateInfo: UpdateInfo?) {
+        present(
+            snapshot: snapshot,
+            onSelect: actions.onSelect,
+            onFocusLost: actions.onFocusLost,
+            onCommit: actions.onCommit,
+            onCancel: actions.onCancel,
+            onMoveUp: actions.onMoveUp,
+            onMoveDown: actions.onMoveDown,
+            updateInfo: updateInfo,
+            onOpenUpdate: actions.onOpenUpdate
+        )
+    }
+
+    func dismissPanel() { dismiss() }
+
+    func releasePanel() { release() }
+}

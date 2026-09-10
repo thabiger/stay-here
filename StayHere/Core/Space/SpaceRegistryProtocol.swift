@@ -12,10 +12,11 @@ public protocol SpaceRegistryProtocol: AnyObject {
     var spaces: [SpaceIdentity] { get }
     var activeSpaceID: Int? { get }
     var labels: [Int: SpaceLabel] { get }
-    var displayOrder: [Int] { get }
-    var usesCustomDisplayOrder: Bool { get }
     var desktopNumberBySpaceID: [Int: Int] { get }
     var nativeOrderByDisplay: [String: [Int]] { get }
+    /// True when the system snapshot was empty/transient, so `spaces` is empty
+    /// and no space data is reliable. Consumers must render no space rows/groups.
+    var isStaleSnapshot: Bool { get }
 
     func name(for spaceID: Int) -> String
     func displayName(for spaceID: Int) -> String

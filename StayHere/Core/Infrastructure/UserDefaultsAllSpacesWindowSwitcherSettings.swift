@@ -1,6 +1,6 @@
 import Foundation
 
-public final class UserDefaultsAllSpacesWindowSwitcherSettings: AllSpacesWindowSwitcherSettings {
+public final class UserDefaultsAllSpacesWindowSwitcherSettings: SettingsBackingStore, AllSpacesWindowSwitcherSettings {
     private enum Key {
         static let allSpacesWindowSwitcherEnabled = "allSpacesWindowSwitcher.enabled"
         static let allSpacesWindowSwitcherShortcut = "allSpacesWindowSwitcher.shortcut"
@@ -11,34 +11,13 @@ public final class UserDefaultsAllSpacesWindowSwitcherSettings: AllSpacesWindowS
         static let allSpacesWindowSwitcherEnabled: Bool = true
     }
 
-    private let defaults: UserDefaults
-
-    public init(defaults: UserDefaults = .standard) {
-        self.defaults = defaults
-    }
-
     public var allSpacesWindowSwitcherEnabled: Bool {
-        get {
-            if defaults.object(forKey: Key.allSpacesWindowSwitcherEnabled) != nil {
-                return defaults.bool(forKey: Key.allSpacesWindowSwitcherEnabled)
-            }
-            return Defaults.allSpacesWindowSwitcherEnabled
-        }
-        set {
-            defaults.set(newValue, forKey: Key.allSpacesWindowSwitcherEnabled)
-        }
+        get { defaults[setting: Key.allSpacesWindowSwitcherEnabled, default: Defaults.allSpacesWindowSwitcherEnabled] }
+        set { defaults[setting: Key.allSpacesWindowSwitcherEnabled, default: Defaults.allSpacesWindowSwitcherEnabled] = newValue }
     }
 
     public var allSpacesWindowSwitcherShortcutText: String {
-        get {
-            if let stored = defaults.string(forKey: Key.allSpacesWindowSwitcherShortcut),
-               !stored.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                return stored
-            }
-            return Defaults.allSpacesWindowSwitcherShortcut
-        }
-        set {
-            defaults.set(newValue.trimmingCharacters(in: .whitespacesAndNewlines), forKey: Key.allSpacesWindowSwitcherShortcut)
-        }
+        get { defaults[settingTrimmed: Key.allSpacesWindowSwitcherShortcut, default: Defaults.allSpacesWindowSwitcherShortcut] }
+        set { defaults[settingTrimmed: Key.allSpacesWindowSwitcherShortcut, default: Defaults.allSpacesWindowSwitcherShortcut] = newValue }
     }
 }

@@ -4,6 +4,11 @@ import Core
 
 struct AppSetupStatusSnapshot {
     let isSatisfied: Bool
+    /// Permissions (Accessibility, Input Monitoring) — gates the safety-net
+    /// refresh. Deliberately separate from `isSatisfied`: Mission Control
+    /// shortcuts only gate in-app switching, not HUD/menu freshness for
+    /// native switches (keyboard shortcut / Mission Control work regardless).
+    let permissionsSatisfied: Bool
     let missingDescriptionsCount: Int
 }
 
@@ -14,6 +19,7 @@ final class AppLifecycleCoordinator {
     private let setActivationPolicy: (NSApplication.ActivationPolicy) -> Void
     private let logger: any Logging
     private var pollTimer: Timer?
+    private static let safetyNetTimerInterval: TimeInterval = 20
 
     init(
         appearanceManager: AppearanceManager,
@@ -22,6 +28,7 @@ final class AppLifecycleCoordinator {
             let status = StayHereSetupStatus.current()
             return AppSetupStatusSnapshot(
                 isSatisfied: status.isSatisfied,
+                permissionsSatisfied: status.permissions.isSatisfied,
                 missingDescriptionsCount: status.missingDescriptions.count
             )
         },
@@ -45,13 +52,9 @@ final class AppLifecycleCoordinator {
         setActivationPolicy(.accessory) // set the app to accessory mode (hidden in the Dock)
         applyAppearance() // light/dark mode
 
-        pollTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
-            guard !isSettingsOpen() else { return }
-            refreshSpacesSoon()
-        }
-
         refreshSpacesAsync()
         rebuildSpaceItems()
+        startSafetyNetTimer(isSettingsOpen: isSettingsOpen, refreshSpacesSoon: refreshSpacesSoon)
         showSetupRequirementsIfNeeded(
             startEventDrivenControllers: startEventDrivenControllers,
             presentSetupRequirementsWarning: presentSetupRequirementsWarning
@@ -66,8 +69,38 @@ final class AppLifecycleCoordinator {
         stopControllers()
     }
 
-    func handleActiveSpaceChanged(isSettingsOpen: Bool, refreshSpacesSoon: @escaping () -> Void) {
+    func handleActiveSpaceChanged(
+        isSettingsOpen: Bool,
+        refreshSpacesConverging: @escaping () -> Void
+    ) {
         guard !isSettingsOpen else { return }
+        refreshSpacesConverging()
+    }
+
+    private func startSafetyNetTimer(
+        isSettingsOpen: @escaping () -> Bool,
+        refreshSpacesSoon: @escaping () -> Void
+    ) {
+        guard pollTimer == nil else { return }
+        pollTimer = Timer.scheduledTimer(withTimeInterval: Self.safetyNetTimerInterval, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.safetyNetTick(isSettingsOpen: isSettingsOpen, refreshSpacesSoon: refreshSpacesSoon)
+            }
+        }
+    }
+
+    func safetyNetTick(
+        isSettingsOpen: () -> Bool,
+        refreshSpacesSoon: () -> Void
+    ) {
+        guard !isSettingsOpen() else { return }
+        // Gate on permissions only, not Mission Control shortcut configuration.
+        // A user who switches natively (Ctrl+Arrow / Mission Control) without
+        // enabling the "Switch to Desktop N" shortcuts still needs the fallback
+        // refresh to keep the bar/HUD state fresh when a notification is missed.
+        guard setupStatusProvider().permissionsSatisfied else { return }
         refreshSpacesSoon()
     }
 

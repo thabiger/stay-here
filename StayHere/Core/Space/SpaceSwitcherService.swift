@@ -1,18 +1,28 @@
 import Foundation
 
+/// Shared retry policy for switch verification (`SpaceSwitcherService.verifySwitchResult`)
+/// and the notification-path convergence (`RefreshSpacesUseCase.refreshSoonConverging`).
+public enum SpaceRefreshRetryPolicy {
+    public static let interval: TimeInterval = 0.05
+    public static let limit: Int = 8
+}
+
 public struct SpaceSwitchSnapshot {
     public let activeSpaceID: Int?
     public let spaces: [SpaceIdentity]
     public let nativeOrderByDisplay: [String: [Int]]
+    public let isStaleSnapshot: Bool
 
     public init(
         activeSpaceID: Int?,
         spaces: [SpaceIdentity],
-        nativeOrderByDisplay: [String: [Int]]
+        nativeOrderByDisplay: [String: [Int]],
+        isStaleSnapshot: Bool = false
     ) {
         self.activeSpaceID = activeSpaceID
         self.spaces = spaces
         self.nativeOrderByDisplay = nativeOrderByDisplay
+        self.isStaleSnapshot = isStaleSnapshot
     }
 }
 
@@ -24,8 +34,8 @@ public actor SpaceSwitcherService {
 
     public init(
         cgsBridge: any CGSBridgeProtocol,
-        refreshRetryInterval: TimeInterval = 0.05,
-        refreshRetryLimit: Int = 8,
+        refreshRetryInterval: TimeInterval = SpaceRefreshRetryPolicy.interval,
+        refreshRetryLimit: Int = SpaceRefreshRetryPolicy.limit,
         logger: any Logging
     ) {
         self.cgsBridge = cgsBridge
@@ -43,6 +53,11 @@ public actor SpaceSwitcherService {
         if snapshot.activeSpaceID == spaceID {
             logger.info("switch-space skipped=already-active")
             return .alreadyActive
+        }
+
+        guard !snapshot.isStaleSnapshot else {
+            logger.error("switch-space failed=stale-snapshot")
+            return .unknownSpace
         }
 
         guard snapshot.spaces.first(where: { $0.id == spaceID })?.kind == .desktop else {

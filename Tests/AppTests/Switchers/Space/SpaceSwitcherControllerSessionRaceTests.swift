@@ -1,6 +1,7 @@
 import XCTest
-import CoreGraphics
+@preconcurrency import CoreGraphics
 import Core
+import TestHelpers
 @testable import StayHereApp
 
 private final class LocalMockCGSBridge: CGSBridgeProtocol {
@@ -42,12 +43,7 @@ final class SpaceSwitcherControllerSessionRaceTests: XCTestCase {
             activeSpaceIDValue: activeSpaceID,
             managedSnapshotValue: snapshot
         )
-        let fileURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("SpaceSwitcherControllerSessionRaceTests")
-            .appendingPathComponent(UUID().uuidString)
-            .appendingPathComponent("spaces.json")
-        let store = SpaceStore(fileURL: fileURL)
-        let registry = SpaceStateManager(store: store, cgsBridge: bridge, logger: NoOpLogger())
+        let registry = SpaceStateManagerFactory.makePair(cgsBridge: bridge).queryService
         let controller = SpaceSwitcherController(
             settings: UserDefaultsSettingsRepository(),
             registry: registry,
@@ -100,8 +96,10 @@ final class SpaceSwitcherControllerSessionRaceTests: XCTestCase {
         // Simulate cancel from a background thread (e.g., the event-tap thread).
         let cancelExpectation = expectation(description: "cancel")
         DispatchQueue.global(qos: .userInitiated).async {
-            controller.cancelSession()
-            DispatchQueue.main.async { cancelExpectation.fulfill() }
+            Task { @MainActor in
+                controller.cancelSession()
+                cancelExpectation.fulfill()
+            }
         }
 
         wait(for: [cancelExpectation], timeout: 1.0)
@@ -127,7 +125,10 @@ final class SpaceSwitcherControllerSessionRaceTests: XCTestCase {
 
         // Simulate being called from the event-tap thread.
         DispatchQueue.global(qos: .userInitiated).async {
-            _ = controller.handleFlagsChanged(event: flagsReleased)
+            let event = flagsReleased
+            Task { @MainActor in
+                _ = controller.handleFlagsChanged(event: event)
+            }
         }
 
         let exp = expectation(description: "flags-changed-handled")
@@ -146,10 +147,13 @@ final class SpaceSwitcherControllerSessionRaceTests: XCTestCase {
         let drainExpectation = expectation(description: "drain")
 
         DispatchQueue.global(qos: .userInitiated).async {
-            for _ in 0..<20 {
-                _ = controller.handle(event: keyDownEvent)
+            let event = keyDownEvent
+            Task { @MainActor in
+                for _ in 0..<20 {
+                    _ = controller.handle(event: event)
+                }
+                drainExpectation.fulfill()
             }
-            DispatchQueue.main.async { drainExpectation.fulfill() }
         }
 
         wait(for: [drainExpectation], timeout: 1.0)
@@ -225,12 +229,7 @@ final class SpaceSwitcherControllerSessionRaceTests: XCTestCase {
             orderedIDsByDisplay: ["display-a": spaces]
         )
         let bridge = LocalMockCGSBridge(activeSpaceIDValue: 100, managedSnapshotValue: snapshot)
-        let fileURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("SpaceSwitcherControllerSessionRaceTests")
-            .appendingPathComponent(UUID().uuidString)
-            .appendingPathComponent("spaces.json")
-        let store = SpaceStore(fileURL: fileURL)
-        let registry = SpaceStateManager(store: store, cgsBridge: bridge, logger: NoOpLogger())
+        let registry = SpaceStateManagerFactory.makePair(cgsBridge: bridge).queryService
         let controller = SpaceSwitcherController(
             settings: UserDefaultsSettingsRepository(),
             registry: registry,
@@ -257,12 +256,7 @@ final class SpaceSwitcherControllerSessionRaceTests: XCTestCase {
             orderedIDsByDisplay: ["display-a": spaces]
         )
         let bridge = LocalMockCGSBridge(activeSpaceIDValue: 100, managedSnapshotValue: snapshot)
-        let fileURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("SpaceSwitcherControllerSessionRaceTests")
-            .appendingPathComponent(UUID().uuidString)
-            .appendingPathComponent("spaces.json")
-        let store = SpaceStore(fileURL: fileURL)
-        let registry = SpaceStateManager(store: store, cgsBridge: bridge, logger: NoOpLogger())
+        let registry = SpaceStateManagerFactory.makePair(cgsBridge: bridge).queryService
         let controller = SpaceSwitcherController(
             settings: UserDefaultsSettingsRepository(),
             registry: registry,

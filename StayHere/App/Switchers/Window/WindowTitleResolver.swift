@@ -1,3 +1,4 @@
+import Foundation
 import ApplicationServices
 
 typealias AccessibilityWindowTitlesProvider = (pid_t) -> [Int: String]
@@ -7,10 +8,13 @@ struct WindowWithTitle {
     let pid: pid_t
     let appName: String
     let windowTitle: String?
+    let application: (any WindowListApplication)?
 }
 
 final class WindowTitleResolver {
     typealias TitleProvider = (pid_t) -> [Int: String]
+
+    private static let axQueue = DispatchQueue(label: "com.stayhere.ax-title-resolver")
 
     private let titleProvider: TitleProvider
 
@@ -20,7 +24,8 @@ final class WindowTitleResolver {
 
     func resolveTitles(
         for windows: [FilteredWindow],
-        fallbackNameProvider: (pid_t) -> String?
+        fallbackNameProvider: (pid_t) -> String?,
+        includeAccessibilityTitles: Bool = true
     ) -> [WindowWithTitle] {
         var accessibilityTitleCache: [pid_t: [Int: String]] = [:]
 
@@ -28,22 +33,25 @@ final class WindowTitleResolver {
             let appName = filtered.application?.localizedName
                 ?? filtered.ownerName
 
-            let windowTitle = title(for: filtered, cache: &accessibilityTitleCache)
+            let windowTitle = title(for: filtered, cache: &accessibilityTitleCache, includeAccessibilityTitles: includeAccessibilityTitles)
                 ?? fallbackNameProvider(filtered.pid)
 
             return WindowWithTitle(
                 windowID: filtered.windowID,
                 pid: filtered.pid,
                 appName: appName,
-                windowTitle: windowTitle
+                windowTitle: windowTitle,
+                application: filtered.application
             )
         }
     }
 
-    private func title(for window: FilteredWindow, cache: inout [pid_t: [Int: String]]) -> String? {
+    private func title(for window: FilteredWindow, cache: inout [pid_t: [Int: String]], includeAccessibilityTitles: Bool = true) -> String? {
         if let rawName = window.rawName, !rawName.isEmpty {
             return rawName
         }
+
+        guard includeAccessibilityTitles else { return nil }
 
         if let cached = cache[window.pid] {
             return cached[window.windowID]
@@ -55,7 +63,8 @@ final class WindowTitleResolver {
     }
 
     static func live(pid: pid_t) -> [Int: String] {
-        let appElement = AXUIElementCreateApplication(pid)
+        Self.axQueue.sync {
+            let appElement = AXUIElementCreateApplication(pid)
         var windowsRef: CFTypeRef?
         guard AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &windowsRef) == .success,
               let windows = windowsRef as? [AXUIElement],
@@ -79,5 +88,6 @@ final class WindowTitleResolver {
             titles[number.intValue] = trimmed
         }
         return titles
+        }
     }
 }

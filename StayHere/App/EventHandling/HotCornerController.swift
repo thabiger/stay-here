@@ -5,8 +5,6 @@ import Core
 final class HotCornerController {
     typealias MouseLocationProvider = () -> CGPoint
     typealias ScreenFramesProvider = () -> [CGRect]
-    typealias ActionHandler = (HotCornerAction) -> Void
-
     private enum Constants {
         static let pollInterval: TimeInterval = 0.2
         static let activationDistance: CGFloat = 3
@@ -15,7 +13,7 @@ final class HotCornerController {
     private let settings: HotCornerSettings
     private let mouseLocationProvider: MouseLocationProvider
     private let screenFramesProvider: ScreenFramesProvider
-    private let actionHandler: ActionHandler
+    private let actionHandler: any HotCornerActionHandling
 
     private var isRunning = false
     private var pollTimer: Timer?
@@ -25,7 +23,7 @@ final class HotCornerController {
         settings: HotCornerSettings,
         mouseLocationProvider: @escaping MouseLocationProvider = { NSEvent.mouseLocation },
         screenFramesProvider: @escaping ScreenFramesProvider = { NSScreen.screens.map(\.frame) },
-        actionHandler: @escaping ActionHandler
+        actionHandler: any HotCornerActionHandling
     ) {
         self.settings = settings
         self.mouseLocationProvider = mouseLocationProvider
@@ -69,7 +67,7 @@ final class HotCornerController {
 
         let configuredAction = action(for: currentCorner)
         guard configuredAction != .none else { return }
-        actionHandler(configuredAction)
+        actionHandler.handleHotCornerAction(configuredAction)
     }
 
     private func action(for corner: HotCorner) -> HotCornerAction {

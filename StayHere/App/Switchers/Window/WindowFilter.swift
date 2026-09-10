@@ -9,6 +9,9 @@ struct FilteredWindow {
     let ownerName: String
     let rawName: String?
     let application: (any WindowListApplication)?
+    /// Pre-resolved space IDs (populated by filterForAllSpaces to avoid
+    /// redundant CGS IPC in the grouper).
+    let spaceIDs: [Int]
 }
 
 struct FilterContext {
@@ -34,6 +37,20 @@ final class WindowFilter {
     }
 
     func filter(_ windows: [RawWindowInfo], in context: FilterContext) -> [FilteredWindow] {
+        filter(
+            windows,
+            in: context,
+            showHiddenWindows: settings.windowSwitcherShowHiddenWindows,
+            showMinimizedWindows: settings.windowSwitcherShowMinimizedWindows
+        )
+    }
+
+    func filter(
+        _ windows: [RawWindowInfo],
+        in context: FilterContext,
+        showHiddenWindows: Bool,
+        showMinimizedWindows: Bool
+    ) -> [FilteredWindow] {
         windows.compactMap { raw -> FilteredWindow? in
             guard raw.layer == 0 else { return nil }
 
@@ -49,8 +66,8 @@ final class WindowFilter {
             let application = runningApplicationProvider(raw.pid)
 
             if application?.isHidden == true {
-                if !settings.windowSwitcherShowHiddenWindows { return nil }
-            } else if !raw.isOnScreen && !settings.windowSwitcherShowMinimizedWindows {
+                if !showHiddenWindows { return nil }
+            } else if !raw.isOnScreen && !showMinimizedWindows {
                 return nil
             }
 
@@ -61,29 +78,57 @@ final class WindowFilter {
                 isOnScreen: raw.isOnScreen,
                 ownerName: raw.ownerName,
                 rawName: raw.windowName,
-                application: application
+                application: application,
+                spaceIDs: []
             )
         }
     }
 
-    func filterForAllSpaces(_ windows: [RawWindowInfo], currentSpaceID: Int) -> [FilteredWindow] {
+    func filterForAllSpaces(
+        _ windows: [RawWindowInfo],
+        currentSpaceID: Int
+    ) -> [FilteredWindow] {
+        filterForAllSpaces(
+            windows,
+            currentSpaceID: currentSpaceID,
+            showHiddenWindows: settings.windowSwitcherShowHiddenWindows,
+            showMinimizedWindows: settings.windowSwitcherShowMinimizedWindows
+        )
+    }
+
+    func filterForAllSpaces(
+        _ windows: [RawWindowInfo],
+        currentSpaceID: Int,
+        showHiddenWindows: Bool,
+        showMinimizedWindows: Bool
+    ) -> [FilteredWindow] {
         windows.compactMap { raw -> FilteredWindow? in
             guard raw.layer == 0 else { return nil }
 
             let application = runningApplicationProvider(raw.pid)
 
             if application?.isHidden == true,
-               !settings.windowSwitcherShowHiddenWindows {
+               !showHiddenWindows {
                 return nil
             }
 
             let isOnScreen = raw.isOnScreen
-            if !isOnScreen && !settings.windowSwitcherShowMinimizedWindows {
+            if !isOnScreen && !showMinimizedWindows {
                 let spaceIDs = spacesForWindow(raw.windowID)
                 let isOnCurrentSpace = spaceIDs.contains(currentSpaceID)
                 if isOnCurrentSpace {
                     return nil
                 }
+                return FilteredWindow(
+                    windowID: raw.windowID,
+                    pid: raw.pid,
+                    workspace: raw.workspace,
+                    isOnScreen: raw.isOnScreen,
+                    ownerName: raw.ownerName,
+                    rawName: raw.windowName,
+                    application: application,
+                    spaceIDs: spaceIDs
+                )
             }
 
             return FilteredWindow(
@@ -93,7 +138,8 @@ final class WindowFilter {
                 isOnScreen: raw.isOnScreen,
                 ownerName: raw.ownerName,
                 rawName: raw.windowName,
-                application: application
+                application: application,
+                spaceIDs: spacesForWindow(raw.windowID)
             )
         }
     }

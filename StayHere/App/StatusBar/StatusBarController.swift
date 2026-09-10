@@ -14,15 +14,7 @@ final class StatusBarController: NSObject, NSMenuDelegate, StatusBarMenuActionHa
     private var updateInfo: UpdateInfo?
     private var snapshot: SpaceListSnapshot?
 
-    private var onOpenSettings: (() -> Void)?
-    private var onOpenAbout: (() -> Void)?
-    private var onCheckForUpdates: (() -> Void)?
-    private var onOpenAvailableUpdate: (() -> Void)?
-    private var onCopyState: (() -> Void)?
-    private var onOpenLogs: (() -> Void)?
-    private var onQuit: (() -> Void)?
-    private var onSelectSpace: ((Int) -> Void)?
-    private var onRenameSpace: ((Int, String) -> Void)?
+    private var actions: StatusBarActions?
     private var title = SpaceDisplayNameProvider.defaultUnnamedName
 
     var isEditingSpaceName: Bool {
@@ -45,31 +37,12 @@ final class StatusBarController: NSObject, NSMenuDelegate, StatusBarMenuActionHa
         super.init()
     }
 
-    func configure(
-        registry: any SpaceRegistryProtocol,
-        onOpenSettings: @escaping () -> Void,
-        onOpenAbout: @escaping () -> Void,
-        onCheckForUpdates: @escaping () -> Void,
-        onOpenAvailableUpdate: @escaping () -> Void,
-        onCopyState: @escaping () -> Void,
-        onOpenLogs: @escaping () -> Void,
-        onQuit: @escaping () -> Void,
-        onSelectSpace: @escaping (Int) -> Void,
-        onRenameSpace: @escaping (Int, String) -> Void
-    ) {
-        self.onOpenSettings = onOpenSettings
-        self.onOpenAbout = onOpenAbout
-        self.onCheckForUpdates = onCheckForUpdates
-        self.onOpenAvailableUpdate = onOpenAvailableUpdate
-        self.onCopyState = onCopyState
-        self.onOpenLogs = onOpenLogs
-        self.onQuit = onQuit
-        self.onSelectSpace = onSelectSpace
-        self.onRenameSpace = onRenameSpace
+    func configure(registry: any SpaceRegistryProtocol, actions: StatusBarActions) {
+        self.actions = actions
 
         renameCoordinator.configure(
             onRenameSpace: { [weak self] spaceID, name in
-                self?.onRenameSpace?(spaceID, name)
+                self?.actions?.onRenameSpace(spaceID, name)
             }
         )
         renameCoordinator.setMenuProvider(self)
@@ -137,41 +110,41 @@ final class StatusBarController: NSObject, NSMenuDelegate, StatusBarMenuActionHa
 
     @objc func openSettings() {
         guard !isEditingSpaceName else { return }
-        onOpenSettings?()
+        actions?.onOpenSettings()
     }
 
     @objc func openAbout() {
         guard !isEditingSpaceName else { return }
-        onOpenAbout?()
+        actions?.onOpenAbout()
     }
 
     @objc func checkForUpdates() {
         guard !isEditingSpaceName else { return }
         performAfterMenuCloses { [weak self] in
-            self?.onCheckForUpdates?()
+            self?.actions?.onCheckForUpdates()
         }
     }
 
     @objc func openAvailableUpdate() {
         guard !isEditingSpaceName else { return }
         performAfterMenuCloses { [weak self] in
-            self?.onOpenAvailableUpdate?()
+            self?.actions?.onOpenAvailableUpdate()
         }
     }
 
     @objc func copyState() {
         guard !isEditingSpaceName else { return }
-        onCopyState?()
+        actions?.onCopyState()
     }
 
     @objc func openLogs() {
         guard !isEditingSpaceName else { return }
-        onOpenLogs?()
+        actions?.onOpenLogs()
     }
 
     @objc func quit() {
         guard !isEditingSpaceName else { return }
-        onQuit?()
+        actions?.onQuit()
     }
 
     func menuWillOpen(_ menu: NSMenu) {
@@ -245,7 +218,7 @@ final class StatusBarController: NSObject, NSMenuDelegate, StatusBarMenuActionHa
         guard !isSelectingSpace else { return }
         isSelectingSpace = true
         menu.cancelTracking()
-        onSelectSpace?(spaceID)
+        actions?.onSelectSpace(spaceID)
         isSelectingSpace = false
     }
 

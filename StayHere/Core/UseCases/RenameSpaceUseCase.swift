@@ -2,13 +2,13 @@ import Foundation
 
 @MainActor
 public final class RenameSpaceUseCase {
-    private let repository: SpaceStateManager
+    private let renamer: any SpaceRenaming
 
-    public init(repository: SpaceStateManager) {
-        self.repository = repository
+    public init(renamer: any SpaceRenaming) {
+        self.renamer = renamer
     }
 
     public func execute(spaceID: Int, name: String) {
-        repository.rename(spaceID: spaceID, name: name)
+        renamer.rename(spaceID: spaceID, name: name)
     }
 }

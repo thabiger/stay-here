@@ -33,7 +33,7 @@ final class AppRuntimeCoordinator: AppCoordinating {
         let weakSelf = WeakSelf()
 
         self.services = services
-        self.registry = services.repository
+        self.registry = services.queryService
         self.lifecycleCoordinator = services.lifecycleCoordinator
         self.updateController = nil
 
@@ -57,10 +57,10 @@ final class AppRuntimeCoordinator: AppCoordinating {
 
         self.statusBarCoordinator = StatusBarCoordinator(
             statusController: controllers.statusController,
-            registry: services.repository
+            registry: services.queryService
         )
         self.spaceObservationCoordinator = SpaceObservationCoordinator(
-            registry: services.repository,
+            registry: services.queryService,
             switchSpace: services.switchSpace,
             buildSpaceSnapshot: services.buildSpaceSnapshot,
             switchPresentationHelper: controllers.switchPresentationHelper
@@ -69,7 +69,7 @@ final class AppRuntimeCoordinator: AppCoordinating {
             settingsWindowManager: windowManagers.settingsWindowManager,
             aboutWindowManager: aboutWindowManager,
             appearanceManager: services.appearanceManager,
-            registry: services.repository,
+            registry: services.queryService,
             refreshSpaces: services.refreshSpaces
         )
 
@@ -101,10 +101,31 @@ final class AppRuntimeCoordinator: AppCoordinating {
     }
 
     func applicationDidFinishLaunching() {
-        updateController?.restoreCachedState()
+        restoreCachedState()
+        logBridgeHealth()
+        configureStatusBar()
+        bindObservationHandlers()
+        startSpaceObservation()
+        runLifecycleCoordinator()
+        scheduleUpdateCheck()
+    }
 
+    private func restoreCachedState() {
+        updateController?.restoreCachedState()
+    }
+
+    private func logBridgeHealth() {
+        let bridgeHealth = services.cgsBridge.bridgeHealth()
+        if bridgeHealth.isHealthy {
+            services.logger.info("cgs-bridge healthy: \(bridgeHealth.degradedFeatureSummary)")
+        } else {
+            services.logger.error("cgs-bridge DEGRADED: \(bridgeHealth.degradedFeatureSummary)")
+        }
+    }
+
+    private func configureStatusBar() {
         // Configure status bar with all menu actions
-        statusBarCoordinator.configure(
+        statusBarCoordinator.configure(actions: StatusBarActions(
             onOpenSettings: { [weak self] in self?.windowCoordinator.showSettings() },
             onOpenAbout: { [weak self] in self?.windowCoordinator.showAbout() },
             onCheckForUpdates: { [weak self] in self?.updateController?.performManualCheck() },
@@ -126,8 +147,11 @@ final class AppRuntimeCoordinator: AppCoordinating {
                         : self.registry.activeNameSummary()
                 )
             }
-        )
+        ))
+    }
 
+    // Must complete before startSpaceObservation(): handlers must be bound and HUD dedup initialized before observation begins.
+    private func bindObservationHandlers() {
         // Bind "settings open" state to observation
         statusBarCoordinator.bindSettingsOpen { [weak self] in
             self?.isSettingsOpen ?? false
@@ -139,10 +163,6 @@ final class AppRuntimeCoordinator: AppCoordinating {
         // When active space changes → update status bar title and show HUD
         spaceObservationCoordinator.bindActiveSpaceChangedHandler { [weak self] in
             guard let self else { return }
-
-            // Refresh the registry so we read up-to-date space data
-            // (the NSWorkspace notification may fire before the poll timer refreshes)
-            self.services.refreshSpaces.refreshNow()
 
             self.statusBarCoordinator.setTitle(self.registry.activeNameSummary())
 
@@ -160,16 +180,32 @@ final class AppRuntimeCoordinator: AppCoordinating {
             self?.statusBarCoordinator.rebuildSpaceItems()
         }
 
+        // When the active space changes (notification) → refresh core space state
+        spaceObservationCoordinator.bindRefreshSpacesHandler { [weak self] in
+            guard let self else { return }
+            self.lifecycleCoordinator.handleActiveSpaceChanged(
+                isSettingsOpen: self.isSettingsOpen,
+                refreshSpacesConverging: { [weak self] in
+                    guard let self else { return }
+                    self.services.refreshSpaces.refreshSoonConverging()
+                }
+            )
+        }
+
         // Initialize HUD dedup to avoid HUD on first registry event at startup
         lastObservedActiveSpaceID = registry.activeSpaceID
+    }
 
+    private func startSpaceObservation() {
         // Start space observation (begins listening to NSWorkspace.activeSpaceDidChangeNotification)
         spaceObservationCoordinator.startObserving()
+    }
 
+    private func runLifecycleCoordinator() {
         // Run lifecycle coordinator - sets activation policy, starts timers, checks setup requirements
         lifecycleCoordinator.applicationDidFinishLaunching(
             isSettingsOpen: { [weak self] in self?.isSettingsOpen ?? false },
-            refreshSpacesSoon: { [weak self] in self?.services.refreshSpaces.refreshWithRetry() },
+            refreshSpacesSoon: { [weak self] in self?.services.refreshSpaces.refreshSoon() },
             refreshSpacesAsync: { [weak self] in self?.services.refreshSpaces.refreshAsync() },
             rebuildSpaceItems: { [weak self] in
                 self?.statusBarCoordinator.rebuildSpaceItems()
@@ -181,6 +217,9 @@ final class AppRuntimeCoordinator: AppCoordinating {
                 self?.setupRequirementsPresenter.presentSetupRequirementsWarning()
             }
         )
+    }
+
+    private func scheduleUpdateCheck() {
         updateController?.scheduleAutomaticCheck()
     }
 
